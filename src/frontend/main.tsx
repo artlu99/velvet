@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import invariant from "tiny-invariant";
 import App from "~/App.tsx";
 
-import "remixicon/fonts/remixicon.css";
+import "@fortawesome/fontawesome-free/css/all.min.css";
 import "~/index.css";
 
 const root = document.getElementById("root");

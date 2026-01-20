@@ -1,8 +1,12 @@
+import { EvoluProvider } from "@evolu/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Suspense } from "react";
 import { Toaster } from "react-hot-toast";
 import { Route, Switch } from "wouter";
 import { Dock } from "~/components/Dock";
 import { NavBar } from "~/components/NavBar";
+import { OwnerActions } from "~/components/OwnerActions";
+import { evoluInstance } from "~/lib/evolu";
 import { Landing } from "~/routes/Landing";
 
 const queryClient = new QueryClient();
@@ -13,17 +17,22 @@ function App() {
 			className="min-h-screen bg-base-100 flex flex-col"
 			data-theme="bumblebee"
 		>
-			<QueryClientProvider client={queryClient}>
-				<NavBar />
-				<Switch>
-					<Route path="/" component={Landing} />
-				</Switch>
+			<EvoluProvider value={evoluInstance}>
+				<Suspense fallback={<div>Loading...</div>}>
+					<QueryClientProvider client={queryClient}>
+						<NavBar />
+						<Switch>
+							<Route path="/" component={Landing} />
+							<Route path="/account" component={OwnerActions} />
+						</Switch>
 
-				<Dock />
-			</QueryClientProvider>
-			<div>
-				<Toaster />
-			</div>
+						<Dock />
+					</QueryClientProvider>
+					<div>
+						<Toaster />
+					</div>
+				</Suspense>
+			</EvoluProvider>
 		</div>
 	);
 }

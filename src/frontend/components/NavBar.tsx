@@ -11,7 +11,7 @@ export const NavBar = () => {
 		if (isError) {
 			return (
 				<div className="text-error flex items-center gap-2">
-					<i className="ri-error-warning-line" />
+					<i className="fa-solid fa-exclamation-triangle" />
 					<span>Failed to load</span>
 				</div>
 			);
@@ -25,7 +25,7 @@ export const NavBar = () => {
 			<div className="navbar-start">{renderStart()}</div>
 			<div className="navbar-end">
 				<button type="button" className="btn btn-ghost">
-					<i className="ri-menu-line" />
+					<i className="fa-solid fa-bars" />
 				</button>
 			</div>
 		</div>
