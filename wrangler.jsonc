@@ -1,0 +1,11 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "underground-velvet-wallet",
+	"main": "src/backend/index.ts",
+	"compatibility_date": "2026-01-20",
+	"vars": {
+		"NAME": "Underground Velvet Wallet"
+	},
+	"assets": { "not_found_handling": "single-page-application" },
+	"observability": { "enabled": true }
+}

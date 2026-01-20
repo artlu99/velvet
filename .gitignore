@@ -1,0 +1,13 @@
+# Build artifacts
+node_modules
+dist
+bun.lock
+
+# Editor directories and files
+.vscode/*
+.DS_Store
+
+# wrangler files
+.wrangler
+worker-configuration.d.ts
+.dev.vars

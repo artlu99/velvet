@@ -1,0 +1,6 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@plugin "daisyui" {
+	/* biome-ignore lint/correctness/noUnknownProperty: themes */
+	themes: all;
+}
