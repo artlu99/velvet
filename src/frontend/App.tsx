@@ -8,6 +8,9 @@ import { NavBar } from "~/components/NavBar";
 import { OwnerActions } from "~/components/OwnerActions";
 import { evoluInstance } from "~/lib/evolu";
 import { Landing } from "~/routes/Landing";
+import { Receive } from "~/routes/Receive";
+import { Send } from "~/routes/Send";
+import { TransactionStatus } from "~/routes/TransactionStatus";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +27,14 @@ function App() {
 						<Switch>
 							<Route path="/" component={Landing} />
 							<Route path="/account" component={OwnerActions} />
+							<Route path="/receive" component={Receive} />
+							<Route path="/receive/:walletId" component={Receive} />
+							<Route path="/send" component={Send} />
+							<Route path="/send/:walletId" component={Send} />
+							<Route
+								path="/transaction/:txHash"
+								component={TransactionStatus}
+							/>
 						</Switch>
 
 						<Dock />

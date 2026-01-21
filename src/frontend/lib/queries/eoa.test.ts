@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { Evolu } from "@evolu/common";
 import { evoluInstance } from "../evolu";
 import { createAllEoasQuery, createEoaDuplicateCheckQuery } from "./eoa";
 
@@ -8,7 +9,7 @@ const parseCompiledQuery = (q: string): CompiledQuery => JSON.parse(q) as Compil
 
 describe("EOA query factories", () => {
 	test("createAllEoasQuery compiles expected SQL", () => {
-		const q = createAllEoasQuery(evoluInstance);
+		const q = createAllEoasQuery(evoluInstance as unknown as Evolu);
 		const [sql, params] = parseCompiledQuery(q);
 
 		expect(sql).toBe(
@@ -21,7 +22,7 @@ describe("EOA query factories", () => {
 		const address = "0xabc";
 		const pk = "0xdef";
 
-		const q = createEoaDuplicateCheckQuery(evoluInstance, address, pk);
+		const q = createEoaDuplicateCheckQuery(evoluInstance as unknown as Evolu, address, pk);
 		const [sql, params] = parseCompiledQuery(q);
 
 		expect(sql).toBe(

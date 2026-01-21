@@ -97,6 +97,12 @@ No backend database, auth, or CI/CD configured.
 ## Git
 - Main branch: `main`
 
+## Artifacts
+
+For Markdown documentation during implementation:
+- Keep it compact and machine-oriented
+- Include: scope, new/changed files, key UI/state decisions, acceptance checklist
+- Skip: prose, mockups, and recommendations that don’t affect implementation
 ---
 
 ## React Best Practices
@@ -124,7 +130,7 @@ No backend database, auth, or CI/CD configured.
 
 ### UI
 - Prefer DaisyUI v5 semantic styles over vanilla CSS or TailwindCSS v4
-- Use DaisyUI form components and abstractions instead of building with TailwindCSS
+- Use idiomatic DaisyUI form components and selectors instead of hand-rolled TailwindCSS
 - Prefer imported SVG icon families over inline SVG markup
 
 ---

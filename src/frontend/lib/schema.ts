@@ -18,6 +18,12 @@ export type ChainId = typeof ChainId.Type;
 const StatementId = id("Statement");
 type StatementId = typeof StatementId.Type;
 
+const TransactionId = id("Transaction");
+export type TransactionId = typeof TransactionId.Type;
+
+const TxStatus = union("pending", "confirmed", "failed");
+export type TxStatus = typeof TxStatus.Type;
+
 const KeyType = union("evm", "tron", "btc", "solana");
 export type KeyType = typeof KeyType.Type;
 
@@ -45,6 +51,19 @@ export const Schema = {
 		currency: NonEmptyString100,
 		timestamp: DateIso,
 	},
+	transaction: {
+		id: TransactionId,
+		walletId: EoaId,
+		txHash: NonEmptyString100,
+		from: NonEmptyString1000,
+		to: NonEmptyString1000,
+		value: NonEmptyString1000,
+		gasUsed: nullOr(NonEmptyString100),
+		maxFeePerGas: NonEmptyString100,
+		chainId: NonEmptyString100,
+		status: TxStatus,
+		confirmedAt: nullOr(DateIso),
+	},
 };
 
 // Derive insert types from Schema (exclude auto-generated fields like id)
@@ -55,6 +74,20 @@ export type EoaInsert = {
 	unencryptedPrivateKey: string | null;
 	keyType: "evm" | "tron" | "btc" | "solana" | null;
 	origin: "imported" | "derived" | null;
+};
+
+// Transaction insert type
+export type TransactionInsert = {
+	walletId: string;
+	txHash: string;
+	from: string;
+	to: string;
+	value: string;
+	gasUsed: string | null;
+	maxFeePerGas: string;
+	chainId: string;
+	status: "pending" | "confirmed" | "failed";
+	confirmedAt: string | null;
 };
 
 // a type to be used in a view

@@ -4,7 +4,9 @@
 	"main": "src/backend/index.ts",
 	"compatibility_date": "2026-01-16",
 	"vars": {
-		"NAME": "Underground Velvet Wallet"
+		"NAME": "Underground Velvet Wallet",
+		"ETHEREUM_RPC_URL": "https://cloudflare-eth.com",
+		"BASE_RPC_URL": "https://mainnet.base.org"
 	},
 	"kv_namespaces": [
 		{

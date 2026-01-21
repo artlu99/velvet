@@ -2,6 +2,7 @@ import { sqliteTrue } from "@evolu/common";
 import { useEvolu, useQuery } from "@evolu/react";
 import { type FC, useState } from "react";
 import toast from "react-hot-toast";
+import { Link } from "wouter";
 import { createAllEoasQuery } from "~/lib/queries/eoa";
 import type { EoaId } from "~/lib/schema";
 import { DeleteKeyConfirmation } from "./DeleteKeyConfirmation";
@@ -74,65 +75,13 @@ export const WalletManagement: FC = () => {
 					{rows.map((row) => (
 						<div key={row.id} className="card card-compact bg-base-200 shadow">
 							<div className="card-body">
-								<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-									<div className="flex-1">
-										<div className="flex items-center gap-2">
-											<h3 className="font-mono text-sm">
-												{row.address.slice(0, 6)}...
-												{row.address.slice(-4)}
-											</h3>
-											<button
-												type="button"
-												className="btn btn-ghost btn-xs btn-circle"
-												onClick={() => handleCopyAddress(row.address)}
-												aria-label="Copy address"
-												title="Copy address"
-											>
-												{copiedAddress === row.address ? (
-													<i
-														className="fa-solid fa-check h-4 w-4 text-success"
-														aria-hidden="true"
-													/>
-												) : (
-													<i
-														className="fa-solid fa-copy h-4 w-4"
-														aria-hidden="true"
-													/>
-												)}
-											</button>
-											{/** biome-ignore lint/a11y/useAnchorContent: aria label is used */}
-											<a
-												href={`https://etherscan.io/address/${row.address}`}
-												target="_blank"
-												rel="noopener noreferrer"
-												className="btn btn-ghost btn-xs btn-circle"
-												aria-label="View on Etherscan"
-												title="View on Etherscan"
-											>
-												<i
-													className="fa-solid fa-external-link h-4 w-4"
-													aria-hidden="true"
-												/>
-											</a>
-										</div>
-										<div className="flex gap-1">
-											{row.origin && (
-												<div className="badge badge-sm badge-neutral">
-													{row.origin === "imported" ? "Imported" : "Derived"}
-												</div>
-											)}
-											{row.keyType && (
-												<div className="badge badge-sm badge-ghost">
-													{row.keyType.toUpperCase()}
-												</div>
-											)}
-										</div>
-									</div>
-									<div className="flex gap-2 sm:flex-row">
+								<div className="flex items-start justify-between gap-3">
+									<div className="flex items-start gap-3">
 										{row.origin === "imported" && (
 											<button
 												type="button"
-												className="btn btn-error btn-sm"
+												className="btn btn-ghost btn-xs btn-circle text-base-content/60"
+												aria-label="Delete wallet"
 												onClick={() =>
 													setDeleteTarget({
 														id: row.id,
@@ -140,9 +89,87 @@ export const WalletManagement: FC = () => {
 													})
 												}
 											>
-												Delete
+												<i
+													className="fa-solid fa-xmark h-4 w-4"
+													aria-hidden="true"
+												/>
 											</button>
 										)}
+										<div>
+											<div className="flex items-center gap-2">
+												<h3 className="font-mono text-sm">
+													{row.address.slice(0, 6)}...
+													{row.address.slice(-4)}
+												</h3>
+												<button
+													type="button"
+													className="btn btn-ghost btn-xs btn-circle"
+													onClick={() => handleCopyAddress(row.address)}
+													aria-label="Copy address"
+													title="Copy address"
+												>
+													{copiedAddress === row.address ? (
+														<i
+															className="fa-solid fa-check h-4 w-4 text-success"
+															aria-hidden="true"
+														/>
+													) : (
+														<i
+															className="fa-solid fa-copy h-4 w-4"
+															aria-hidden="true"
+														/>
+													)}
+												</button>
+												{/** biome-ignore lint/a11y/useAnchorContent: aria label is used */}
+												<a
+													href={`https://etherscan.io/address/${row.address}`}
+													target="_blank"
+													rel="noopener noreferrer"
+													className="btn btn-ghost btn-xs btn-circle"
+													aria-label="View on Etherscan"
+													title="View on Etherscan"
+												>
+													<i
+														className="fa-solid fa-external-link h-4 w-4"
+														aria-hidden="true"
+													/>
+												</a>
+											</div>
+											<div className="mt-1 flex gap-1">
+												{row.origin && (
+													<div className="badge badge-sm badge-neutral">
+														{row.origin === "imported" ? "Imported" : "Derived"}
+													</div>
+												)}
+												{row.keyType && (
+													<div className="badge badge-sm badge-ghost">
+														{row.keyType.toUpperCase()}
+													</div>
+												)}
+											</div>
+										</div>
+									</div>
+									<div className="flex gap-2">
+										<Link
+											href={`/send/${row.id}`}
+											className="btn btn-secondary btn-sm"
+											aria-label="Send funds"
+										>
+											<i
+												className="fa-solid fa-paper-plane h-4 w-4"
+												aria-hidden="true"
+											/>
+										</Link>
+										<Link
+											href={`/receive/${row.id}`}
+											className="btn btn-primary btn-sm"
+											aria-label="Receive funds"
+										>
+											<i
+												className="fa-solid fa-qrcode h-4 w-4"
+												aria-hidden="true"
+											/>
+										</Link>
 									</div>
 								</div>
 							</div>
