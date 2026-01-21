@@ -7,6 +7,7 @@ import { type FC, useState } from "react";
 import toast from "react-hot-toast";
 import { privateKeyToAccount } from "viem/accounts";
 import { Link, useLocation } from "wouter";
+import { useBroadcastTransactionMutation } from "~/hooks/mutations/useBroadcastTransactionMutation";
 import {
 	calculateTotalCost,
 	ethToWei,
@@ -33,6 +34,8 @@ export const SendForm: FC<SendFormProps> = ({
 	const [, navigate] = useLocation();
 	const { network } = useReceiveStore();
 	const chainId = network === "ethereum" ? 1 : 8453;
+
+	const broadcastTransactionMutation = useBroadcastTransactionMutation();
 
 	const [recipient, setRecipient] = useState("");
 	const [amount, setAmount] = useState("");
@@ -118,16 +121,11 @@ export const SendForm: FC<SendFormProps> = ({
 			});
 
 			// Broadcast via backend API
-			const response = await fetch("/api/broadcast-transaction", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
+			const result: BroadcastTransactionResult =
+				await broadcastTransactionMutation.mutateAsync({
 					signedTransaction: signedTx,
 					chainId,
-				}),
-			});
-
-			const result: BroadcastTransactionResult = await response.json();
+				});
 
 			if (!result.ok) {
 				toast.error(result.error);
