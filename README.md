@@ -2,6 +2,8 @@
 
 **Secure privacy, with a velvety smooth touch**.
 
+FOSS, modular, and self-hostable at *de minimis* cost.
+
 # WHAT YOU CAN DO
 
 ## create new addresses
