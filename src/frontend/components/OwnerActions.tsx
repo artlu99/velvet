@@ -61,8 +61,8 @@ export const OwnerActions: FC = () => {
 						</div>
 					)}
 					<p className="mb-4 text-sm text-gray-600">
-						Private keys are stored in local SQLite. When you sync across
-						devices, your data is end-to-end encrypted using your mnemonic.
+						Private keys are stored unencrypted in local SQLite. During sync,
+						data is encrypted in transport using your mnemonic.
 					</p>
 
 					<div className="space-y-3">
@@ -117,6 +117,7 @@ export const OwnerActions: FC = () => {
 					</div>
 				</div>
 			</div>
+
 			<img
 				src="/the-velvet-underground-now-playing-silver-vinyl-cover-art.webp"
 				alt="Underground Velvet Wallet"

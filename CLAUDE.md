@@ -34,9 +34,27 @@ src/
 | Wouter (not React Router) | Hono | Biome (lint+format) |
 | valibot (not Zod) | itty-fetcher | Lefthook (pre-commit tsc) |
 | Zustand | tiny-invariant | TypeScript project refs |
-| TanStack Query | | Bun (lockb) |
+| TanStack Query | Evolu (local-first DB) | Bun (lockb) |
 | TailwindCSS v4 + DaisyUI | | Vite + SWC |
 | Framer Motion | | Wrangler |
+
+### Evolu Database
+**Local-first SQLite** with encrypted sync. Uses `@evolu/common` and `@evolu/react-web`.
+
+**Canonical documentation**: https://www.evolu.dev/llms.txt
+
+**Schema**: Defined in `src/frontend/lib/schema.ts` using Evolu's type system
+- `id("TableName")` for auto-generated IDs
+- `union("a", "b", "c")` for enums (not `literal`)
+- `nullOr(Type)` for nullable fields
+- `SqliteBoolean` for booleans (see below)
+
+**Important**: Evolu uses **SqliteBoolean**, which is `0 | 1 | null`, **not** JavaScript `boolean`
+- Use `sqliteTrue` (1) and `sqliteFalse` (0) from `@evolu/common`
+- Never use `true`/`false` - TypeScript won't catch this at runtime
+- Schema fields: `fieldName: nullOr(SqliteBoolean)`
+
+**Data stored unencrypted at rest**, only encrypted during transport (sync to relays)
 
 ## Patterns
 
@@ -53,14 +71,13 @@ src/
 - Relative imports, Zod, class components, CommonJS, skip type defs
 - `any` types or unchecked type assertions (`as Type`)
 - Class syntax for state/data structures
+- JavaScript `true`/`false` for Evolu booleans - use `sqliteTrue`/`sqliteFalse`
 
 ## Commands
 ```bash
 bun dev              # localhost:5173
-bun build           # Production
-bun deploy          # Cloudflare
-bun types           # Wrangler types
-bun biome check --write .  # Lint
+bunx tsc -b --noEmit    # type check
+bun biome check --write .  # Lint and format
 ```
 
 ## Key Files
@@ -72,7 +89,7 @@ bun biome check --write .  # Lint
 - `tsconfig.json` - Project refs (app/node/worker)
 
 ## Gaps
-No database, auth, or CI/CD configured.
+No backend database, auth, or CI/CD configured.
 
 ---
 
@@ -103,6 +120,11 @@ No database, auth, or CI/CD configured.
 - Loading states: skeleton screens over spinners
 - Error boundaries with friendly inline messages
 - Suspense for progressive data loading
+
+### UI
+- Prefer DaisyUI v5 semantic styles over vanilla CSS or TailwindCSS v4
+- Use DaisyUI form components and abstractions instead of building with TailwindCSS
+- Prefer imported SVG icon families over inline SVG markup
 
 ---
 

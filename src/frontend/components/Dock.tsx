@@ -12,7 +12,10 @@ export const Dock = () => {
 					<div className="dock-label">Home</div>
 				</Link>
 			</button>
-			<button type="button" className={isActive("/account") ? "dock-active" : ""}>
+			<button
+				type="button"
+				className={isActive("/account") ? "dock-active" : ""}
+			>
 				<Link to="/account">
 					<i className="fa-solid fa-user text-lg" />
 					<div className="dock-label">Account</div>
