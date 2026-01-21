@@ -18,46 +18,46 @@ export const Landing = () => {
 			<WalletManagement />
 
 			{/* Stats Overview Card */}
-			<div className="card bg-base-200 shadow-xl max-w-2xl mx-auto">
+			<div className="card bg-base-200 max-w-lg mx-auto border border-base-300">
 				<div className="card-body p-4">
-					<div className="stats stats-vertical lg:stats-horizontal shadow w-full compact">
+					<div className="stats stats-horizontal w-full compact">
 						<div className="stat py-2 px-4">
-							<div className="stat-figure text-primary">
-								<i className="fa-solid fa-wallet text-xl" />
-							</div>
 							<div className="stat-title text-xs">Total</div>
-							<div className="stat-value text-2xl text-primary">
-								{walletCount}
+							<div className="flex items-center gap-2">
+								<i className="fa-solid fa-wallet text-xl text-primary" />
+								<div className="stat-value text-2xl text-primary">
+									{walletCount}
+								</div>
 							</div>
 						</div>
 
 						<div className="stat py-2 px-4">
-							<div className="stat-figure text-secondary">
-								<i className="fa-solid fa-download text-xl" />
-							</div>
 							<div className="stat-title text-xs">Imported</div>
-							<div className="stat-value text-2xl text-secondary">
-								{importedCount}
+							<div className="flex items-center gap-2">
+								<i className="fa-solid fa-download text-xl text-secondary" />
+								<div className="stat-value text-2xl text-secondary">
+									{importedCount}
+								</div>
 							</div>
 						</div>
 
 						<div className="stat py-2 px-4">
-							<div className="stat-figure text-accent">
-								<i className="fa-solid fa-key text-xl" />
-							</div>
 							<div className="stat-title text-xs">Derived</div>
-							<div className="stat-value text-2xl text-accent">
-								{derivedCount}
+							<div className="flex items-center gap-2">
+								<i className="fa-solid fa-key text-xl text-accent" />
+								<div className="stat-value text-2xl text-accent">
+									{derivedCount}
+								</div>
 							</div>
 						</div>
 
 						<div className="stat py-2 px-4">
-							<div className="stat-figure text-info">
-								<i className="fa-solid fa-eye text-xl" />
-							</div>
 							<div className="stat-title text-xs">Watch Only</div>
-							<div className="stat-value text-2xl text-info">
-								{watchOnlyCount}
+							<div className="flex items-center gap-2">
+								<i className="fa-solid fa-eye text-xl text-info" />
+								<div className="stat-value text-2xl text-info">
+									{watchOnlyCount}
+								</div>
 							</div>
 						</div>
 					</div>
@@ -65,7 +65,7 @@ export const Landing = () => {
 			</div>
 
 			{/* Hero Section */}
-			<div className="text-center">
+			<div className="text-center mt-8">
 				<div className="mb-6">
 					<div className="mb-4">
 						<i className="fa-solid fa-bag-shopping text-6xl text-primary opacity-80" />

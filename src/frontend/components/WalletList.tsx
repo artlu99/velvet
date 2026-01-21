@@ -101,22 +101,26 @@ export const WalletList: FC = () => {
 								<div className="flex gap-2">
 									<Link
 										href={`/receive/${row.address}`}
-										className="btn btn-primary btn-sm"
+										className="btn btn-primary flex items-center justify-center"
+										style={{ minWidth: "2.5rem", minHeight: "2.5rem" }}
 										aria-label="Receive funds"
 									>
 										<i
-											className="fa-solid fa-qrcode h-4 w-4"
+											className="fa-solid fa-qrcode"
+											style={{ fontSize: "1.5rem" }}
 											aria-hidden="true"
 										/>
 									</Link>
 									{row.origin !== "watchOnly" && (
 										<Link
 											href={`/send/${row.address}`}
-											className="btn btn-primary btn-sm"
+											className="btn btn-primary flex items-center justify-center"
+											style={{ minWidth: "2.5rem", minHeight: "2.5rem" }}
 											aria-label="Send funds"
 										>
 											<i
-												className="fa-solid fa-paper-plane h-4 w-4"
+												className="fa-solid fa-paper-plane"
+												style={{ fontSize: "1.5rem" }}
 												aria-hidden="true"
 											/>
 										</Link>

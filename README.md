@@ -10,7 +10,7 @@ FOSS, modular, and self-hostable at *de minimis* cost.
 - [ ] Generate mnemonic phrase (BIP39)
 - [ ] Derive hierarchical deterministic keys (BIP32/BIP44)
 - [x] Support EVM chains (eth/Base): same private key, different chain IDs
-- [x] Import private keys (imported wallets)
+- [x] Import private keys (imported wallets) from anywhere, including the FOSS (Poor Richard's Wallet)[https://github.com/artlu99/poor-richards-wallet]
 - [x] Watch-only addresses
 - [ ] Support Tron: different address format (base58check)
 

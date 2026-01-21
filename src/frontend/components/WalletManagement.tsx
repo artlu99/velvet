@@ -75,8 +75,8 @@ export const WalletManagement: FC = () => {
 				<div className="space-y-3">
 					{rows.map((row) => (
 						<div key={row.id} className="card card-compact bg-base-200 shadow">
-							<div className="card-body">
-								<div className="flex items-start justify-between gap-3">
+							<div className="card-body p-3 sm:p-4">
+								<div className="flex flex-col sm:flex-row items-start justify-between gap-3">
 									<div className="flex items-start gap-3">
 										{(row.origin === "imported" ||
 											row.origin === "watchOnly") && (
@@ -170,7 +170,7 @@ export const WalletManagement: FC = () => {
 											</div>
 										</div>
 									</div>
-									<div className="flex gap-2">
+									<div className="flex gap-2 flex-shrink-0 w-full sm:w-auto justify-end">
 										{row.origin === "watchOnly" ? (
 											<div
 												className="tooltip tooltip-bottom"
@@ -178,12 +178,14 @@ export const WalletManagement: FC = () => {
 											>
 												<button
 													type="button"
-													className="btn btn-secondary btn-sm btn-disabled"
+													className="btn btn-secondary btn-disabled flex items-center justify-center"
+													style={{ minWidth: "2.5rem", minHeight: "2.5rem" }}
 													disabled
 													aria-label="Send funds (watch-only wallet)"
 												>
 													<i
-														className="fa-solid fa-paper-plane h-4 w-4"
+														className="fa-solid fa-paper-plane"
+														style={{ fontSize: "1.5rem" }}
 														aria-hidden="true"
 													/>
 												</button>
@@ -191,22 +193,26 @@ export const WalletManagement: FC = () => {
 										) : (
 											<Link
 												href={`/send/${row.address}`}
-												className="btn btn-secondary btn-sm"
+												className="btn btn-secondary flex items-center justify-center"
+												style={{ minWidth: "2.5rem", minHeight: "2.5rem" }}
 												aria-label="Send funds"
 											>
 												<i
-													className="fa-solid fa-paper-plane h-4 w-4"
+													className="fa-solid fa-paper-plane"
+													style={{ fontSize: "1.5rem" }}
 													aria-hidden="true"
 												/>
 											</Link>
 										)}
 										<Link
 											href={`/receive/${row.address}`}
-											className="btn btn-primary btn-sm"
+											className="btn btn-primary flex items-center justify-center"
+											style={{ minWidth: "2.5rem", minHeight: "2.5rem" }}
 											aria-label="Receive funds"
 										>
 											<i
-												className="fa-solid fa-qrcode h-4 w-4"
+												className="fa-solid fa-qrcode"
+												style={{ fontSize: "1.5rem" }}
 												aria-hidden="true"
 											/>
 										</Link>

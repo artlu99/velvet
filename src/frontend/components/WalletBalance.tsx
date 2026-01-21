@@ -15,7 +15,7 @@ const CHAINS: Array<{ id: 1 | 8453; name: string; nativeAsset: string }> = [
 
 export const WalletBalance: FC<WalletBalanceProps> = ({ address }) => {
 	return (
-		<div className="flex gap-2">
+		<div className="flex gap-2 flex-wrap">
 			{CHAINS.map((chain) => (
 				<ChainBalance
 					key={chain.id}
@@ -68,10 +68,15 @@ const ChainBalance: FC<ChainBalanceProps> = ({ address, chainId, name }) => {
 	})();
 
 	return (
-		<div className="badge badge-sm" title={`${name}: ${data.balanceEth}`}>
-			<span className="opacity-80">{name}</span>
-			<span className="mx-1 opacity-60">·</span>
-			<span className="font-mono tabular-nums">{formattedBalanceEth}</span>
+		<div
+			className="badge badge-sm max-w-full"
+			title={`${name}: ${data.balanceEth}`}
+		>
+			<span className="opacity-80 shrink-0">{name}</span>
+			<span className="mx-1 opacity-60 shrink-0">·</span>
+			<span className="font-mono tabular-nums truncate min-w-0">
+				{formattedBalanceEth}
+			</span>
 		</div>
 	);
 };
