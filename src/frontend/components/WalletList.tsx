@@ -3,6 +3,7 @@ import { useEvolu, useQuery } from "@evolu/react";
 import { type FC, useState } from "react";
 import type { EoaId } from "~/lib/schema";
 import { DeleteKeyConfirmation } from "./DeleteKeyConfirmation";
+import { WalletBalance } from "./WalletBalance";
 
 export const WalletList: FC = () => {
 	const evolu = useEvolu();
@@ -70,6 +71,9 @@ export const WalletList: FC = () => {
 												{row.keyType.toUpperCase()}
 											</div>
 										)}
+									</div>
+									<div className="mt-2">
+										<WalletBalance address={row.address} />
 									</div>
 								</div>
 

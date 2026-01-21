@@ -66,6 +66,7 @@ src/
 - `radash` for type-safe immutable functional operations (over raw TypeScript implementations)
 - Array operators (`.map()`, `.filter()`, `.reduce()`) for immutable transformations
 - Type narrowing with exhaustive `switch` clauses
+- Discriminated unions with `ok: boolean` for API responses that can fail (`BalanceResult` pattern)
 
 ### Don'ts ❌
 - Relative imports, Zod, class components, CommonJS, skip type defs

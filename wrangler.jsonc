@@ -6,6 +6,13 @@
 	"vars": {
 		"NAME": "Underground Velvet Wallet"
 	},
+	"kv_namespaces": [
+		{
+			"binding": "BALANCE_CACHE",
+			"id": "d0a3c7f2fd294b00a24032f390e943f1",
+			"remote": true
+		}
+	],
 	"assets": { "not_found_handling": "single-page-application" },
 	"observability": { "enabled": true }
 }

@@ -29,8 +29,9 @@ export const formatTypeError = createFormatTypeError<
 >((error): string => {
 	switch (error.type) {
 		case "MinLength":
-			return `Text must be at least ${error.min} character${error.min === 1 ? "" : "s"
-				} long`;
+			return `Text must be at least ${error.min} character${
+				error.min === 1 ? "" : "s"
+			} long`;
 		case "MaxLength":
 			return `Text is too long (maximum ${error.max} characters)`;
 	}
