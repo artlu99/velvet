@@ -4,6 +4,7 @@ import { type FC, useState } from "react";
 import toast from "react-hot-toast";
 import * as v from "valibot";
 import { EvmPrivateKeySchema, validateAndDeriveAddress } from "~/lib/crypto";
+import { createEoaDuplicateCheckQuery } from "~/lib/queries/eoa";
 import type { EoaInsert } from "~/lib/schema";
 
 export const ImportPrivateKey: FC = () => {
@@ -38,19 +39,10 @@ export const ImportPrivateKey: FC = () => {
 		const { address } = derivationResult;
 		const unencryptedPrivateKey = keyResult.output;
 
-		// Check for duplicates: query for existing non-deleted rows matching
-		// either the address or private key in a single query
-		const duplicateCheckQuery = evolu.createQuery((db) =>
-			db
-				.selectFrom("eoa")
-				.select(["address", "unencryptedPrivateKey"])
-				.where("isDeleted", "is", null)
-				.where((eb) =>
-					eb.or([
-						eb("address", "=", address),
-						eb("unencryptedPrivateKey", "=", unencryptedPrivateKey),
-					]),
-				),
+		const duplicateCheckQuery = createEoaDuplicateCheckQuery(
+			evolu,
+			address,
+			unencryptedPrivateKey,
 		);
 
 		const duplicateRows = await evolu.loadQuery(duplicateCheckQuery);

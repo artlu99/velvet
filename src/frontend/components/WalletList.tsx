@@ -1,6 +1,7 @@
 import { sqliteTrue } from "@evolu/common";
 import { useEvolu, useQuery } from "@evolu/react";
 import { type FC, useState } from "react";
+import { createAllEoasQuery } from "~/lib/queries/eoa";
 import type { EoaId } from "~/lib/schema";
 import { DeleteKeyConfirmation } from "./DeleteKeyConfirmation";
 import { WalletBalance } from "./WalletBalance";
@@ -12,14 +13,7 @@ export const WalletList: FC = () => {
 		address: string;
 	} | null>(null);
 
-	// Query all non-deleted EOAs
-	const allEoas = evolu.createQuery((db) =>
-		db
-			.selectFrom("eoa")
-			.selectAll()
-			.where("isDeleted", "is", null)
-			.orderBy("createdAt", "desc"),
-	);
+	const allEoas = createAllEoasQuery(evolu);
 
 	const rows = useQuery(allEoas);
 
