@@ -28,6 +28,13 @@ src/
 - **Forms** → React state or URL params
 - **API contracts** → `@shared/types.ts` (end-to-end type safety)
 
+### API Calls
+Use **itty-fetcher** (not `fetch()`) for type-safe API calls in React Query hooks:
+- **Queries** (`useQuery`): `api.get<ResponseType>(path)`
+- **Mutations** (`useMutation`): `api.post<RequestType, ResponseType>(path, body)`
+- Base URL: `fetcher({ base: \`${window.location.origin}/api\` })`
+- Types come from `@shared/types.ts`
+
 ## Tech Choices
 | Frontend | Backend | Tooling |
 |----------|---------|---------|
@@ -67,6 +74,7 @@ src/
 - Array operators (`.map()`, `.filter()`, `.reduce()`) for immutable transformations
 - Type narrowing with exhaustive `switch` clauses
 - Discriminated unions with `ok: boolean` for API responses that can fail (`BalanceResult` pattern)
+- `itty-fetcher` for typed API calls in hooks (queries/mutations) to provide end-to-end type safety
 
 ### Don'ts ❌
 - Relative imports, Zod, class components, CommonJS, skip type defs
@@ -74,6 +82,7 @@ src/
 - Class syntax for state/data structures
 - JavaScript `true`/`false` for Evolu booleans - use `sqliteTrue`/`sqliteFalse`
 - JavaScript equality (`===`/`!==`) for EVM address comparisons - use `isAddressEqual` from `viem`
+- call `fetch()` directly - use `itty-fetcher` via React Query hooks for type-safe API calls
 
 ## Commands
 ```bash

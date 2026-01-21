@@ -1,4 +1,4 @@
-import type { AppName, BalanceResult } from "./types";
+import type { AppName, BalanceResult, TransactionCountResult } from "./types";
 
 /**
  * API endpoint definitions.
@@ -9,7 +9,7 @@ import type { AppName, BalanceResult } from "./types";
  * - Response type
  *
  * Backend: implements these routes
- * Frontend: consumes via typed fetch()
+ * Frontend: consumes via typed itty-fetcher
  */
 export const apiEndpoints = {
 	/** GET /api/name - Get app name */
@@ -23,12 +23,18 @@ export const apiEndpoints = {
 		path: "/balance/:address" as const,
 		method: "GET" as const,
 	},
+	/** GET /api/transaction-count/:address?chainId={chainId} - Get nonce */
+	transactionCount: {
+		path: "/transaction-count/:address" as const,
+		method: "GET" as const,
+	},
 } as const;
 
 /** Response types for each endpoint */
 export type ApiResponses = {
 	name: AppName;
 	balance: BalanceResult;
+	transactionCount: TransactionCountResult;
 };
 
 /**

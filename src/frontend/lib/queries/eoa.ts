@@ -11,22 +11,13 @@ export const createAllEoasQuery = (evolu: Evolu) =>
 			.orderBy("createdAt", "desc"),
 	);
 
-export const createEoaDuplicateCheckQuery = (
-	evolu: Evolu,
-	address: string,
-	unencryptedPrivateKey: string,
-) =>
+export const createEoaDuplicateCheckQuery = (evolu: Evolu, address: string) =>
 	evolu.createQuery((db) =>
 		db
 			.selectFrom("eoa")
-			.select(["address", "unencryptedPrivateKey"])
+			.select(["address", "origin"])
 			.where("isDeleted", "is", null)
-			.where((eb) =>
-				eb.or([
-					eb("address", "=", address),
-					eb("unencryptedPrivateKey", "=", unencryptedPrivateKey),
-				]),
-			),
+			.where("address", "=", address),
 	);
 
 /**

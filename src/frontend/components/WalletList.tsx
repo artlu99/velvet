@@ -109,7 +109,7 @@ export const WalletList: FC = () => {
 											aria-hidden="true"
 										/>
 									</Link>
-									{row.unencryptedPrivateKey && (
+									{row.origin !== "watchOnly" && (
 										<Link
 											href={`/send/${row.id}`}
 											className="btn btn-primary btn-sm"

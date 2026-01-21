@@ -1,13 +1,16 @@
+import { useEvolu } from "@evolu/react";
 import type {
 	BroadcastTransactionResult,
 	GasEstimateResult,
-	TransactionCountResult,
 } from "@shared/types";
 import { type FC, useState } from "react";
 import toast from "react-hot-toast";
 import { privateKeyToAccount } from "viem/accounts";
 import { Link, useLocation } from "wouter";
 import { useBroadcastTransactionMutation } from "~/hooks/mutations/useBroadcastTransactionMutation";
+import { useEstimateGasMutation } from "~/hooks/mutations/useEstimateGasMutation";
+import { useTransactionCountQuery } from "~/hooks/queries/useTransactionCountQuery";
+import { decryptPrivateKey } from "~/lib/crypto";
 import {
 	calculateTotalCost,
 	ethToWei,
@@ -22,20 +25,28 @@ interface SendFormProps {
 	readonly walletId: string;
 	readonly address: string;
 	readonly balance: string; // wei
-	readonly privateKey: string;
+	readonly encryptedPrivateKey: string;
 }
 
 export const SendForm: FC<SendFormProps> = ({
 	walletId: _walletId,
 	address,
 	balance,
-	privateKey,
+	encryptedPrivateKey,
 }) => {
 	const [, navigate] = useLocation();
+	const evolu = useEvolu();
 	const { network } = useReceiveStore();
 	const chainId = network === "ethereum" ? 1 : 8453;
 
 	const broadcastTransactionMutation = useBroadcastTransactionMutation();
+	const estimateGasMutation = useEstimateGasMutation();
+
+	const transactionCountQuery = useTransactionCountQuery({
+		address,
+		chainId,
+		enabled: false,
+	});
 
 	const [recipient, setRecipient] = useState("");
 	const [amount, setAmount] = useState("");
@@ -58,18 +69,12 @@ export const SendForm: FC<SendFormProps> = ({
 		try {
 			const valueWei = ethToWei(amount);
 
-			const response = await fetch("/api/estimate-gas", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					from: address,
-					to: recipient,
-					value: valueWei,
-					chainId,
-				}),
+			const result: GasEstimateResult = await estimateGasMutation.mutateAsync({
+				from: address,
+				to: recipient,
+				value: valueWei,
+				chainId,
 			});
-
-			const result: GasEstimateResult = await response.json();
 
 			if (!result.ok) {
 				toast.error(result.error);
@@ -91,55 +96,77 @@ export const SendForm: FC<SendFormProps> = ({
 
 		setIsSending(true);
 		try {
-			// Create account from private key
-			const account = privateKeyToAccount(privateKey as `0x${string}`);
+			// Get encryption key from Evolu context (inline, no state)
+			const owner = await evolu.appOwner;
+			const encryptionKey = owner.encryptionKey;
 
-			// Fetch nonce (transaction count)
-			const nonceResponse = await fetch(
-				`/api/transaction-count/${address}?chainId=${chainId}`,
+			// Decrypt private key inline
+			const decryptResult = decryptPrivateKey(
+				encryptedPrivateKey,
+				encryptionKey,
 			);
-			const nonceResult: TransactionCountResult = await nonceResponse.json();
 
-			if (!nonceResult.ok) {
-				toast.error(nonceResult.error);
+			if (!decryptResult.ok) {
+				toast.error("Failed to decrypt private key");
 				return;
 			}
 
-			// Build transaction parameters
-			const valueWei = ethToWei(amount);
+			const privateKey = decryptResult.value;
 
-			// Sign transaction - EIP-1559 format
-			const signedTx = await account.signTransaction({
-				to: recipient as `0x${string}`,
-				value: BigInt(valueWei),
-				gas: BigInt(gasEstimate.gasLimit),
-				maxFeePerGas: BigInt(gasEstimate.maxFeePerGas),
-				maxPriorityFeePerGas: BigInt(gasEstimate.maxPriorityFeePerGas),
-				chainId,
-				nonce: nonceResult.nonce,
-				type: "eip1559",
-			});
+			try {
+				// Create account from private key
+				const account = privateKeyToAccount(privateKey as `0x${string}`);
 
-			// Broadcast via backend API
-			const result: BroadcastTransactionResult =
-				await broadcastTransactionMutation.mutateAsync({
-					signedTransaction: signedTx,
+				// Fetch nonce (transaction count)
+				const { data: nonceResult } = await transactionCountQuery.refetch();
+
+				if (!nonceResult || !nonceResult.ok) {
+					toast.error(
+						nonceResult?.error ?? "Failed to fetch transaction count",
+					);
+					return;
+				}
+
+				// Build transaction parameters
+				const valueWei = ethToWei(amount);
+
+				// Sign transaction - EIP-1559 format
+				const signedTx = await account.signTransaction({
+					to: recipient as `0x${string}`,
+					value: BigInt(valueWei),
+					gas: BigInt(gasEstimate.gasLimit),
+					maxFeePerGas: BigInt(gasEstimate.maxFeePerGas),
+					maxPriorityFeePerGas: BigInt(gasEstimate.maxPriorityFeePerGas),
 					chainId,
+					nonce: nonceResult.nonce,
+					type: "eip1559",
 				});
 
-			if (!result.ok) {
-				toast.error(result.error);
-				return;
+				// Broadcast via backend API
+				const result: BroadcastTransactionResult =
+					await broadcastTransactionMutation.mutateAsync({
+						signedTransaction: signedTx,
+						chainId,
+					});
+
+				if (!result.ok) {
+					toast.error(result.error);
+					return;
+				}
+
+				// Save transaction to Evolu database
+				// Note: Skipped for now due to type issues
+				// Transaction will be tracked on blockchain
+
+				toast.success("Transaction submitted!");
+
+				// Navigate to transaction status page
+				navigate(`/transaction/${result.txHash}?chainId=${chainId}`);
+			} finally {
+				// Note: privateKey is a string and cannot be securely wiped.
+				// The decrypted bytes in decryptPrivateKey are already wiped.
+				// The string will be garbage collected when it goes out of scope.
 			}
-
-			// Save transaction to Evolu database
-			// Note: Skipped for now due to type issues
-			// Transaction will be tracked on blockchain
-
-			toast.success("Transaction submitted!");
-
-			// Navigate to transaction status page
-			navigate(`/transaction/${result.txHash}?chainId=${chainId}`);
 		} catch (error) {
 			const errorMessage =
 				error instanceof Error ? error.message : "Unknown error";

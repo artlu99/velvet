@@ -14,7 +14,10 @@ export const useBroadcastTransactionMutation = () => {
 		mutationFn: async (
 			input: BroadcastTransactionRequest,
 		): Promise<BroadcastTransactionResult> => {
-			return api.post<BroadcastTransactionRequest, BroadcastTransactionResult>("/broadcast-transaction", input);
+			return api.post<BroadcastTransactionRequest, BroadcastTransactionResult>(
+				"/broadcast-transaction",
+				input,
+			);
 		},
 	});
 };

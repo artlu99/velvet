@@ -35,7 +35,7 @@ export const Schema = {
 		id: EoaId,
 		address: NonEmptyString1000,
 		isSelected: nullOr(SqliteBoolean),
-		unencryptedPrivateKey: nullOr(NonEmptyString1000),
+		encryptedPrivateKey: nullOr(NonEmptyString1000),
 		keyType: nullOr(KeyType),
 		origin: nullOr(Origin),
 	},
@@ -71,7 +71,7 @@ export const Schema = {
 export type EoaInsert = {
 	address: string;
 	isSelected: 0 | 1 | null;
-	unencryptedPrivateKey: string | null;
+	encryptedPrivateKey: string | null;
 	keyType: "evm" | "tron" | "btc" | "solana" | null;
 	origin: "imported" | "derived" | "watchOnly" | null;
 };

@@ -20,19 +20,17 @@ describe("EOA query factories", () => {
 
 	test("createEoaDuplicateCheckQuery compiles expected SQL + params", () => {
 		const address = "0xabc";
-		const pk = "0xdef";
 
-		const q = createEoaDuplicateCheckQuery(evoluInstance as unknown as Evolu, address, pk);
+		const q = createEoaDuplicateCheckQuery(evoluInstance as unknown as Evolu, address);
 		const [sql, params] = parseCompiledQuery(q);
 
 		expect(sql).toBe(
-			'select "address", "unencryptedPrivateKey" from "eoa" where "isDeleted" is null and ("address" = ? or "unencryptedPrivateKey" = ?)',
+			'select "address", "origin" from "eoa" where "isDeleted" is null and "address" = ?',
 		);
 
 		// Evolu encodes params as tuples; we assert the parameter values.
 		expect(params).toEqual([
 			["j", address],
-			["j", pk],
 		]);
 	});
 });

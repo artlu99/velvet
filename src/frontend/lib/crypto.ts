@@ -1,3 +1,10 @@
+import {
+	createRandomBytes,
+	createSymmetricCrypto,
+	type OwnerEncryptionKey,
+	type SymmetricCrypto,
+	utf8ToBytes,
+} from "@evolu/common";
 import * as v from "valibot";
 import { isAddress } from "viem";
 import { type Address, privateKeyToAccount } from "viem/accounts";
@@ -102,4 +109,101 @@ export function validateImportInput(input: string): ImportInputResult {
  */
 export function secureWipe(data: Uint8Array): void {
 	data.fill(0);
+}
+
+// Singleton crypto instance
+let cryptoInstance: SymmetricCrypto | null = null;
+
+function getCrypto(): SymmetricCrypto {
+	if (!cryptoInstance) {
+		cryptoInstance = createSymmetricCrypto({
+			randomBytes: createRandomBytes(),
+		});
+	}
+	return cryptoInstance;
+}
+
+/**
+ * Encrypts a private key using the owner's encryption key
+ * @param privateKey - The plaintext private key (hex string with 0x prefix)
+ * @param encryptionKey - The owner's encryption key from Evolu
+ * @returns Base64-encoded string containing nonce (24 bytes) + ciphertext
+ */
+export function encryptPrivateKey(
+	privateKey: string,
+	encryptionKey: OwnerEncryptionKey,
+): string {
+	const crypto = getCrypto();
+
+	// Convert private key string to bytes
+	const plaintext = utf8ToBytes(privateKey);
+
+	// Encrypt with XChaCha20-Poly1305
+	const { nonce, ciphertext } = crypto.encrypt(plaintext, encryptionKey);
+
+	// Combine nonce (24 bytes) + ciphertext
+	const combined = new Uint8Array(nonce.length + ciphertext.length);
+	combined.set(nonce, 0);
+	combined.set(ciphertext, nonce.length);
+
+	// Convert to base64 for storage
+	const base64 = btoa(String.fromCharCode(...combined));
+
+	return base64;
+}
+
+/**
+ * Decrypts an encrypted private key
+ * @param encrypted - Base64-encoded string containing nonce + ciphertext
+ * @param encryptionKey - The owner's encryption key from Evolu
+ * @returns Result object with decrypted private key or error
+ */
+export function decryptPrivateKey(
+	encrypted: string,
+	encryptionKey: OwnerEncryptionKey,
+): { ok: true; value: string } | { ok: false; error: Error } {
+	try {
+		const crypto = getCrypto();
+
+		// Decode base64
+		const combined = Uint8Array.from(atob(encrypted), (c) => c.charCodeAt(0));
+
+		// Split nonce (first 24 bytes) and ciphertext (rest)
+		const NONCE_LENGTH = 24;
+		if (combined.length < NONCE_LENGTH) {
+			return {
+				ok: false,
+				error: new Error("Invalid encrypted data: too short"),
+			};
+		}
+
+		const nonce = combined.slice(0, NONCE_LENGTH);
+		const ciphertext = combined.slice(NONCE_LENGTH);
+
+		// Decrypt
+		const decryptResult = crypto.decrypt(ciphertext, encryptionKey, nonce);
+
+		if (!decryptResult.ok) {
+			return {
+				ok: false,
+				error: new Error("Decryption failed: corrupted data or wrong key"),
+			};
+		}
+
+		// Convert bytes to string (private key hex)
+		const privateKeyBytes = decryptResult.value;
+		const privateKey = new TextDecoder().decode(privateKeyBytes);
+
+		// Wipe the decrypted bytes from memory
+		secureWipe(privateKeyBytes);
+
+		return { ok: true, value: privateKey };
+	} catch (error) {
+		return {
+			ok: false,
+			error: new Error(
+				`Invalid encrypted data: ${error instanceof Error ? error.message : "unknown error"}`,
+			),
+		};
+	}
 }

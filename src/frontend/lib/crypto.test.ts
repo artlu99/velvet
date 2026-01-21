@@ -5,8 +5,11 @@ import {
 	EvmAddressSchema,
 	secureWipe,
 	validateImportInput,
+	encryptPrivateKey,
+	decryptPrivateKey,
 } from "./crypto";
 import * as v from "valibot";
+import type { OwnerEncryptionKey } from "@evolu/common";
 
 describe("Crypto Utilities", () => {
 	describe("EvmPrivateKeySchema", () => {
@@ -254,6 +257,148 @@ describe("Crypto Utilities", () => {
 		test("should reject string with only whitespace", () => {
 			const result = validateImportInput("   ");
 			expect(result.ok).toBe(false);
+		});
+	});
+
+	describe("encryptPrivateKey", () => {
+		test("should encrypt private key to base64 string", () => {
+			const privateKey =
+				"0x0000000000000000000000000000000000000000000000000000000000000001";
+
+			// Create a mock OwnerEncryptionKey (32 bytes)
+			const mockKey = new Uint8Array(32) as OwnerEncryptionKey;
+			mockKey.fill(42); // Fill with test data
+
+			const result = encryptPrivateKey(privateKey, mockKey);
+
+			// Result should be a base64 string
+			expect(typeof result).toBe("string");
+			// Base64 strings use specific characters
+			expect(result).toMatch(/^[A-Za-z0-9+/]+={0,2}$/);
+			// Should be non-empty
+			expect(result.length).toBeGreaterThan(0);
+		});
+
+		test("should produce different output for same input (random nonce)", () => {
+			const privateKey =
+				"0x0000000000000000000000000000000000000000000000000000000000000001";
+
+			const mockKey = new Uint8Array(32) as OwnerEncryptionKey;
+			mockKey.fill(42);
+
+			const result1 = encryptPrivateKey(privateKey, mockKey);
+			const result2 = encryptPrivateKey(privateKey, mockKey);
+
+			// Due to random nonce, encrypted values should differ
+			expect(result1).not.toBe(result2);
+		});
+
+		test("should handle different private keys", () => {
+			const key1 =
+				"0x0000000000000000000000000000000000000000000000000000000000000001";
+			const key2 =
+				"0x0000000000000000000000000000000000000000000000000000000000000002";
+
+			const mockKey = new Uint8Array(32) as OwnerEncryptionKey;
+			mockKey.fill(42);
+
+			const result1 = encryptPrivateKey(key1, mockKey);
+			const result2 = encryptPrivateKey(key2, mockKey);
+
+			// Different keys should produce different encrypted output
+			expect(result1).not.toBe(result2);
+		});
+	});
+
+	describe("decryptPrivateKey", () => {
+		test("should decrypt successfully with valid encrypted data", () => {
+			const privateKey =
+				"0x0000000000000000000000000000000000000000000000000000000000000001";
+
+			const mockKey = new Uint8Array(32) as OwnerEncryptionKey;
+			mockKey.fill(42);
+
+			// First encrypt
+			const encrypted = encryptPrivateKey(privateKey, mockKey);
+
+			// Then decrypt
+			const result = decryptPrivateKey(encrypted, mockKey);
+
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				expect(result.value).toBe(privateKey);
+			}
+		});
+
+		test("should return error for invalid base64", () => {
+			const mockKey = new Uint8Array(32) as OwnerEncryptionKey;
+			mockKey.fill(42);
+
+			const result = decryptPrivateKey("not-valid-base64!!!", mockKey);
+
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.error).toBeInstanceOf(Error);
+				expect(result.error.message).toContain("Invalid encrypted data");
+			}
+		});
+
+		test("should return error for corrupted data", () => {
+			const mockKey = new Uint8Array(32) as OwnerEncryptionKey;
+			mockKey.fill(42);
+
+			// Valid base64 but not valid encrypted data
+			const fakeEncrypted = btoa("corrupted data");
+
+			const result = decryptPrivateKey(fakeEncrypted, mockKey);
+
+			expect(result.ok).toBe(false);
+		});
+
+		test("should return error for empty string", () => {
+			const mockKey = new Uint8Array(32) as OwnerEncryptionKey;
+			mockKey.fill(42);
+
+			const result = decryptPrivateKey("", mockKey);
+
+			expect(result.ok).toBe(false);
+		});
+
+		test("should handle wrong encryption key", () => {
+			const privateKey =
+				"0x0000000000000000000000000000000000000000000000000000000000000001";
+
+			const key1 = new Uint8Array(32) as OwnerEncryptionKey;
+			key1.fill(42);
+			const key2 = new Uint8Array(32) as OwnerEncryptionKey;
+			key2.fill(99); // Different key
+
+			const encrypted = encryptPrivateKey(privateKey, key1);
+			const result = decryptPrivateKey(encrypted, key2);
+
+			// Decryption with wrong key should fail
+			expect(result.ok).toBe(false);
+		});
+
+		test("should roundtrip encrypt/decrypt correctly", () => {
+			const testKeys = [
+				"0x0000000000000000000000000000000000000000000000000000000000000001",
+				"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+				"0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
+			];
+
+			const mockKey = new Uint8Array(32) as OwnerEncryptionKey;
+			mockKey.fill(42);
+
+			for (const originalKey of testKeys) {
+				const encrypted = encryptPrivateKey(originalKey, mockKey);
+				const decrypted = decryptPrivateKey(encrypted, mockKey);
+
+				expect(decrypted.ok).toBe(true);
+				if (decrypted.ok) {
+					expect(decrypted.value).toBe(originalKey);
+				}
+			}
 		});
 	});
 });

@@ -8,7 +8,7 @@ import {
 import { evoluReactWebDeps } from "@evolu/react-web";
 import { Schema } from "./schema";
 
-const EVOLU_INSTANCE = "underground-velvet-wallet-3241038977";
+const EVOLU_INSTANCE = "underground-velvet-wallet-3241038978";
 
 export const evoluInstance = createEvolu(evoluReactWebDeps)(Schema, {
 	name: SimpleName.orThrow(EVOLU_INSTANCE),

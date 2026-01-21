@@ -2,8 +2,7 @@ import { sqliteFalse } from "@evolu/common";
 import { useEvolu } from "@evolu/react";
 import { type FC, useState } from "react";
 import toast from "react-hot-toast";
-import { isAddressEqual } from "viem";
-import { validateImportInput } from "~/lib/crypto";
+import { encryptPrivateKey, validateImportInput } from "~/lib/crypto";
 import { createEoaDuplicateCheckQuery } from "~/lib/queries/eoa";
 import type { EoaInsert } from "~/lib/schema";
 
@@ -44,42 +43,29 @@ export const ImportPrivateKey: FC = () => {
 			);
 		}
 
-		const duplicateCheckQuery = createEoaDuplicateCheckQuery(
-			evolu,
-			address,
-			unencryptedPrivateKey ?? "",
-		);
-
+		const duplicateCheckQuery = createEoaDuplicateCheckQuery(evolu, address);
 		const duplicateRows = await evolu.loadQuery(duplicateCheckQuery);
 
-		// Check results and provide specific error messages
+		// Check for duplicate address
 		if (duplicateRows.length > 0) {
-			const hasAddressMatch = duplicateRows.some(
-				(row) =>
-					typeof row.address === "string" &&
-					isAddressEqual(`0x${row.address.replace("0x", "")}`, address),
-			);
-			const hasKeyMatch =
-				unencryptedPrivateKey &&
-				duplicateRows.some(
-					(row) => row.unencryptedPrivateKey === unencryptedPrivateKey,
-				);
+			setError("This address is already in your wallet.");
+			setIsLoading(false);
+			return;
+		}
 
-			if (hasKeyMatch) {
-				setError("This private key is already in your wallet.");
-				setIsLoading(false);
-				return;
-			}
-			if (hasAddressMatch) {
-				setError("This address is already in your wallet.");
-				setIsLoading(false);
-				return;
-			}
+		// Encrypt private key (if not watch-only)
+		let encryptedPrivateKey: string | null = null;
+		if (!isWatchOnly && unencryptedPrivateKey) {
+			const owner = await evolu.appOwner;
+			encryptedPrivateKey = encryptPrivateKey(
+				unencryptedPrivateKey,
+				owner.encryptionKey,
+			);
 		}
 
 		const insertData: EoaInsert = {
 			address,
-			unencryptedPrivateKey,
+			encryptedPrivateKey,
 			keyType: "evm",
 			origin: isWatchOnly ? "watchOnly" : "imported",
 			isSelected: sqliteFalse,

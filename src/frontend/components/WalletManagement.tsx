@@ -167,7 +167,7 @@ export const WalletManagement: FC = () => {
 										</div>
 									</div>
 									<div className="flex gap-2">
-										{!row.unencryptedPrivateKey ? (
+										{row.origin === "watchOnly" ? (
 											<div
 												className="tooltip tooltip-bottom"
 												data-tip="Watch-only wallets cannot send transactions"

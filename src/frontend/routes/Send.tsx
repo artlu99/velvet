@@ -47,8 +47,16 @@ export const Send = () => {
 
 	const balance =
 		balanceData?.ok && balanceData.balanceWei ? balanceData.balanceWei : "0";
-	const privateKey = selectedWallet.unencryptedPrivateKey;
-	const isWatchOnly = !privateKey;
+	const encryptedPrivateKey = selectedWallet.encryptedPrivateKey;
+	const isWatchOnly = selectedWallet.origin === "watchOnly";
+
+	// For non-watch-only wallets, encryptedPrivateKey must exist
+	if (!isWatchOnly) {
+		invariant(
+			encryptedPrivateKey,
+			"encryptedPrivateKey must exist for non-watch-only wallets",
+		);
+	}
 
 	return (
 		<div className="max-w-md mx-auto p-4">
@@ -85,12 +93,12 @@ export const Send = () => {
 					</div>
 				</div>
 			) : (
-				privateKey && (
+				encryptedPrivateKey && (
 					<SendForm
 						walletId={selectedWallet.id}
 						address={selectedWallet.address}
 						balance={balance}
-						privateKey={privateKey}
+						encryptedPrivateKey={encryptedPrivateKey}
 					/>
 				)
 			)}
