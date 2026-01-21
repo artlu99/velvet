@@ -2,6 +2,7 @@ import { useEvolu } from "@evolu/react";
 import type {
 	BroadcastTransactionResult,
 	GasEstimateResult,
+	SupportedChainId,
 } from "@shared/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { type FC, useState } from "react";
@@ -9,45 +10,62 @@ import toast from "react-hot-toast";
 import { privateKeyToAccount } from "viem/accounts";
 import { useLocation } from "wouter";
 import { useBroadcastTransactionMutation } from "~/hooks/mutations/useBroadcastTransactionMutation";
+import { useEstimateErc20GasMutation } from "~/hooks/mutations/useEstimateErc20GasMutation";
 import { useEstimateGasMutation } from "~/hooks/mutations/useEstimateGasMutation";
 import { useTransactionCountQuery } from "~/hooks/queries/useTransactionCountQuery";
 import { decryptPrivateKey } from "~/lib/crypto";
 import { refreshAddressQueries } from "~/lib/refreshQueries";
 import {
+	getTokenAddress,
+	getTokenDecimals,
+	isNativeToken,
+} from "~/lib/tokenUtils";
+import {
+	amountToRaw,
 	calculateTotalCost,
+	encodeErc20Transfer,
 	ethToWei,
 	formatGwei,
 	isValidAddress,
+	rawToAmount,
 	truncateAddress,
 	weiToEth,
 } from "~/lib/transaction";
-import { useReceiveStore } from "~/providers/store";
+import type { CoinGeckoToken } from "~/providers/tokenStore";
 
 interface SendFormProps {
 	readonly address: string;
-	readonly balance: string; // wei
+	readonly balance: string; // Raw balance (wei for native, base units for ERC20)
 	readonly encryptedPrivateKey: string;
+	readonly token: CoinGeckoToken;
+	readonly chainId: SupportedChainId;
 }
 
 export const SendForm: FC<SendFormProps> = ({
 	address,
 	balance,
 	encryptedPrivateKey,
+	token,
+	chainId,
 }) => {
 	const [, navigate] = useLocation();
 	const evolu = useEvolu();
 	const queryClient = useQueryClient();
-	const { network, setNetwork } = useReceiveStore();
-	const chainId = network === "ethereum" ? 1 : 8453;
 
 	const broadcastTransactionMutation = useBroadcastTransactionMutation();
 	const estimateGasMutation = useEstimateGasMutation();
+	const estimateErc20GasMutation = useEstimateErc20GasMutation();
 
 	const transactionCountQuery = useTransactionCountQuery({
 		address,
 		chainId,
 		enabled: false,
 	});
+
+	// Get token properties
+	const tokenAddress = getTokenAddress(token, chainId);
+	const decimals = getTokenDecimals(token, chainId);
+	const isNative = isNativeToken(token, chainId);
 
 	const [recipient, setRecipient] = useState("");
 	const [amount, setAmount] = useState("");
@@ -68,14 +86,24 @@ export const SendForm: FC<SendFormProps> = ({
 
 		setIsEstimating(true);
 		try {
-			const valueWei = ethToWei(amount);
+			const amountRaw = isNative
+				? ethToWei(amount)
+				: amountToRaw(amount, decimals);
 
-			const result: GasEstimateResult = await estimateGasMutation.mutateAsync({
-				from: address,
-				to: recipient,
-				value: valueWei,
-				chainId,
-			});
+			const result: GasEstimateResult = isNative
+				? await estimateGasMutation.mutateAsync({
+						from: address,
+						to: recipient,
+						value: amountRaw,
+						chainId,
+					})
+				: await estimateErc20GasMutation.mutateAsync({
+						from: address,
+						to: recipient,
+						contract: tokenAddress,
+						amount: amountRaw,
+						chainId,
+					});
 
 			if (!result.ok) {
 				toast.error(result.error);
@@ -129,12 +157,19 @@ export const SendForm: FC<SendFormProps> = ({
 				}
 
 				// Build transaction parameters
-				const valueWei = ethToWei(amount);
+				const amountRaw = isNative
+					? ethToWei(amount)
+					: amountToRaw(amount, decimals);
 
 				// Sign transaction - EIP-1559 format
 				const signedTx = await account.signTransaction({
-					to: recipient as `0x${string}`,
-					value: BigInt(valueWei),
+					to: isNative
+						? (recipient as `0x${string}`)
+						: (tokenAddress as `0x${string}`),
+					value: isNative ? BigInt(amountRaw) : 0n,
+					data: isNative
+						? undefined
+						: encodeErc20Transfer(recipient, amountRaw),
 					gas: BigInt(gasEstimate.gasLimit),
 					maxFeePerGas: BigInt(gasEstimate.maxFeePerGas),
 					maxPriorityFeePerGas: BigInt(gasEstimate.maxPriorityFeePerGas),
@@ -185,17 +220,23 @@ export const SendForm: FC<SendFormProps> = ({
 		}
 	};
 
-	const balanceEth = weiToEth(balance);
+	const balanceFormatted = isNative
+		? weiToEth(balance)
+		: rawToAmount(balance, decimals);
+
 	const totalCost =
 		gasEstimate?.ok && amount
 			? calculateTotalCost(
-					ethToWei(amount),
+					isNative ? ethToWei(amount) : amountToRaw(amount, decimals),
 					gasEstimate.gasLimit,
 					gasEstimate.maxFeePerGas,
 				)
 			: "0";
+
 	const totalCostEth = weiToEth(totalCost);
-	const hasEnoughBalance = BigInt(balance) >= BigInt(totalCost);
+	const hasEnoughBalance =
+		BigInt(balance) >=
+		BigInt(isNative ? ethToWei(amount) : amountToRaw(amount, decimals));
 
 	return (
 		<div className="max-w-md mx-auto p-4">
@@ -210,7 +251,9 @@ export const SendForm: FC<SendFormProps> = ({
 					<div className="stat-title font-mono text-sm">
 						{truncateAddress(address)}
 					</div>
-					<div className="stat-desc">Balance: {balanceEth} ETH</div>
+					<div className="stat-desc">
+						Balance: {balanceFormatted} {token.symbol.toUpperCase()}
+					</div>
 				</div>
 			</div>
 
@@ -233,7 +276,9 @@ export const SendForm: FC<SendFormProps> = ({
 			{/* Amount */}
 			<div className="form-control mb-4">
 				<label className="label" htmlFor="send-amount">
-					<span className="label-text">Amount (ETH)</span>
+					<span className="label-text">
+						Amount ({token.symbol.toUpperCase()})
+					</span>
 				</label>
 				<input
 					id="send-amount"
@@ -246,39 +291,6 @@ export const SendForm: FC<SendFormProps> = ({
 					step="0.001"
 					min="0"
 				/>
-			</div>
-
-			{/* Network */}
-			<div className="mb-4">
-				<div className="label">
-					<span className="label-text">Network</span>
-				</div>
-				<div role="tablist" className="tabs tabs-boxed w-full">
-					<button
-						type="button"
-						role="tab"
-						className={`tab ${network === "ethereum" ? "tab-active" : ""}`}
-						onClick={() => {
-							setNetwork("ethereum");
-							setGasEstimate(null);
-						}}
-						aria-label="Ethereum network"
-					>
-						Ethereum
-					</button>
-					<button
-						type="button"
-						role="tab"
-						className={`tab ${network === "base" ? "tab-active" : ""}`}
-						onClick={() => {
-							setNetwork("base");
-							setGasEstimate(null);
-						}}
-						aria-label="Base network"
-					>
-						Base
-					</button>
-				</div>
 			</div>
 
 			{/* Gas Estimate */}
@@ -302,7 +314,9 @@ export const SendForm: FC<SendFormProps> = ({
 				<div className="mb-6">
 					<div className="flex justify-between items-center">
 						<span className="font-semibold">Total:</span>
-						<span className="text-xl font-bold">{totalCostEth} ETH</span>
+						<span className="text-xl font-bold">
+							{totalCostEth} {token.symbol.toUpperCase()}
+						</span>
 					</div>
 					{!hasEnoughBalance && (
 						<div className="text-error text-sm mt-1">Insufficient balance</div>

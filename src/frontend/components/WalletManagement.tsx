@@ -57,7 +57,7 @@ export const WalletManagement: FC = () => {
 					className="btn btn-primary"
 					onClick={() => setShowImport(!showImport)}
 				>
-					{showImport ? "Cancel" : "Import Mode"}
+					{showImport ? "Close" : "Import Mode"}
 				</button>
 			</div>
 

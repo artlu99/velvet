@@ -1,6 +1,11 @@
 import { format } from "d3-format";
 import type { FC } from "react";
 import { useBalanceQuery } from "~/hooks/queries/useBalanceQuery";
+import { useErc20BalanceQuery } from "~/hooks/queries/useErc20BalanceQuery";
+import { getTokenDecimals } from "~/lib/tokenUtils";
+import { rawToAmount } from "~/lib/transaction";
+import type { CoinGeckoToken } from "~/providers/tokenStore";
+import { useTokenStore } from "~/providers/tokenStore";
 
 interface WalletBalanceProps {
 	address: string;
@@ -68,14 +73,91 @@ const ChainBalance: FC<ChainBalanceProps> = ({ address, chainId, name }) => {
 	})();
 
 	return (
+		<>
+			<div
+				className="badge badge-sm max-w-full"
+				title={`${name}: ${data.balanceEth}`}
+			>
+				<span className="opacity-80 shrink-0">{name}</span>
+				<span className="mx-1 opacity-60 shrink-0">·</span>
+				<span className="font-mono tabular-nums truncate min-w-0">
+					{formattedBalanceEth}
+				</span>
+			</div>
+			<TokenBalances address={address} chainId={chainId} />
+		</>
+	);
+};
+
+interface TokenBalancesProps {
+	address: string;
+	chainId: 1 | 8453;
+}
+
+const TokenBalances: FC<TokenBalancesProps> = ({ address, chainId }) => {
+	const getTokensByChain = useTokenStore((state) => state.getTokensByChain);
+	const tokens = getTokensByChain(chainId);
+
+	return (
+		<>
+			{tokens.map((token) => {
+				const tokenAddress =
+					token.platforms[chainId === 1 ? "ethereum" : "base"];
+				if (!tokenAddress) return null; // Skip native tokens
+
+				return (
+					<TokenBalance
+						key={token.id}
+						address={address}
+						contract={tokenAddress}
+						chainId={chainId}
+						token={token}
+					/>
+				);
+			})}
+		</>
+	);
+};
+
+interface TokenBalanceProps {
+	address: string;
+	contract: string;
+	chainId: 1 | 8453;
+	token: CoinGeckoToken;
+}
+
+const TokenBalance: FC<TokenBalanceProps> = ({
+	address,
+	contract,
+	chainId,
+	token,
+}) => {
+	const { data: erc20Data } = useErc20BalanceQuery({
+		address,
+		contract,
+		chainId,
+	});
+
+	if (!erc20Data?.ok) {
+		return null;
+	}
+
+	const decimals = getTokenDecimals(token, chainId);
+	const formattedBalance = rawToAmount(erc20Data.balanceRaw, decimals);
+	const label =
+		chainId === 8453
+			? `Base ${token.symbol.toUpperCase()}`
+			: token.symbol.toUpperCase();
+
+	return (
 		<div
 			className="badge badge-sm max-w-full"
-			title={`${name}: ${data.balanceEth}`}
+			title={`${token.name}: ${formattedBalance}`}
 		>
-			<span className="opacity-80 shrink-0">{name}</span>
+			<span className="opacity-80 shrink-0">{label}</span>
 			<span className="mx-1 opacity-60 shrink-0">·</span>
 			<span className="font-mono tabular-nums truncate min-w-0">
-				{formattedBalanceEth}
+				{formattedBalance}
 			</span>
 		</div>
 	);

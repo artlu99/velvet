@@ -3,6 +3,8 @@ import type {
 	BalanceError,
 	BroadcastTransactionError,
 	BroadcastTransactionRequest,
+	Erc20BalanceError,
+	Erc20GasEstimateRequest,
 	GasEstimateError,
 	GasEstimateRequest,
 	TransactionCountError,
@@ -19,6 +21,7 @@ import {
 	isValidAddress,
 	parseChainId,
 } from "./lib/balance";
+import { estimateErc20Transfer, fetchErc20Balance } from "./lib/erc20";
 import {
 	broadcastTransaction,
 	estimateGas,
@@ -280,6 +283,118 @@ app
 			};
 			return c.json(err, 500);
 		}
+	})
+	.get("/balance/erc20/:address/:contract", async (c) => {
+		const address = c.req.param("address");
+		const contract = c.req.param("contract");
+		const chainIdParam = c.req.query("chainId");
+
+		// Validate inputs
+		if (!isValidAddress(address) || !isValidAddress(contract)) {
+			const error: Erc20BalanceError = {
+				ok: false,
+				error: "Invalid address",
+				code: "INVALID_ADDRESS",
+			};
+			return c.json(error, 400);
+		}
+
+		const chainId = parseChainId(chainIdParam);
+		if (chainId === null || !isSupportedChainId(chainId)) {
+			const error: Erc20BalanceError = {
+				ok: false,
+				error: "Invalid chain",
+				code: "INVALID_CHAIN",
+			};
+			return c.json(error, 400);
+		}
+
+		// Fetch ERC20 balance via RPC
+		const result = await fetchErc20Balance(address, contract, chainId);
+
+		if (!result.ok) {
+			return c.json(result, 502);
+		}
+
+		return c.json(result);
+	})
+	.post("/estimate-gas/erc20", async (c) => {
+		const body = await c.req.json<Erc20GasEstimateRequest>();
+
+		// Validate addresses
+		if (!isAddress(body.from)) {
+			const error: GasEstimateError = {
+				ok: false,
+				error: "Invalid from address format",
+				code: "INVALID_ADDRESS",
+			};
+			return c.json(error, 400);
+		}
+
+		if (!isAddress(body.to)) {
+			const error: GasEstimateError = {
+				ok: false,
+				error: "Invalid to address format",
+				code: "INVALID_ADDRESS",
+			};
+			return c.json(error, 400);
+		}
+
+		if (!isAddress(body.contract)) {
+			const error: GasEstimateError = {
+				ok: false,
+				error: "Invalid contract address format",
+				code: "INVALID_ADDRESS",
+			};
+			return c.json(error, 400);
+		}
+
+		// Validate chainId
+		if (!isSupportedChainId(body.chainId)) {
+			const error: GasEstimateError = {
+				ok: false,
+				error: "Invalid or unsupported chain ID",
+				code: "NETWORK_ERROR",
+			};
+			return c.json(error, 400);
+		}
+
+		// Validate amount
+		let amount: bigint;
+		try {
+			amount = BigInt(body.amount);
+		} catch {
+			const error: GasEstimateError = {
+				ok: false,
+				error: "Invalid amount format",
+				code: "NETWORK_ERROR",
+			};
+			return c.json(error, 400);
+		}
+
+		if (amount < 0) {
+			const error: GasEstimateError = {
+				ok: false,
+				error: "Amount must be non-negative",
+				code: "NETWORK_ERROR",
+			};
+			return c.json(error, 400);
+		}
+
+		// Estimate gas for ERC20 transfer
+		const result = await estimateErc20Transfer(
+			body.from,
+			body.to,
+			body.contract,
+			body.amount,
+			body.chainId,
+		);
+
+		if (!result.ok) {
+			return c.json(result, 500);
+		}
+
+		return c.json(result);
 	});
 
 export default app;

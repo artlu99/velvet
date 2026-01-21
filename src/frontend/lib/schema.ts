@@ -30,6 +30,9 @@ export type KeyType = typeof KeyType.Type;
 const Origin = union("imported", "derived", "watchOnly");
 export type Origin = typeof Origin.Type;
 
+const TokenBalanceId = id("TokenBalance");
+export type TokenBalanceId = typeof TokenBalanceId.Type;
+
 export const Schema = {
 	eoa: {
 		id: EoaId,
@@ -63,6 +66,13 @@ export const Schema = {
 		chainId: NonEmptyString100,
 		status: TxStatus,
 		confirmedAt: nullOr(DateIso),
+	},
+	tokenBalance: {
+		id: TokenBalanceId,
+		eoaId: EoaId,
+		tokenAddress: NonEmptyString1000,
+		chainId: ChainId,
+		balance: NonEmptyString1000,
 	},
 };
 
@@ -98,4 +108,13 @@ export type Statement = {
 	amount: FiniteNumber;
 	currency: NonEmptyString100;
 	timestamp: DateIso;
+};
+
+// TokenBalance insert type
+export type TokenBalanceInsert = {
+	eoaId: string;
+	tokenAddress: string;
+	chainId: string;
+	balance: string;
+	updatedAt: string;
 };

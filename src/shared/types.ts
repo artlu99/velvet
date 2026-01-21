@@ -139,3 +139,40 @@ export interface TransactionCountError {
 	readonly error: string;
 	readonly code: "INVALID_ADDRESS" | "INVALID_CHAIN" | "NETWORK_ERROR";
 }
+
+// ERC20 Balance types
+export interface Erc20BalanceRequest {
+	address: string;
+	contract: string;
+	chainId: SupportedChainId;
+}
+
+export interface Erc20BalanceSuccess {
+	ok: true;
+	address: string;
+	contract: string;
+	symbol: string;
+	decimals: number;
+	balanceRaw: string;
+	balanceFormatted: string;
+	timestamp: number;
+}
+
+export interface Erc20BalanceError {
+	ok: false;
+	error: string;
+	code: BalanceErrorCode;
+}
+
+export type Erc20BalanceResult = Erc20BalanceSuccess | Erc20BalanceError;
+
+// ERC20 Gas Estimation types
+export interface Erc20GasEstimateRequest {
+	from: string;
+	to: string;
+	contract: string;
+	amount: string; // Raw amount in smallest unit
+	chainId: SupportedChainId;
+}
+
+export type Erc20GasEstimateResult = GasEstimateSuccess | GasEstimateError;

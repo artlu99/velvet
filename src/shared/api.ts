@@ -1,4 +1,10 @@
-import type { AppName, BalanceResult, TransactionCountResult } from "./types";
+import type {
+	AppName,
+	BalanceResult,
+	Erc20BalanceResult,
+	Erc20GasEstimateResult,
+	TransactionCountResult,
+} from "./types";
 
 /**
  * API endpoint definitions.
@@ -28,6 +34,16 @@ export const apiEndpoints = {
 		path: "transaction-count/:address" as const,
 		method: "GET" as const,
 	},
+	/** GET /api/balance/erc20/:address/:contract?chainId={chainId} - Get ERC20 balance */
+	erc20Balance: {
+		path: "balance/erc20/:address/:contract" as const,
+		method: "GET" as const,
+	},
+	/** POST /api/estimate-gas/erc20 - Estimate ERC20 transfer gas */
+	erc20GasEstimate: {
+		path: "estimate-gas/erc20" as const,
+		method: "POST" as const,
+	},
 } as const;
 
 /** Response types for each endpoint */
@@ -35,6 +51,8 @@ export type ApiResponses = {
 	name: AppName;
 	balance: BalanceResult;
 	transactionCount: TransactionCountResult;
+	erc20Balance: Erc20BalanceResult;
+	erc20GasEstimate: Erc20GasEstimateResult;
 };
 
 /**
@@ -42,13 +60,21 @@ export type ApiResponses = {
  */
 export function buildUrl(
 	path: string,
-	params?: { address?: string; query?: Record<string, string> },
+	params?: {
+		address?: string;
+		contract?: string;
+		query?: Record<string, string>;
+	},
 ): string {
 	// Important: trailing slash so relative paths append under /api/
 	const url = new URL(path, `${window.location.origin}/api/`);
 
 	if (params?.address) {
 		url.pathname = url.pathname.replace(":address", params.address);
+	}
+
+	if (params?.contract) {
+		url.pathname = url.pathname.replace(":contract", params.contract);
 	}
 
 	if (params?.query) {

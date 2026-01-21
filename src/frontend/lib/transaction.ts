@@ -3,7 +3,50 @@
  * Handles ETH/wei conversions and gas calculations.
  */
 
-import { formatEther, parseEther } from "viem";
+import { encodeFunctionData, formatEther } from "viem";
+
+/**
+ * Convert human-readable amount to smallest unit (token-agnostic)
+ * @param amount - Human-readable amount (e.g., "100.5" USDC, "1.5" ETH)
+ * @param decimals - Number of decimals for the token (6 for USDC, 18 for ETH)
+ * @returns Raw amount in smallest unit as string
+ */
+export function amountToRaw(amount: string, decimals: number): string {
+	try {
+		const multiplier = BigInt(10 ** decimals);
+		const [whole, frac = ""] = amount.split(".");
+
+		// Pad or truncate fractional part to match decimals
+		const paddedFrac = frac.padEnd(decimals, "0").slice(0, decimals);
+
+		return (BigInt(whole) * multiplier + BigInt(paddedFrac || "0")).toString();
+	} catch {
+		throw new Error(`Invalid amount: ${amount}`);
+	}
+}
+
+/**
+ * Convert smallest unit to human-readable amount (token-agnostic)
+ * @param raw - Raw amount in smallest unit
+ * @param decimals - Number of decimals for the token
+ * @returns Human-readable amount (e.g., "100.5" USDC)
+ */
+export function rawToAmount(raw: string, decimals: number): string {
+	try {
+		const divisor = BigInt(10 ** decimals);
+		const value = BigInt(raw);
+
+		const whole = (value / divisor).toString();
+		const remainder = (value % divisor).toString().padStart(decimals, "0");
+
+		// Trim trailing zeros after decimal point
+		const trimmedRemainder = remainder.replace(/0+$/, "");
+
+		return trimmedRemainder ? `${whole}.${trimmedRemainder}` : whole;
+	} catch {
+		throw new Error(`Invalid raw amount: ${raw}`);
+	}
+}
 
 /**
  * Convert ETH to wei.
@@ -11,12 +54,7 @@ import { formatEther, parseEther } from "viem";
  * @returns Amount in wei as string
  */
 export function ethToWei(eth: string): string {
-	try {
-		const wei = parseEther(eth);
-		return wei.toString();
-	} catch {
-		throw new Error("Invalid ETH amount");
-	}
+	return amountToRaw(eth, 18);
 }
 
 /**
@@ -25,12 +63,7 @@ export function ethToWei(eth: string): string {
  * @returns Amount in ETH as string
  */
 export function weiToEth(wei: string): string {
-	try {
-		const eth = formatEther(BigInt(wei));
-		return eth;
-	} catch {
-		throw new Error("Invalid wei amount");
-	}
+	return rawToAmount(wei, 18);
 }
 
 /**
@@ -103,4 +136,31 @@ export function isValidAddress(address: string): boolean {
 export function truncateAddress(address: string): string {
 	if (address.length <= 10) return address;
 	return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+/**
+ * Encode ERC20 transfer function call data.
+ * @param to - Recipient address
+ * @param amount - Raw amount in smallest unit
+ * @returns Encoded function data
+ */
+const ERC20_TRANSFER_ABI = [
+	{
+		inputs: [
+			{ name: "to", type: "address" },
+			{ name: "amount", type: "uint256" },
+		],
+		name: "transfer",
+		outputs: [{ name: "", type: "bool" }],
+		stateMutability: "nonpayable",
+		type: "function",
+	},
+] as const;
+
+export function encodeErc20Transfer(to: string, amount: string): `0x${string}` {
+	return encodeFunctionData({
+		abi: ERC20_TRANSFER_ABI,
+		functionName: "transfer",
+		args: [to as `0x${string}`, BigInt(amount)],
+	});
 }
