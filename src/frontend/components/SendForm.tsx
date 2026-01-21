@@ -3,14 +3,16 @@ import type {
 	BroadcastTransactionResult,
 	GasEstimateResult,
 } from "@shared/types";
+import { useQueryClient } from "@tanstack/react-query";
 import { type FC, useState } from "react";
 import toast from "react-hot-toast";
 import { privateKeyToAccount } from "viem/accounts";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { useBroadcastTransactionMutation } from "~/hooks/mutations/useBroadcastTransactionMutation";
 import { useEstimateGasMutation } from "~/hooks/mutations/useEstimateGasMutation";
 import { useTransactionCountQuery } from "~/hooks/queries/useTransactionCountQuery";
 import { decryptPrivateKey } from "~/lib/crypto";
+import { refreshAddressQueries } from "~/lib/refreshQueries";
 import {
 	calculateTotalCost,
 	ethToWei,
@@ -22,21 +24,20 @@ import {
 import { useReceiveStore } from "~/providers/store";
 
 interface SendFormProps {
-	readonly walletId: string;
 	readonly address: string;
 	readonly balance: string; // wei
 	readonly encryptedPrivateKey: string;
 }
 
 export const SendForm: FC<SendFormProps> = ({
-	walletId: _walletId,
 	address,
 	balance,
 	encryptedPrivateKey,
 }) => {
 	const [, navigate] = useLocation();
 	const evolu = useEvolu();
-	const { network } = useReceiveStore();
+	const queryClient = useQueryClient();
+	const { network, setNetwork } = useReceiveStore();
 	const chainId = network === "ethereum" ? 1 : 8453;
 
 	const broadcastTransactionMutation = useBroadcastTransactionMutation();
@@ -154,6 +155,13 @@ export const SendForm: FC<SendFormProps> = ({
 					return;
 				}
 
+				// Refresh all address-related queries (balance, transaction-count) for sender + recipient
+				// Uses cacheBust=1 for balance queries to bypass KV cache
+				await Promise.all([
+					refreshAddressQueries(queryClient, address),
+					refreshAddressQueries(queryClient, recipient),
+				]);
+
 				// Save transaction to Evolu database
 				// Note: Skipped for now due to type issues
 				// Transaction will be tracked on blockchain
@@ -191,13 +199,6 @@ export const SendForm: FC<SendFormProps> = ({
 
 	return (
 		<div className="max-w-md mx-auto p-4">
-			<div className="mb-6">
-				<Link href="/wallets" className="btn btn-ghost btn-sm">
-					<i className="fa-solid fa-arrow-left mr-2" aria-hidden="true" />
-					Back to Wallets
-				</Link>
-			</div>
-
 			<h1 className="text-2xl font-bold mb-6">Send Crypto</h1>
 
 			{/* From */}
@@ -256,7 +257,10 @@ export const SendForm: FC<SendFormProps> = ({
 					<button
 						type="button"
 						className={`join-item btn ${network === "ethereum" ? "btn-active" : ""}`}
-						disabled
+						onClick={() => {
+							setNetwork("ethereum");
+							setGasEstimate(null);
+						}}
 						aria-label="Ethereum network"
 					>
 						Ethereum
@@ -264,7 +268,10 @@ export const SendForm: FC<SendFormProps> = ({
 					<button
 						type="button"
 						className={`join-item btn ${network === "base" ? "btn-active" : ""}`}
-						disabled
+						onClick={() => {
+							setNetwork("base");
+							setGasEstimate(null);
+						}}
 						aria-label="Base network"
 					>
 						Base

@@ -1,6 +1,6 @@
-import { fetcher } from "itty-fetcher";
 import type { GasEstimateRequest, GasEstimateResult } from "@shared/types";
 import { useMutation } from "@tanstack/react-query";
+import { fetcher } from "itty-fetcher";
 
 const api = fetcher({ base: `${window.location.origin}/api` });
 
@@ -17,4 +17,3 @@ export const useEstimateGasMutation = () => {
 		},
 	});
 };
-

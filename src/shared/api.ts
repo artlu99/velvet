@@ -14,18 +14,18 @@ import type { AppName, BalanceResult, TransactionCountResult } from "./types";
 export const apiEndpoints = {
 	/** GET /api/name - Get app name */
 	name: {
-		path: "/name" as const,
+		path: "name" as const,
 		method: "GET" as const,
 	},
 
 	/** GET /api/balance/:address?chainId={chainId} - Get ETH balance */
 	balance: {
-		path: "/balance/:address" as const,
+		path: "balance/:address" as const,
 		method: "GET" as const,
 	},
 	/** GET /api/transaction-count/:address?chainId={chainId} - Get nonce */
 	transactionCount: {
-		path: "/transaction-count/:address" as const,
+		path: "transaction-count/:address" as const,
 		method: "GET" as const,
 	},
 } as const;
@@ -44,7 +44,8 @@ export function buildUrl(
 	path: string,
 	params?: { address?: string; query?: Record<string, string> },
 ): string {
-	const url = new URL(path, `${window.location.origin}/api`);
+	// Important: trailing slash so relative paths append under /api/
+	const url = new URL(path, `${window.location.origin}/api/`);
 
 	if (params?.address) {
 		url.pathname = url.pathname.replace(":address", params.address);

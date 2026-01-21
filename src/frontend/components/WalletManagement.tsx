@@ -7,6 +7,7 @@ import { createAllEoasQuery } from "~/lib/queries/eoa";
 import type { EoaId } from "~/lib/schema";
 import { DeleteKeyConfirmation } from "./DeleteKeyConfirmation";
 import { ImportPrivateKey } from "./ImportPrivateKey";
+import { WalletBalance } from "./WalletBalance";
 
 export const WalletManagement: FC = () => {
 	const evolu = useEvolu();
@@ -50,13 +51,13 @@ export const WalletManagement: FC = () => {
 	return (
 		<div className="space-y-6">
 			<div className="flex items-center justify-between">
-				<h2 className="text-2xl font-bold">Your Wallet</h2>
+				<h2 className="text-2xl font-bold">Wallet</h2>
 				<button
 					type="button"
 					className="btn btn-primary"
 					onClick={() => setShowImport(!showImport)}
 				>
-					{showImport ? "Cancel" : "Import Private Key"}
+					{showImport ? "Cancel" : "Import Mode"}
 				</button>
 			</div>
 
@@ -164,6 +165,9 @@ export const WalletManagement: FC = () => {
 													</div>
 												)}
 											</div>
+											<div className="mt-2">
+												<WalletBalance address={row.address} />
+											</div>
 										</div>
 									</div>
 									<div className="flex gap-2">
@@ -186,7 +190,7 @@ export const WalletManagement: FC = () => {
 											</div>
 										) : (
 											<Link
-												href={`/send/${row.id}`}
+												href={`/send/${row.address}`}
 												className="btn btn-secondary btn-sm"
 												aria-label="Send funds"
 											>
@@ -197,7 +201,7 @@ export const WalletManagement: FC = () => {
 											</Link>
 										)}
 										<Link
-											href={`/receive/${row.id}`}
+											href={`/receive/${row.address}`}
 											className="btn btn-primary btn-sm"
 											aria-label="Receive funds"
 										>

@@ -88,6 +88,41 @@ describe("GET /api/balance/:address", () => {
 		}
 	});
 
+	test("supports cacheBust=1 to bypass KV cache reads", async () => {
+		const envWithCache = {
+			...mockEnv,
+			BALANCE_CACHE: {
+				get: async () => ({
+					ok: true,
+					address: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+					chainId: 1,
+					balanceWei: "123",
+					balanceEth: "0.000000000000000123",
+					timestamp: 1,
+				}),
+				put: async () => undefined,
+			},
+		};
+
+		// Without cacheBust we should hit the cache and see the hit header.
+		const resHit = await app.request(
+			"/api/balance/0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045?chainId=1",
+			{},
+			envWithCache,
+		);
+		expect(resHit.status).toBe(200);
+		expect(resHit.headers.get("x-balance-cache")).toBe("hit");
+
+		// With cacheBust we bypass cache reads. This will then attempt a live fetch,
+		// which (in tests) may fail; we only assert that the cache header shows bypass.
+		const resBypass = await app.request(
+			"/api/balance/0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045?chainId=1&cacheBust=1",
+			{},
+			envWithCache,
+		);
+		expect(resBypass.headers.get("x-balance-cache")).toBe("bypass");
+	});
+
 	// Integration test - requires real API key
 	// Run with: ETHERSCAN_API_KEY=xxx bun test
 	test("fetches real balance with valid API key", async () => {

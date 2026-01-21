@@ -9,19 +9,25 @@ interface UseBalanceQueryOptions {
 	address: string;
 	chainId: SupportedChainId;
 	enabled?: boolean;
+	cacheBust?: boolean;
 }
 
 export const useBalanceQuery = ({
 	address,
 	chainId,
 	enabled = true,
+	cacheBust = false,
 }: UseBalanceQueryOptions) => {
 	return useQuery({
-		queryKey: ["balance", address, chainId],
+		queryKey: ["balance", address, chainId, cacheBust],
 		queryFn: async () => {
+			const query: Record<string, string> = { chainId: String(chainId) };
+			if (cacheBust) {
+				query.cacheBust = "1";
+			}
 			const url = buildUrl(apiEndpoints.balance.path, {
 				address,
-				query: { chainId: String(chainId) },
+				query,
 			});
 			return api.get<ApiResponses["balance"]>(url);
 		},

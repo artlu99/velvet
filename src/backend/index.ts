@@ -28,7 +28,7 @@ import {
 
 const app = new Hono<{ Bindings: Cloudflare.Env }>().basePath("/api");
 
-const BALANCE_CACHE_TTL_SECONDS = 60 * 5;
+const BALANCE_CACHE_TTL_SECONDS = 60 * 5; // 5 minutes
 
 app
 	.use(cors())
@@ -42,6 +42,8 @@ app
 	.get("/balance/:address", async (c) => {
 		const address = c.req.param("address");
 		const chainIdParam = c.req.query("chainId");
+		const cacheBust = c.req.query("cacheBust");
+		const bypassCache = cacheBust !== undefined;
 
 		// Validate address
 		if (!isValidAddress(address)) {
@@ -68,9 +70,15 @@ app
 		const normalizedAddress = address.toLowerCase();
 		const cacheKey = `balance:${chainId}:${normalizedAddress}`;
 
-		const cached = await c.env.BALANCE_CACHE.get(cacheKey, "json");
-		if (cached) {
-			return c.json(cached);
+		if (!bypassCache) {
+			const cached = await c.env.BALANCE_CACHE.get(cacheKey, "json");
+			if (cached) {
+				c.header("x-balance-cache", "hit");
+				return c.json(cached);
+			}
+			c.header("x-balance-cache", "miss");
+		} else {
+			c.header("x-balance-cache", "bypass");
 		}
 
 		// Fetch balance
@@ -86,9 +94,11 @@ app
 			return c.json(result, status);
 		}
 
-		await c.env.BALANCE_CACHE.put(cacheKey, JSON.stringify(result), {
-			expirationTtl: BALANCE_CACHE_TTL_SECONDS,
-		});
+		if (!bypassCache) {
+			await c.env.BALANCE_CACHE.put(cacheKey, JSON.stringify(result), {
+				expirationTtl: BALANCE_CACHE_TTL_SECONDS,
+			});
+		}
 
 		return c.json(result);
 	})

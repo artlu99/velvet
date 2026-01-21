@@ -100,7 +100,7 @@ export const WalletList: FC = () => {
 
 								<div className="flex gap-2">
 									<Link
-										href={`/receive/${row.id}`}
+										href={`/receive/${row.address}`}
 										className="btn btn-primary btn-sm"
 										aria-label="Receive funds"
 									>
@@ -111,7 +111,7 @@ export const WalletList: FC = () => {
 									</Link>
 									{row.origin !== "watchOnly" && (
 										<Link
-											href={`/send/${row.id}`}
+											href={`/send/${row.address}`}
 											className="btn btn-primary btn-sm"
 											aria-label="Send funds"
 										>

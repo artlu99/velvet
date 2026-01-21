@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 export type Network = "ethereum" | "base";
-export const DEFAULT_NETWORK: Network = "ethereum";
+export const DEFAULT_NETWORK: Network = "base";
 
 interface ReceiveState {
 	/** Currently selected network for receiving */

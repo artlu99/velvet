@@ -26,4 +26,3 @@ export const useTransactionCountQuery = ({
 		staleTime: 0,
 	});
 };
-

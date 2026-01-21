@@ -7,7 +7,7 @@ import { useReceiveStore } from "~/providers/store";
 
 export const Receive = () => {
 	const evolu = useEvolu();
-	const { walletId } = useParams<{ walletId?: string }>();
+	const { address } = useParams<{ address?: string }>();
 	const { network, setNetwork } = useReceiveStore();
 
 	// Get all wallets for selection dropdown
@@ -15,9 +15,9 @@ export const Receive = () => {
 	const allWallets = useQuery(allEoasQuery);
 
 	// Determine which wallet to display
-	// Priority: 1) walletId from URL  2) selected wallet  3) first wallet
-	let selectedWallet = walletId
-		? allWallets.find((w) => w.id === walletId)
+	// Priority: 1) address from URL  2) selected wallet  3) first wallet
+	let selectedWallet = address
+		? allWallets.find((w) => w.address.toLowerCase() === address.toLowerCase())
 		: null;
 
 	if (!selectedWallet) {
@@ -90,7 +90,7 @@ export const Receive = () => {
 							{allWallets.map((wallet) => (
 								<li key={wallet.id}>
 									<Link
-										href={`/receive/${wallet.id}`}
+										href={`/receive/${wallet.address}`}
 										className="font-mono text-sm"
 									>
 										{wallet.address.slice(0, 6)}...

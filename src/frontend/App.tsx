@@ -28,9 +28,9 @@ function App() {
 							<Route path="/" component={Landing} />
 							<Route path="/account" component={OwnerActions} />
 							<Route path="/receive" component={Receive} />
-							<Route path="/receive/:walletId" component={Receive} />
+							<Route path="/receive/:address" component={Receive} />
 							<Route path="/send" component={Send} />
-							<Route path="/send/:walletId" component={Send} />
+							<Route path="/send/:address" component={Send} />
 							<Route
 								path="/transaction/:txHash"
 								component={TransactionStatus}

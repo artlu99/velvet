@@ -8,7 +8,7 @@ import { useReceiveStore } from "~/providers/store";
 
 export const Send = () => {
 	const evolu = useEvolu();
-	const { walletId } = useParams<{ walletId?: string }>();
+	const { address } = useParams<{ address?: string }>();
 	const { network } = useReceiveStore();
 
 	// Get all wallets
@@ -16,8 +16,8 @@ export const Send = () => {
 	const allWallets = useQuery(allEoasQuery);
 
 	// Determine which wallet to use
-	const selectedWallet = walletId
-		? allWallets.find((w) => w.id === walletId)
+	const selectedWallet = address
+		? allWallets.find((w) => w.address.toLowerCase() === address.toLowerCase())
 		: (allWallets.find((w) => w.isSelected === 1) ?? allWallets[0]);
 
 	const chainId = network === "ethereum" ? 1 : 8453;
@@ -61,7 +61,7 @@ export const Send = () => {
 	return (
 		<div className="max-w-md mx-auto p-4">
 			<div className="mb-6">
-				<Link href="/wallets" className="btn btn-ghost btn-sm">
+				<Link href="/" className="btn btn-ghost btn-sm">
 					<i className="fa-solid fa-arrow-left mr-2" aria-hidden="true" />
 					Back to Wallets
 				</Link>
@@ -95,7 +95,6 @@ export const Send = () => {
 			) : (
 				encryptedPrivateKey && (
 					<SendForm
-						walletId={selectedWallet.id}
 						address={selectedWallet.address}
 						balance={balance}
 						encryptedPrivateKey={encryptedPrivateKey}

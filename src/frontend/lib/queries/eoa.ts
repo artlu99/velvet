@@ -46,3 +46,17 @@ export const createEoaByIdQuery = (evolu: Evolu, id: EoaId) =>
 			.where("id", "=", id)
 			.limit(1),
 	);
+
+/**
+ * Query for getting a specific wallet by address.
+ * Address is treated as unique (enforced by duplicate check on insert).
+ */
+export const createEoaByAddressQuery = (evolu: Evolu, address: string) =>
+	evolu.createQuery((db) =>
+		db
+			.selectFrom("eoa")
+			.selectAll()
+			.where("isDeleted", "is", null)
+			.where("address", "=", address)
+			.limit(1),
+	);
