@@ -73,6 +73,7 @@ src/
 - `any` types or unchecked type assertions (`as Type`)
 - Class syntax for state/data structures
 - JavaScript `true`/`false` for Evolu booleans - use `sqliteTrue`/`sqliteFalse`
+- JavaScript equality (`===`/`!==`) for EVM address comparisons - use `isAddressEqual` from `viem`
 
 ## Commands
 ```bash

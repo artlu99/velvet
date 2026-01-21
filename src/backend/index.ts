@@ -167,7 +167,18 @@ app
 		}
 
 		// Validate value
-		const value = BigInt(body.value);
+		let value: bigint;
+		try {
+			value = BigInt(body.value);
+		} catch {
+			const error: GasEstimateError = {
+				ok: false,
+				error: "Invalid value format",
+				code: "NETWORK_ERROR",
+			};
+			return c.json(error, 400);
+		}
+
 		if (value < 0) {
 			const error: GasEstimateError = {
 				ok: false,

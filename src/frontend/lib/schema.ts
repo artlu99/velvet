@@ -27,7 +27,7 @@ export type TxStatus = typeof TxStatus.Type;
 const KeyType = union("evm", "tron", "btc", "solana");
 export type KeyType = typeof KeyType.Type;
 
-const Origin = union("imported", "derived");
+const Origin = union("imported", "derived", "watchOnly");
 export type Origin = typeof Origin.Type;
 
 export const Schema = {
@@ -73,7 +73,7 @@ export type EoaInsert = {
 	isSelected: 0 | 1 | null;
 	unencryptedPrivateKey: string | null;
 	keyType: "evm" | "tron" | "btc" | "solana" | null;
-	origin: "imported" | "derived" | null;
+	origin: "imported" | "derived" | "watchOnly" | null;
 };
 
 // Transaction insert type

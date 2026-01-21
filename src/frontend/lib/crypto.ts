@@ -48,6 +48,55 @@ export function validateAndDeriveAddress(
 }
 
 /**
+ * Result type for unified import input validation
+ */
+export type ImportInputResult =
+	| { ok: true; type: "privateKey"; address: Address; privateKey: string }
+	| { ok: true; type: "address"; address: Address; privateKey: null }
+	| { ok: false; error: string };
+
+/**
+ * Validates import input and auto-detects whether it's a private key or address
+ * @param input - The input string to validate (private key or address)
+ * @returns Object with success status, type, address, and optional private key
+ */
+export function validateImportInput(input: string): ImportInputResult {
+	const trimmed = input.trim();
+
+	// Try private key first (66 chars: 0x + 64 hex)
+	const keyResult = v.safeParse(EvmPrivateKeySchema, trimmed);
+	if (keyResult.success) {
+		const derivationResult = validateAndDeriveAddress(keyResult.output);
+		if (!derivationResult.ok) {
+			return { ok: false, error: derivationResult.error };
+		}
+		return {
+			ok: true,
+			type: "privateKey",
+			address: derivationResult.address,
+			privateKey: keyResult.output,
+		};
+	}
+
+	// Try address (42 chars: 0x + 40 hex)
+	const addressResult = v.safeParse(EvmAddressSchema, trimmed);
+	if (addressResult.success) {
+		return {
+			ok: true,
+			type: "address",
+			address: addressResult.output,
+			privateKey: null,
+		};
+	}
+
+	return {
+		ok: false,
+		error:
+			"Invalid input. Enter a private key (0x + 64 hex chars) or an address (0x + 40 hex chars).",
+	};
+}
+
+/**
  * Securely wipes sensitive data from memory
  * Note: Only works for mutable data like Uint8Array, not strings
  */

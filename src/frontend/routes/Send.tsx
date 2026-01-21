@@ -44,17 +44,56 @@ export const Send = () => {
 	}
 
 	invariant(selectedWallet.address, "Wallet address is required");
-	invariant(selectedWallet.unencryptedPrivateKey, "Private key is required");
 
 	const balance =
 		balanceData?.ok && balanceData.balanceWei ? balanceData.balanceWei : "0";
+	const privateKey = selectedWallet.unencryptedPrivateKey;
+	const isWatchOnly = !privateKey;
 
 	return (
-		<SendForm
-			walletId={selectedWallet.id}
-			address={selectedWallet.address}
-			balance={balance}
-			privateKey={selectedWallet.unencryptedPrivateKey}
-		/>
+		<div className="max-w-md mx-auto p-4">
+			<div className="mb-6">
+				<Link href="/wallets" className="btn btn-ghost btn-sm">
+					<i className="fa-solid fa-arrow-left mr-2" aria-hidden="true" />
+					Back to Wallets
+				</Link>
+			</div>
+
+			{isWatchOnly ? (
+				<div className="alert alert-info">
+					<i className="fa-solid fa-eye shrink-0 text-2xl" aria-hidden="true" />
+					<div>
+						<h3 className="font-bold text-lg">Watch-Only Wallet</h3>
+						<div className="text-sm mt-2">
+							This wallet can <strong>monitor balances</strong> and{" "}
+							<strong>receive funds</strong>, but cannot send transactions
+							because the private key is not stored.
+						</div>
+						<div className="text-sm mt-2">
+							To send transactions, import the wallet with its private key.
+						</div>
+						<div className="mt-4">
+							<div className="stat bg-base-200 rounded-lg">
+								<div className="stat-title font-mono text-sm">
+									{selectedWallet.address.slice(0, 6)}
+									...
+									{selectedWallet.address.slice(-4)}
+								</div>
+								<div className="stat-desc">Balance: {balance} wei</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			) : (
+				privateKey && (
+					<SendForm
+						walletId={selectedWallet.id}
+						address={selectedWallet.address}
+						balance={balance}
+						privateKey={privateKey}
+					/>
+				)
+			)}
+		</div>
 	);
 };

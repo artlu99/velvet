@@ -2,14 +2,14 @@ import { sqliteFalse } from "@evolu/common";
 import { useEvolu } from "@evolu/react";
 import { type FC, useState } from "react";
 import toast from "react-hot-toast";
-import * as v from "valibot";
-import { EvmPrivateKeySchema, validateAndDeriveAddress } from "~/lib/crypto";
+import { isAddressEqual } from "viem";
+import { validateImportInput } from "~/lib/crypto";
 import { createEoaDuplicateCheckQuery } from "~/lib/queries/eoa";
 import type { EoaInsert } from "~/lib/schema";
 
 export const ImportPrivateKey: FC = () => {
 	const evolu = useEvolu();
-	const [privateKey, setPrivateKey] = useState("");
+	const [importInput, setImportInput] = useState("");
 	const [showKey, setShowKey] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -18,31 +18,36 @@ export const ImportPrivateKey: FC = () => {
 		setError(null);
 		setIsLoading(true);
 
-		// Validate format
-		const keyResult = v.safeParse(EvmPrivateKeySchema, privateKey.trim());
-		if (!keyResult.success) {
-			setError(
-				"Invalid private key format. Must be 0x followed by 64 hex characters.",
+		// Validate input (auto-detects private key vs address)
+		const validationResult = validateImportInput(importInput);
+		if (!validationResult.ok) {
+			setError(validationResult.error);
+			setIsLoading(false);
+			return;
+		}
+
+		const {
+			type,
+			address,
+			privateKey: unencryptedPrivateKey,
+		} = validationResult;
+		const isWatchOnly = type === "address";
+
+		// Show warning for watch-only addresses
+		if (isWatchOnly) {
+			toast(
+				"Watch-only address: You can receive funds but cannot send transactions.",
+				{
+					icon: "👁️",
+					duration: 5000,
+				},
 			);
-			setIsLoading(false);
-			return;
 		}
-
-		// Derive address and verify
-		const derivationResult = validateAndDeriveAddress(keyResult.output);
-		if (!derivationResult.ok) {
-			setError(derivationResult.error);
-			setIsLoading(false);
-			return;
-		}
-
-		const { address } = derivationResult;
-		const unencryptedPrivateKey = keyResult.output;
 
 		const duplicateCheckQuery = createEoaDuplicateCheckQuery(
 			evolu,
 			address,
-			unencryptedPrivateKey,
+			unencryptedPrivateKey ?? "",
 		);
 
 		const duplicateRows = await evolu.loadQuery(duplicateCheckQuery);
@@ -50,11 +55,15 @@ export const ImportPrivateKey: FC = () => {
 		// Check results and provide specific error messages
 		if (duplicateRows.length > 0) {
 			const hasAddressMatch = duplicateRows.some(
-				(row) => row.address === address,
+				(row) =>
+					typeof row.address === "string" &&
+					isAddressEqual(`0x${row.address.replace("0x", "")}`, address),
 			);
-			const hasKeyMatch = duplicateRows.some(
-				(row) => row.unencryptedPrivateKey === unencryptedPrivateKey,
-			);
+			const hasKeyMatch =
+				unencryptedPrivateKey &&
+				duplicateRows.some(
+					(row) => row.unencryptedPrivateKey === unencryptedPrivateKey,
+				);
 
 			if (hasKeyMatch) {
 				setError("This private key is already in your wallet.");
@@ -72,7 +81,7 @@ export const ImportPrivateKey: FC = () => {
 			address,
 			unencryptedPrivateKey,
 			keyType: "evm",
-			origin: "imported",
+			origin: isWatchOnly ? "watchOnly" : "imported",
 			isSelected: sqliteFalse,
 		};
 
@@ -88,15 +97,19 @@ export const ImportPrivateKey: FC = () => {
 		}
 
 		// Clear sensitive data
-		setPrivateKey("");
+		setImportInput("");
 		setIsLoading(false);
-		toast.success("Private key imported successfully!");
+		toast.success(
+			isWatchOnly
+				? "Watch-only address imported successfully!"
+				: "Private key imported successfully!",
+		);
 	};
 
 	return (
 		<div className="card card-compact bg-base-200 shadow-xl">
 			<div className="card-body">
-				<h2 className="card-title">Import Private Key</h2>
+				<h2 className="card-title">Import Private Key or Address</h2>
 
 				<div role="alert" className="alert alert-warning">
 					<i className="fa-solid fa-triangle-exclamation shrink-0" />
@@ -111,14 +124,14 @@ export const ImportPrivateKey: FC = () => {
 				</div>
 
 				<fieldset className="fieldset">
-					<legend className="fieldset-legend">EVM Private Key</legend>
+					<legend className="fieldset-legend">Private Key or Address</legend>
 					<div className="join w-full">
 						<input
 							type={showKey ? "text" : "password"}
 							placeholder="0x..."
 							className={`input join-item grow font-mono text-sm ${error ? "input-error" : ""}`}
-							value={privateKey}
-							onChange={(e) => setPrivateKey(e.target.value)}
+							value={importInput}
+							onChange={(e) => setImportInput(e.target.value)}
 							maxLength={66}
 							autoComplete="off"
 							disabled={isLoading}
@@ -128,7 +141,7 @@ export const ImportPrivateKey: FC = () => {
 							className="btn btn-soft join-item btn-square"
 							onClick={() => setShowKey(!showKey)}
 							disabled={isLoading}
-							aria-label={showKey ? "Hide private key" : "Show private key"}
+							aria-label={showKey ? "Hide" : "Show"}
 						>
 							<i
 								className={`fa-solid ${showKey ? "fa-eye-slash" : "fa-eye"}`}
@@ -143,7 +156,7 @@ export const ImportPrivateKey: FC = () => {
 						type="button"
 						className={`btn btn-primary ${isLoading ? "loading" : ""}`}
 						onClick={handleImport}
-						disabled={!privateKey || isLoading}
+						disabled={!importInput || isLoading}
 					>
 						{!isLoading && "Import Key"}
 					</button>

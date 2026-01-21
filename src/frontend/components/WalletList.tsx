@@ -109,16 +109,18 @@ export const WalletList: FC = () => {
 											aria-hidden="true"
 										/>
 									</Link>
-									<Link
-										href={`/send/${row.id}`}
-										className="btn btn-primary btn-sm"
-										aria-label="Send funds"
-									>
-										<i
-											className="fa-solid fa-paper-plane h-4 w-4"
-											aria-hidden="true"
-										/>
-									</Link>
+									{row.unencryptedPrivateKey && (
+										<Link
+											href={`/send/${row.id}`}
+											className="btn btn-primary btn-sm"
+											aria-label="Send funds"
+										>
+											<i
+												className="fa-solid fa-paper-plane h-4 w-4"
+												aria-hidden="true"
+											/>
+										</Link>
+									)}
 								</div>
 							</div>
 						</div>

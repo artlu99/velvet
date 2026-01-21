@@ -77,7 +77,8 @@ export const WalletManagement: FC = () => {
 							<div className="card-body">
 								<div className="flex items-start justify-between gap-3">
 									<div className="flex items-start gap-3">
-										{row.origin === "imported" && (
+										{(row.origin === "imported" ||
+											row.origin === "watchOnly") && (
 											<button
 												type="button"
 												className="btn btn-ghost btn-xs btn-circle text-base-content/60"
@@ -97,6 +98,13 @@ export const WalletManagement: FC = () => {
 										)}
 										<div>
 											<div className="flex items-center gap-2">
+												{row.origin === "watchOnly" && (
+													<i
+														className="fa-solid fa-eye text-info text-xs"
+														title="Watch-only wallet"
+														aria-hidden="true"
+													/>
+												)}
 												<h3 className="font-mono text-sm">
 													{row.address.slice(0, 6)}...
 													{row.address.slice(-4)}
@@ -137,8 +145,17 @@ export const WalletManagement: FC = () => {
 											</div>
 											<div className="mt-1 flex gap-1">
 												{row.origin && (
-													<div className="badge badge-sm badge-neutral">
-														{row.origin === "imported" ? "Imported" : "Derived"}
+													<div
+														className={`badge badge-sm ${row.origin === "watchOnly" ? "badge-info" : "badge-neutral"}`}
+													>
+														{row.origin === "watchOnly" && (
+															<>
+																<i className="fa-solid fa-eye mr-1" />
+																Watch Only
+															</>
+														)}
+														{row.origin === "imported" && "Imported"}
+														{row.origin === "derived" && "Derived"}
 													</div>
 												)}
 												{row.keyType && (
@@ -150,16 +167,35 @@ export const WalletManagement: FC = () => {
 										</div>
 									</div>
 									<div className="flex gap-2">
-										<Link
-											href={`/send/${row.id}`}
-											className="btn btn-secondary btn-sm"
-											aria-label="Send funds"
-										>
-											<i
-												className="fa-solid fa-paper-plane h-4 w-4"
-												aria-hidden="true"
-											/>
-										</Link>
+										{!row.unencryptedPrivateKey ? (
+											<div
+												className="tooltip tooltip-bottom"
+												data-tip="Watch-only wallets cannot send transactions"
+											>
+												<button
+													type="button"
+													className="btn btn-secondary btn-sm btn-disabled"
+													disabled
+													aria-label="Send funds (watch-only wallet)"
+												>
+													<i
+														className="fa-solid fa-paper-plane h-4 w-4"
+														aria-hidden="true"
+													/>
+												</button>
+											</div>
+										) : (
+											<Link
+												href={`/send/${row.id}`}
+												className="btn btn-secondary btn-sm"
+												aria-label="Send funds"
+											>
+												<i
+													className="fa-solid fa-paper-plane h-4 w-4"
+													aria-hidden="true"
+												/>
+											</Link>
+										)}
 										<Link
 											href={`/receive/${row.id}`}
 											className="btn btn-primary btn-sm"
