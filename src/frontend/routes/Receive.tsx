@@ -50,13 +50,6 @@ export const Receive = () => {
 
 	return (
 		<div className="max-w-md mx-auto p-4">
-			<div className="mb-6">
-				<Link href="/" className="btn btn-ghost btn-sm">
-					<i className="fa-solid fa-arrow-left mr-2" aria-hidden="true" />
-					Back to Wallets
-				</Link>
-			</div>
-
 			<h1 className="text-2xl font-bold mb-6">Receive Crypto</h1>
 
 			{/* Wallet Selection */}

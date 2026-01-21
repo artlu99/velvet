@@ -46,12 +46,31 @@ export const OwnerActions: FC = () => {
 	};
 
 	return (
-		<article className="prose dark:prose-invert">
-			<div className="card card-compact">
-				<div className="mt-8 rounded-lg bg-white p-6 shadow-sm ring-1 ring-gray-200">
-					<h2 className="mb-4 text-lg font-medium text-gray-900">Account</h2>
+		<div className="container mx-auto px-4 py-8 max-w-4xl space-y-12">
+			{/* Hero Section */}
+			<div className="text-center">
+				<div className="mb-6">
+					<div className="mb-4">
+						<i className="fa-solid fa-user-circle text-6xl text-primary opacity-80" />
+					</div>
+					<h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+						Account Settings
+					</h1>
+					<p className="text-lg opacity-80 max-w-2xl mx-auto">
+						Manage account, backup your data, and sync across your devices
+					</p>
+				</div>
+			</div>
+
+			{/* Account Card */}
+			<div className="card bg-base-100 shadow-xl">
+				<div className="card-body">
+					<h2 className="card-title mb-4">
+						<i className="fa-solid fa-user text-xl mr-2" />
+						Account Profile
+					</h2>
 					{appOwner && (
-						<div className="mb-4 flex items-center justify-between gap-3">
+						<div className="mb-6">
 							<OwnerProfile
 								{...{
 									ownerId: appOwner.id,
@@ -60,68 +79,97 @@ export const OwnerActions: FC = () => {
 							/>
 						</div>
 					)}
-					<p className="mb-4 text-sm text-gray-600">
-						Private keys are stored unencrypted in local SQLite. During sync,
-						data is encrypted in transport using your mnemonic.
-					</p>
 
-					<div className="space-y-3">
+					<div className="alert alert-info mb-6">
+						<i className="fa-solid fa-info-circle" />
+						<div>
+							<p className="text-sm">
+								Private keys are stored unencrypted in local SQLite. During
+								sync, data is encrypted in transport using your mnemonic.
+							</p>
+						</div>
+					</div>
+
+					<div className="space-y-4">
 						<button
 							type="button"
 							className="btn btn-outline w-full"
 							onClick={() => {
 								setShowMnemonic(!showMnemonic);
 							}}
-						>{`${showMnemonic ? "Hide" : "Show"} Mnemonic`}</button>
+						>
+							<i
+								className={`fa-solid ${showMnemonic ? "fa-eye-slash" : "fa-eye"} mr-2`}
+							/>
+							{showMnemonic ? "Hide" : "Show"} Mnemonic
+						</button>
 
 						{showMnemonic && appOwner.mnemonic && (
-							<div className="bg-gray-50 p-3">
-								<label
-									htmlFor="mnemonic"
-									className="mb-2 block text-xs font-medium text-gray-700"
-								>
-									Your Mnemonic (keep this safe!)
-								</label>
-								<textarea
-									value={appOwner.mnemonic}
-									readOnly
-									rows={3}
-									className="w-full border-b border-gray-300 bg-white px-2 py-1 font-mono text-xs focus:border-blue-500 focus:outline-none"
-								/>
+							<div className="card bg-base-200">
+								<div className="card-body">
+									<label htmlFor="mnemonic" className="label">
+										<span className="label-text font-semibold">
+											<i className="fa-solid fa-key mr-2" />
+											Your Mnemonic (keep this safe!)
+										</span>
+									</label>
+									<textarea
+										id="mnemonic"
+										value={appOwner.mnemonic}
+										readOnly
+										rows={3}
+										className="textarea textarea-bordered font-mono text-sm bg-base-100"
+									/>
+									<div className="label">
+										<span className="label-text-alt text-warning">
+											<i className="fa-solid fa-exclamation-triangle mr-1" />
+											Never share this mnemonic with anyone
+										</span>
+									</div>
+								</div>
 							</div>
 						)}
 
-						<div className="flex gap-2">
+						<div className="divider">Actions</div>
+
+						<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 							<button
 								type="button"
 								className="btn btn-outline"
 								onClick={handleRestoreAppOwnerClick}
 							>
-								Restore from Mnemonic
+								<i className="fa-solid fa-rotate-left mr-2" />
+								Restore
 							</button>
 							<button
 								type="button"
 								className="btn btn-outline"
 								onClick={handleDownloadDatabaseClick}
 							>
+								<i className="fa-solid fa-download mr-2" />
 								Download Backup
 							</button>
 							<button
 								type="button"
-								className="btn btn-outline"
+								className="btn btn-outline btn-error"
 								onClick={handleResetAppOwnerClick}
 							>
-								Reset All Data
+								<i className="fa-solid fa-trash mr-2" />
+								Reset All
 							</button>
 						</div>
 					</div>
 				</div>
 			</div>
 
-			<img
-				src="/the-velvet-underground-now-playing-silver-vinyl-cover-art.webp"
-				alt="Underground Velvet Wallet"
-			/>
-		</article>
+			{/* Image Section */}
+			<div className="flex justify-center mt-12">
+				<img
+					src="/the-velvet-underground-now-playing-silver-vinyl-cover-art.webp"
+					alt="Underground Velvet Wallet"
+					className="rounded-lg shadow-xl max-w-full h-auto"
+				/>
+			</div>
+		</div>
 	);
 };

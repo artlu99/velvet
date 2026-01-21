@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import { Link, useSearch } from "wouter";
+import { useSearch } from "wouter";
 
 interface TransactionStatusProps {
 	readonly params: { txHash: string };
@@ -49,9 +49,6 @@ export const TransactionStatus: FC<TransactionStatusProps> = ({ params }) => {
 						/>
 						View on {explorerName}
 					</a>
-					<Link href="/" className="btn btn-primary w-full">
-						Back to Wallets
-					</Link>
 				</div>
 
 				<div className="mt-6 text-sm opacity-70">

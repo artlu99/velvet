@@ -51,7 +51,7 @@ export const WalletManagement: FC = () => {
 	return (
 		<div className="space-y-6">
 			<div className="flex items-center justify-between">
-				<h2 className="text-2xl font-bold">Wallet</h2>
+				<h2 className="text-2xl font-bold">Accounts</h2>
 				<button
 					type="button"
 					className="btn btn-primary"

@@ -60,13 +60,6 @@ export const Send = () => {
 
 	return (
 		<div className="max-w-md mx-auto p-4">
-			<div className="mb-6">
-				<Link href="/" className="btn btn-ghost btn-sm">
-					<i className="fa-solid fa-arrow-left mr-2" aria-hidden="true" />
-					Back to Wallets
-				</Link>
-			</div>
-
 			{isWatchOnly ? (
 				<div className="alert alert-info">
 					<i className="fa-solid fa-eye shrink-0 text-2xl" aria-hidden="true" />

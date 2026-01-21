@@ -4,40 +4,44 @@
 
 # WHAT YOU CAN DO
 
-## [Difficulty: 2] create new addresses
-- Generate mnemonic phrase (BIP39)
-- Derive hierarchical deterministic keys (BIP32/BIP44)
-- Support EVM chains (eth/Base): same private key, different chain IDs
-- Support Tron: different address format (base58check)
+## create new addresses
+- [ ] Generate mnemonic phrase (BIP39)
+- [ ] Derive hierarchical deterministic keys (BIP32/BIP44)
+- [x] Support EVM chains (eth/Base): same private key, different chain IDs
+- [x] Import private keys (imported wallets)
+- [x] Watch-only addresses
+- [ ] Support Tron: different address format (base58check)
 
-## [Difficulty: 2] view ETH balances on mainnet+Base
-- RPC calls to multiple networks (Infura/Alchemy/public RPCs)
-- Batch balance queries for efficiency
-- Handle RPC failures and fallbacks
+## view ETH balances on mainnet+Base
+- [x] RPC calls to multiple networks (Etherscan API)
+- [x] Balance queries for Ethereum and Base
+- [x] Handle RPC failures and fallbacks
+- [x] Display balances in UI
 
-## [Difficulty: 3] send/hold/receive (QR code) ETH on mainnet, Base
-- Generate QR codes for receiving addresses
-- Scan QR codes from camera/gallery
-- Sign transactions with private keys
-- Estimate gas fees
-- Broadcast transactions to network
-- Track transaction status
+## send/hold/receive (QR code) ETH on mainnet, Base
+- [x] Generate QR codes for receiving addresses
+- [ ] Scan QR codes from camera/gallery
+- [x] Sign transactions with private keys
+- [x] Estimate gas fees
+- [x] Broadcast transactions to network
+- [x] Track transaction status
 
-## [Difficulty: 3] send/hold/receive (QR code) USDC on Base
-- ERC20 token interactions (approve, transfer)
-- Handle 6 decimals for USDC
-- Manage token allowances for spending
+## send/hold/receive (QR code) USDC on Base
+- [ ] ERC20 token interactions (approve, transfer)
+- [ ] Handle 6 decimals for USDC
+- [ ] Manage token allowances for spending
 
-## [Difficulty: 3] send/hold/receive (QR code) USDT on Tron
-- TRC20 token standard
-- TronGrid RPC integration
-- Different address format (T-addresses)
-- Bandwidth/energy fee model
+## send/hold/receive (QR code) USDT on Tron
+- [ ] TRC20 token standard
+- [ ] TronGrid RPC integration
+- [ ] Different address format (T-addresses)
+- [ ] Bandwidth/energy fee model
 
-## [Difficulty: 2] view balances for all of the above
-- Aggregate balances across chains
-- Convert to USD display value
-- Refresh on demand or background polling
+## view balances for all of the above
+- [x] View ETH balances on Ethereum and Base
+- [ ] Aggregate balances across chains
+- [ ] Convert to USD display value
+- [x] Refresh on demand
 
 # TODO
 
@@ -95,4 +99,4 @@
 - Blacklist/whitelist management
 
 # WONTFIX
-- send btc over Lightning
+- [ ] send btc over Lightning

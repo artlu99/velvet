@@ -249,14 +249,15 @@ export const SendForm: FC<SendFormProps> = ({
 			</div>
 
 			{/* Network */}
-			<div className="form-control mb-4">
+			<div className="mb-4">
 				<div className="label">
 					<span className="label-text">Network</span>
 				</div>
-				<div className="join w-full">
+				<div role="tablist" className="tabs tabs-boxed w-full">
 					<button
 						type="button"
-						className={`join-item btn ${network === "ethereum" ? "btn-active" : ""}`}
+						role="tab"
+						className={`tab ${network === "ethereum" ? "tab-active" : ""}`}
 						onClick={() => {
 							setNetwork("ethereum");
 							setGasEstimate(null);
@@ -267,7 +268,8 @@ export const SendForm: FC<SendFormProps> = ({
 					</button>
 					<button
 						type="button"
-						className={`join-item btn ${network === "base" ? "btn-active" : ""}`}
+						role="tab"
+						className={`tab ${network === "base" ? "tab-active" : ""}`}
 						onClick={() => {
 							setNetwork("base");
 							setGasEstimate(null);

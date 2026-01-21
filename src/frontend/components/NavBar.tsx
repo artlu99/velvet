@@ -1,3 +1,4 @@
+import { Link } from "wouter";
 import { useNameQuery } from "~/hooks/queries/useNameQuery";
 
 export const NavBar = () => {
@@ -17,16 +18,32 @@ export const NavBar = () => {
 			);
 		}
 
-		return <div className="flex items-center gap-2">{data?.name}</div>;
+		return (
+			<div className="flex items-center gap-2">
+				<Link
+					href="/"
+					className="btn btn-ghost btn-lg font-bold tracking-tight"
+					style={{ color: "#D362B4" }}
+				>
+					{data?.name}
+				</Link>
+			</div>
+		);
 	};
 
 	return (
 		<div className="navbar">
 			<div className="navbar-start">{renderStart()}</div>
 			<div className="navbar-end">
-				<button type="button" className="btn btn-ghost">
-					<i className="fa-solid fa-bars" />
-				</button>
+				<a
+					href="https://github.com/artlu99/velvet"
+					target="_blank"
+					rel="noopener noreferrer"
+					className="btn btn-ghost"
+					aria-label="GitHub"
+				>
+					<i className="fa-brands fa-github" />
+				</a>
 			</div>
 		</div>
 	);

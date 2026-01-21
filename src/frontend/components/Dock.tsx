@@ -8,8 +8,8 @@ export const Dock = () => {
 		<div className="dock dock-sm flex items-center justify-center scale-120">
 			<button type="button" className={isActive("/") ? "dock-active" : ""}>
 				<Link to="/">
-					<i className="fa-solid fa-house text-lg" />
-					<div className="dock-label">Home</div>
+					<i className="fa-solid fa-wallet text-lg" />
+					<div className="dock-label">Wallet</div>
 				</Link>
 			</button>
 			<button
