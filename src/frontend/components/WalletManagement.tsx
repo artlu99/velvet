@@ -6,6 +6,7 @@ import { Link } from "wouter";
 import { createAllEoasQuery } from "~/lib/queries/eoa";
 import type { EoaId } from "~/lib/schema";
 import { DeleteKeyConfirmation } from "./DeleteKeyConfirmation";
+import { DeriveWallet } from "./DeriveWallet";
 import { EnsOrAddress } from "./EnsOrAddress";
 import { ImportPrivateKey } from "./ImportPrivateKey";
 import { WalletBalance } from "./WalletBalance";
@@ -13,9 +14,12 @@ import { WalletBalance } from "./WalletBalance";
 export const WalletManagement: FC = () => {
 	const evolu = useEvolu();
 	const [showImport, setShowImport] = useState(false);
+	const [showDerive, setShowDerive] = useState(false);
 	const [deleteTarget, setDeleteTarget] = useState<{
 		id: EoaId;
 		address: string;
+		mode: "delete" | "hide";
+		derivationIndex: number | null;
 	} | null>(null);
 	const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
 
@@ -46,22 +50,42 @@ export const WalletManagement: FC = () => {
 		});
 
 		setDeleteTarget(null);
-		toast.success("Private key deleted");
+		toast.success(
+			deleteTarget.mode === "hide" ? "Wallet hidden" : "Private key deleted",
+		);
 	};
 
 	return (
 		<div className="space-y-6">
-			<div className="flex items-center justify-between">
+			<div className="flex items-center justify-between gap-4">
 				<h2 className="text-2xl font-bold">Accounts</h2>
-				<button
-					type="button"
-					className="btn btn-primary"
-					onClick={() => setShowImport(!showImport)}
-				>
-					{showImport ? "Close" : "Import Mode"}
-				</button>
+				<div className="join">
+					<button
+						type="button"
+						className={`btn join-item ${showDerive ? "btn-active" : "btn-accent"}`}
+						onClick={() => {
+							setShowDerive(!showDerive);
+							setShowImport(false);
+						}}
+					>
+						<i className="fa-solid fa-key mr-2" />
+						Derive
+					</button>
+					<button
+						type="button"
+						className={`btn join-item ${showImport ? "btn-active" : "btn-primary"}`}
+						onClick={() => {
+							setShowImport(!showImport);
+							setShowDerive(false);
+						}}
+					>
+						Import
+						<i className="fa-solid fa-download ml-2" />
+					</button>
+				</div>
 			</div>
 
+			{showDerive && <DeriveWallet />}
 			{showImport && <ImportPrivateKey />}
 
 			{rows.length === 0 ? (
@@ -82,6 +106,26 @@ export const WalletManagement: FC = () => {
 							<div className="card-body p-3 sm:p-4 overflow-hidden">
 								<div className="flex flex-col sm:flex-row items-start justify-between gap-3 min-w-0">
 									<div className="flex items-start gap-3 min-w-0 flex-1">
+										{row.origin === "derived" && (
+											<button
+												type="button"
+												className="btn btn-ghost btn-xs btn-circle text-base-content/60"
+												aria-label="Hide wallet"
+												onClick={() =>
+													setDeleteTarget({
+														id: row.id,
+														address: row.address,
+														mode: "hide",
+														derivationIndex: row.derivationIndex,
+													})
+												}
+											>
+												<i
+													className="fa-solid fa-eye-slash h-4 w-4"
+													aria-hidden="true"
+												/>
+											</button>
+										)}
 										{(row.origin === "imported" ||
 											row.origin === "watchOnly") && (
 											<button
@@ -92,6 +136,8 @@ export const WalletManagement: FC = () => {
 													setDeleteTarget({
 														id: row.id,
 														address: row.address,
+														mode: "delete",
+														derivationIndex: null,
 													})
 												}
 											>
@@ -158,7 +204,8 @@ export const WalletManagement: FC = () => {
 															</>
 														)}
 														{row.origin === "imported" && "Imported"}
-														{row.origin === "derived" && "Derived"}
+														{row.origin === "derived" &&
+															`Derived: ${row.derivationIndex ?? "?"}`}
 													</div>
 												)}
 												{row.keyType && (
@@ -229,6 +276,8 @@ export const WalletManagement: FC = () => {
 			{deleteTarget && (
 				<DeleteKeyConfirmation
 					address={deleteTarget.address}
+					mode={deleteTarget.mode}
+					derivationIndex={deleteTarget.derivationIndex}
 					onConfirm={handleDelete}
 					onCancel={() => setDeleteTarget(null)}
 				/>

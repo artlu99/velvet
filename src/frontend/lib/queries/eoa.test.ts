@@ -13,9 +13,11 @@ describe("EOA query factories", () => {
 		const [sql, params] = parseCompiledQuery(q);
 
 		expect(sql).toBe(
-			'select * from "eoa" where "isDeleted" is null order by "createdAt" desc',
+			'select * from "eoa" where "isDeleted" is not ? order by "createdAt" desc',
 		);
-		expect(params).toEqual([]);
+		// sqliteTrue (1) is encoded as a parameter
+		expect(params.length).toBe(1);
+		expect(params[0]).toContain(1);
 	});
 
 	test("createEoaDuplicateCheckQuery compiles expected SQL + params", () => {
@@ -25,13 +27,14 @@ describe("EOA query factories", () => {
 		const [sql, params] = parseCompiledQuery(q);
 
 		expect(sql).toBe(
-			'select "address", "origin" from "eoa" where "isDeleted" is null and "address" = ?',
+			'select "address", "origin" from "eoa" where "isDeleted" is not ? and "address" = ?',
 		);
 
 		// Evolu encodes params as tuples; we assert the parameter values.
-		expect(params).toEqual([
-			["j", address],
-		]);
+		// First param is sqliteTrue (1), second is address
+		expect(params.length).toBe(2);
+		expect(params[0]).toContain(1); // sqliteTrue
+		expect(params[1]).toContain(address);
 	});
 });
 

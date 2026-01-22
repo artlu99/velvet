@@ -7,7 +7,7 @@ export const createAllEoasQuery = (evolu: Evolu) =>
 		db
 			.selectFrom("eoa")
 			.selectAll()
-			.where("isDeleted", "is", null)
+			.where("isDeleted", "is not", sqliteTrue)
 			.orderBy("createdAt", "desc"),
 	);
 
@@ -16,7 +16,7 @@ export const createEoaDuplicateCheckQuery = (evolu: Evolu, address: string) =>
 		db
 			.selectFrom("eoa")
 			.select(["address", "origin"])
-			.where("isDeleted", "is", null)
+			.where("isDeleted", "is not", sqliteTrue)
 			.where("address", "=", address),
 	);
 
@@ -29,7 +29,7 @@ export const createSelectedEoaQuery = (evolu: Evolu) =>
 		db
 			.selectFrom("eoa")
 			.selectAll()
-			.where("isDeleted", "is", null)
+			.where("isDeleted", "is not", sqliteTrue)
 			.where("isSelected", "is", sqliteTrue)
 			.limit(1),
 	);
@@ -42,7 +42,7 @@ export const createEoaByIdQuery = (evolu: Evolu, id: EoaId) =>
 		db
 			.selectFrom("eoa")
 			.selectAll()
-			.where("isDeleted", "is", null)
+			.where("isDeleted", "is not", sqliteTrue)
 			.where("id", "=", id)
 			.limit(1),
 	);
@@ -56,7 +56,16 @@ export const createEoaByAddressQuery = (evolu: Evolu, address: string) =>
 		db
 			.selectFrom("eoa")
 			.selectAll()
-			.where("isDeleted", "is", null)
+			.where("isDeleted", "is not", sqliteTrue)
 			.where("address", "=", address)
 			.limit(1),
+	);
+
+/**
+ * Query for getting a wallet by address without filtering by isDeleted.
+ * Used for update-or-insert operations to find existing records even if deleted.
+ */
+export const createEoaByAddressAnyQuery = (evolu: Evolu, address: string) =>
+	evolu.createQuery((db) =>
+		db.selectFrom("eoa").selectAll().where("address", "=", address).limit(1),
 	);

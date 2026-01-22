@@ -1,4 +1,5 @@
 import type { Evolu } from "@evolu/common";
+import { sqliteTrue } from "@evolu/common";
 import type { EoaId } from "../schema";
 
 /**
@@ -12,5 +13,5 @@ export const createTokenBalancesQuery = (evolu: Evolu, eoaId: EoaId) =>
 			.selectFrom("tokenBalance")
 			.selectAll()
 			.where("tokenBalance.eoaId", "=", eoaId)
-			.where("tokenBalance.isDeleted", "is", null),
+			.where("tokenBalance.isDeleted", "is not", sqliteTrue),
 	);

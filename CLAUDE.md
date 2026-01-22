@@ -61,6 +61,12 @@ Use **itty-fetcher** (not `fetch()`) for type-safe API calls in React Query hook
 - Never use `true`/`false` - TypeScript won't catch this at runtime
 - Schema fields: `fieldName: nullOr(SqliteBoolean)`
 
+**Soft Deletes with `isDeleted`**: Evolu automatically adds `isDeleted` system column to all tables
+- To delete: `update("table", { id, isDeleted: sqliteTrue })`
+- To filter active records: Use `.where("isDeleted", "is not", sqliteTrue)` **NOT** `.where("isDeleted", "is", null)`
+- Per Evolu docs: https://www.evolu.dev/docs/local-first - use `is not sqliteTrue` pattern
+- This correctly handles cases where `isDeleted` might be `0`, `null`, or `1`
+
 **Data stored unencrypted at rest**, only encrypted during transport (sync to relays)
 
 ## Patterns
@@ -81,14 +87,15 @@ Use **itty-fetcher** (not `fetch()`) for type-safe API calls in React Query hook
 - `any` types or unchecked type assertions (`as Type`)
 - Class syntax for state/data structures
 - JavaScript `true`/`false` for Evolu booleans - use `sqliteTrue`/`sqliteFalse`
+- `.where("isDeleted", "is", null)` - use `.where("isDeleted", "is not", sqliteTrue)` instead
 - JavaScript equality (`===`/`!==`) for EVM address comparisons - use `isAddressEqual` from `viem`
 - call `fetch()` directly - use `itty-fetcher` via React Query hooks for type-safe API calls
 
 ## Commands
 ```bash
-bun dev              # localhost:5173
-bunx tsc -b --noEmit    # type check
-bun biome check --write .  # Lint and format
+bun dev        # localhost:5173
+bun type-check # type check
+bun lint       # Lint and format
 ```
 
 ## Key Files

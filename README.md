@@ -7,7 +7,11 @@ FOSS, modular, and self-hostable at *de minimis* cost.
 # WHAT YOU CAN DO
 
 ## create new addresses
-- [ ] Derive hierarchical deterministic keys (BIP32/BIP44) from mnemonic
+- [x] Derive hierarchical deterministic keys (BIP32/BIP44) from mnemonic
+  - Path: `m/44'/60'/0'/0/{index}` (BIP44 standard for Ethereum)
+  - Supports deriving wallets at any index (0, 1, 2, ...)
+  - Idempotent: re-deriving the same index updates existing wallet
+  - Can restore previously deleted wallets by re-deriving
 - [x] Support EVM chains (eth/Base): same private key, different chain IDs
 - [x] Import private keys (imported wallets) from anywhere, including the FOSS [Poor Richard's Wallet](https://github.com/artlu99/poor-richards-wallet)
 - [x] Watch-only addresses

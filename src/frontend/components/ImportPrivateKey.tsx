@@ -69,6 +69,7 @@ export const ImportPrivateKey: FC = () => {
 			keyType: "evm",
 			origin: isWatchOnly ? "watchOnly" : "imported",
 			isSelected: sqliteFalse,
+			derivationIndex: null,
 		};
 
 		// Insert after duplicate check

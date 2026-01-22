@@ -33,6 +33,9 @@ export type Origin = typeof Origin.Type;
 const TokenBalanceId = id("TokenBalance");
 export type TokenBalanceId = typeof TokenBalanceId.Type;
 
+const DerivationCounterId = id("DerivationCounter");
+export type DerivationCounterId = typeof DerivationCounterId.Type;
+
 export const Schema = {
 	eoa: {
 		id: EoaId,
@@ -41,6 +44,7 @@ export const Schema = {
 		encryptedPrivateKey: nullOr(NonEmptyString1000),
 		keyType: nullOr(KeyType),
 		origin: nullOr(Origin),
+		derivationIndex: nullOr(FiniteNumber),
 	},
 	chain: {
 		id: ChainId,
@@ -74,6 +78,11 @@ export const Schema = {
 		chainId: ChainId,
 		balance: NonEmptyString1000,
 	},
+	derivationCounter: {
+		id: DerivationCounterId,
+		keyType: KeyType,
+		nextIndex: FiniteNumber,
+	},
 };
 
 // Derive insert types from Schema (exclude auto-generated fields like id)
@@ -84,6 +93,7 @@ export type EoaInsert = {
 	encryptedPrivateKey: string | null;
 	keyType: "evm" | "tron" | "btc" | "solana" | null;
 	origin: "imported" | "derived" | "watchOnly" | null;
+	derivationIndex: number | null;
 };
 
 // Transaction insert type
@@ -117,4 +127,10 @@ export type TokenBalanceInsert = {
 	chainId: string;
 	balance: string;
 	updatedAt: string;
+};
+
+// DerivationCounter insert type
+export type DerivationCounterInsert = {
+	keyType: "evm" | "tron" | "btc" | "solana";
+	nextIndex: number;
 };

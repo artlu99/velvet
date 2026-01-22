@@ -1,4 +1,5 @@
 import type { Evolu } from "@evolu/common";
+import { sqliteTrue } from "@evolu/common";
 import type { EoaId, TransactionId } from "../schema";
 
 /**
@@ -13,7 +14,7 @@ export const createTransactionsByWalletQuery = (
 			.selectFrom("transaction")
 			.selectAll()
 			.where("walletId", "=", walletId)
-			.where("isDeleted", "is", null)
+			.where("isDeleted", "is not", sqliteTrue)
 			.orderBy("createdAt", "desc"),
 	);
 
@@ -29,7 +30,7 @@ export const createTransactionByIdQuery = (
 			.selectFrom("transaction")
 			.selectAll()
 			.where("id", "=", transactionId)
-			.where("isDeleted", "is", null)
+			.where("isDeleted", "is not", sqliteTrue)
 			.limit(1),
 	);
 
@@ -42,6 +43,6 @@ export const createPendingTransactionsQuery = (evolu: Evolu) =>
 			.selectFrom("transaction")
 			.selectAll()
 			.where("status", "=", "pending")
-			.where("isDeleted", "is", null)
+			.where("isDeleted", "is not", sqliteTrue)
 			.orderBy("createdAt", "asc"),
 	);
