@@ -10,11 +10,12 @@ import toast from "react-hot-toast";
 import { isAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { useLocation } from "wouter";
+import { QRScannerModal } from "~/components/QRScannerModal";
 import { useBroadcastTransactionMutation } from "~/hooks/mutations/useBroadcastTransactionMutation";
 import { useEstimateErc20GasMutation } from "~/hooks/mutations/useEstimateErc20GasMutation";
 import { useEstimateGasMutation } from "~/hooks/mutations/useEstimateGasMutation";
 import { useTransactionCountQuery } from "~/hooks/queries/useTransactionCountQuery";
-import { decryptPrivateKey } from "~/lib/crypto";
+import { decryptPrivateKey, validateQRScannedData } from "~/lib/crypto";
 import { refreshAddressQueries } from "~/lib/refreshQueries";
 import {
 	getTokenAddress,
@@ -74,6 +75,23 @@ export const SendForm: FC<SendFormProps> = ({
 	);
 	const [isEstimating, setIsEstimating] = useState(false);
 	const [isSending, setIsSending] = useState(false);
+	const [showQRScanner, setShowQRScanner] = useState(false);
+
+	// Handle QR scan success
+	const handleQRScanSuccess = (scannedData: string) => {
+		const result = validateQRScannedData(scannedData);
+		if (!result.ok) {
+			toast.error(result.error);
+			return;
+		}
+
+		setRecipient(result.data);
+		if (result.type === "evm") {
+			toast.success("Address scanned successfully!");
+		} else if (result.type === "ens") {
+			toast.success("ENS name scanned!");
+		}
+	};
 
 	// Estimate gas when recipient or amount changes
 	const estimateGas = async () => {
@@ -262,15 +280,26 @@ export const SendForm: FC<SendFormProps> = ({
 				<label className="label" htmlFor="send-recipient">
 					<span className="label-text">Recipient Address</span>
 				</label>
-				<input
-					id="send-recipient"
-					type="text"
-					className="input input-bordered font-mono"
-					placeholder="0x..."
-					value={recipient}
-					onChange={(e) => setRecipient(e.target.value)}
-					disabled={isSending}
-				/>
+				<div className="join w-full">
+					<input
+						id="send-recipient"
+						type="text"
+						className="input input-bordered join-item grow font-mono"
+						placeholder="0x... or scan QR"
+						value={recipient}
+						onChange={(e) => setRecipient(e.target.value)}
+						disabled={isSending}
+					/>
+					<button
+						type="button"
+						className="btn btn-primary join-item btn-square"
+						onClick={() => setShowQRScanner(true)}
+						disabled={isSending}
+						title="Scan QR code"
+					>
+						<i className="fa-solid fa-qrcode" />
+					</button>
+				</div>
 			</div>
 
 			{/* Amount */}
@@ -364,6 +393,13 @@ export const SendForm: FC<SendFormProps> = ({
 					</>
 				)}
 			</div>
+
+			{/* QR Scanner Modal */}
+			<QRScannerModal
+				isOpen={showQRScanner}
+				onClose={() => setShowQRScanner(false)}
+				onScanSuccess={handleQRScanSuccess}
+			/>
 		</div>
 	);
 };

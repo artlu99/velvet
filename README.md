@@ -7,10 +7,9 @@ FOSS, modular, and self-hostable at *de minimis* cost.
 # WHAT YOU CAN DO
 
 ## create new addresses
-- [ ] Generate mnemonic phrase (BIP39)
-- [ ] Derive hierarchical deterministic keys (BIP32/BIP44)
+- [ ] Derive hierarchical deterministic keys (BIP32/BIP44) from mnemonic
 - [x] Support EVM chains (eth/Base): same private key, different chain IDs
-- [x] Import private keys (imported wallets) from anywhere, including the FOSS (Poor Richard's Wallet)[https://github.com/artlu99/poor-richards-wallet]
+- [x] Import private keys (imported wallets) from anywhere, including the FOSS [Poor Richard's Wallet](https://github.com/artlu99/poor-richards-wallet)
 - [x] Watch-only addresses
 - [ ] Support Tron: different address format (base58check)
 
@@ -22,16 +21,15 @@ FOSS, modular, and self-hostable at *de minimis* cost.
 
 ## send/hold/receive (QR code) ETH on mainnet, Base
 - [x] Generate QR codes for receiving addresses
-- [ ] Scan QR codes from camera/gallery
+- [x] Scan QR codes from camera
 - [x] Sign transactions with private keys
 - [x] Estimate gas fees
 - [x] Broadcast transactions to network
 - [x] Track transaction status
 
 ## send/hold/receive (QR code) USDC on Base
-- [ ] ERC20 token interactions (approve, transfer)
-- [ ] Handle 6 decimals for USDC
-- [ ] Manage token allowances for spending
+- [x] ERC20 token transfer
+- [x] Handle 6 decimals for USDC
 
 ## send/hold/receive (QR code) USDT on Tron
 - [ ] TRC20 token standard
@@ -49,12 +47,14 @@ FOSS, modular, and self-hostable at *de minimis* cost.
 
 ## [Difficulty: 3] swap ETH 👉👈 stables
 - Direct DEX routing (Uniswap V2/V3, Curve)
+- Permit2 signature handling (not legacy approve())
 - Slippage tolerance settings
 - Price impact estimation
 - Maximum spendable amount calculation
 
 ## [Difficulty: 2] swap via Matcha/0x
 - Integrate 0x API for swap quotes
+- Permit2 signature handling (not legacy approve())
 - Handle API rate limits
 - Parse and execute swap transactions
 - Fallback to direct DEX if API fails
@@ -92,6 +92,7 @@ FOSS, modular, and self-hostable at *de minimis* cost.
 
 ## [Difficulty: 5] swap ETH for subset of ERC20s, with safety checks
 - Token contract verification
+- Permit2 signature handling (not legacy approve())
 - isClanker integration (honeypot detection)
 - Degen bot checker integrations (Token Sniffer, De.Fi, etc.)
 - Liquidity depth checks

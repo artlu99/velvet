@@ -207,3 +207,43 @@ export function decryptPrivateKey(
 		};
 	}
 }
+
+/**
+ * Result type for QR-scanned data validation
+ */
+export type QRScannedDataResult =
+	| { ok: true; type: "evm" | "ens"; data: string }
+	| { ok: false; error: string };
+
+/**
+ * Validates data from QR code scan.
+ * Supports EVM addresses and ENS names.
+ * @param data - The scanned data string
+ * @returns Object with success status, type, and data
+ */
+export function validateQRScannedData(data: string): QRScannedDataResult {
+	const trimmed = data.trim();
+
+	// Check if it's an EVM address
+	if (isAddress(trimmed as Address)) {
+		return {
+			ok: true,
+			type: "evm",
+			data: trimmed,
+		};
+	}
+
+	// Check if it's an ENS name (basic check: ends with .eth and reasonable length)
+	if (trimmed.endsWith(".eth") && trimmed.length > 4 && trimmed.length < 50) {
+		return {
+			ok: true,
+			type: "ens",
+			data: trimmed,
+		};
+	}
+
+	return {
+		ok: false,
+		error: "Invalid QR code format. Please scan a wallet address or ENS name.",
+	};
+}
