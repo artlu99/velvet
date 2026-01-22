@@ -1,6 +1,6 @@
 import type { BalanceResult, SupportedChainId } from "@shared/types";
 import { sleep } from "radash";
-import { formatEther, isAddress } from "viem";
+import { formatEther } from "viem";
 
 // Etherscan API V2 - unified endpoint for all chains
 const ETHERSCAN_API_V2_URL = "https://api.etherscan.io/v2/api";
@@ -27,10 +27,6 @@ async function rateLimitedFetch(url: string): Promise<Response> {
 
 	lastCallTime = Date.now();
 	return fetch(url);
-}
-
-export function isValidAddress(address: string): boolean {
-	return isAddress(address);
 }
 
 export function isSupportedChainId(

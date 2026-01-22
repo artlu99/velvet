@@ -6,6 +6,7 @@ import { Link } from "wouter";
 import { createAllEoasQuery } from "~/lib/queries/eoa";
 import type { EoaId } from "~/lib/schema";
 import { DeleteKeyConfirmation } from "./DeleteKeyConfirmation";
+import { EnsOrAddress } from "./EnsOrAddress";
 import { ImportPrivateKey } from "./ImportPrivateKey";
 import { WalletBalance } from "./WalletBalance";
 
@@ -106,9 +107,8 @@ export const WalletManagement: FC = () => {
 														aria-hidden="true"
 													/>
 												)}
-												<h3 className="font-mono text-sm">
-													{row.address.slice(0, 6)}...
-													{row.address.slice(-4)}
+												<h3 className="text-sm">
+													<EnsOrAddress address={row.address} />
 												</h3>
 												<button
 													type="button"
@@ -129,8 +129,7 @@ export const WalletManagement: FC = () => {
 														/>
 													)}
 												</button>
-												{/** biome-ignore lint/a11y/useAnchorContent: aria label is used */}
-												<a
+												<Link
 													href={`https://etherscan.io/address/${row.address}`}
 													target="_blank"
 													rel="noopener noreferrer"
@@ -142,7 +141,7 @@ export const WalletManagement: FC = () => {
 														className="fa-solid fa-external-link h-4 w-4"
 														aria-hidden="true"
 													/>
-												</a>
+												</Link>
 											</div>
 											<div className="mt-1 flex gap-1">
 												{row.origin && (

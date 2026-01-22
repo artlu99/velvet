@@ -20,15 +20,17 @@ const CHAINS: Array<{ id: 1 | 8453; name: string; nativeAsset: string }> = [
 
 export const WalletBalance: FC<WalletBalanceProps> = ({ address }) => {
 	return (
-		<div className="flex gap-2 flex-wrap">
-			{CHAINS.map((chain) => (
-				<ChainBalance
-					key={chain.id}
-					address={address}
-					chainId={chain.id}
-					name={chain.nativeAsset}
-				/>
-			))}
+		<div className="flex gap-2 flex-col">
+			<div className="flex gap-2 flex-wrap">
+				{CHAINS.map((chain) => (
+					<ChainBalance
+						key={chain.id}
+						address={address}
+						chainId={chain.id}
+						name={chain.nativeAsset}
+					/>
+				))}
+			</div>
 		</div>
 	);
 };

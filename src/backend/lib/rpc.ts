@@ -7,7 +7,7 @@ import { createPublicClient, http } from "viem";
 import { base, mainnet } from "viem/chains";
 
 // Cloudflare EVM RPC endpoints
-const ETHEREUM_RPC_URL = "https://cloudflare-eth.com";
+const ETHEREUM_RPC_URL = "https://eth.merkle.io";
 const BASE_RPC_URL = "https://mainnet.base.org";
 
 /**

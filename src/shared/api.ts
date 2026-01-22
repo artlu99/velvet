@@ -1,6 +1,7 @@
 import type {
 	AppName,
 	BalanceResult,
+	EnsNameResult,
 	Erc20BalanceResult,
 	Erc20GasEstimateResult,
 	TransactionCountResult,
@@ -39,6 +40,11 @@ export const apiEndpoints = {
 		path: "balance/erc20/:address/:contract" as const,
 		method: "GET" as const,
 	},
+	/** GET /api/ens/:address - Get ENS name for address */
+	ensName: {
+		path: "ens/:address" as const,
+		method: "GET" as const,
+	},
 	/** POST /api/estimate-gas/erc20 - Estimate ERC20 transfer gas */
 	erc20GasEstimate: {
 		path: "estimate-gas/erc20" as const,
@@ -52,6 +58,7 @@ export type ApiResponses = {
 	balance: BalanceResult;
 	transactionCount: TransactionCountResult;
 	erc20Balance: Erc20BalanceResult;
+	ensName: EnsNameResult;
 	erc20GasEstimate: Erc20GasEstimateResult;
 };
 

@@ -7,6 +7,7 @@ import type {
 import { useQueryClient } from "@tanstack/react-query";
 import { type FC, useState } from "react";
 import toast from "react-hot-toast";
+import { isAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { useLocation } from "wouter";
 import { useBroadcastTransactionMutation } from "~/hooks/mutations/useBroadcastTransactionMutation";
@@ -26,7 +27,6 @@ import {
 	encodeErc20Transfer,
 	ethToWei,
 	formatGwei,
-	isValidAddress,
 	rawToAmount,
 	truncateAddress,
 	weiToEth,
@@ -79,7 +79,7 @@ export const SendForm: FC<SendFormProps> = ({
 	const estimateGas = async () => {
 		if (!recipient || !amount) return;
 
-		if (!isValidAddress(recipient)) {
+		if (!isAddress(recipient)) {
 			toast.error("Invalid recipient address");
 			return;
 		}

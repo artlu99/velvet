@@ -7,7 +7,6 @@ import {
 	ethToWei,
 	formatGwei,
 	formatWeiForDisplay,
-	isValidAddress,
 	rawToAmount,
 	truncateAddress,
 	weiToEth,
@@ -107,43 +106,6 @@ describe("transaction utilities", () => {
 			// Gas: 100000 * 100000000000 = 10000000000000000
 			// Total: 10010000000000000000
 			expect(result).toBe("10010000000000000000");
-		});
-	});
-
-	describe("isValidAddress", () => {
-		test("returns true for valid checksummed address", () => {
-			const result = isValidAddress("0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb9");
-			expect(result).toBe(true);
-		});
-
-		test("returns true for valid lowercase address", () => {
-			const result = isValidAddress("0x742d35cc6634c0532925a3b844bc9e7595f0beb9");
-			expect(result).toBe(true);
-		});
-
-		test("returns true for valid uppercase address", () => {
-			const result = isValidAddress("0x742D35CC6634C0532925A3B844BC9E7595F0BEB9");
-			expect(result).toBe(true);
-		});
-
-		test("returns false for address without 0x prefix", () => {
-			const result = isValidAddress("742d35cc6634c0532925a3b844bc9e7595f0bebd");
-			expect(result).toBe(false);
-		});
-
-		test("returns false for too short address", () => {
-			const result = isValidAddress("0x1234");
-			expect(result).toBe(false);
-		});
-
-		test("returns false for too long address", () => {
-			const result = isValidAddress("0x742d35cc6634c0532925a3b844bc9e7595f0bebdeadbeef");
-			expect(result).toBe(false);
-		});
-
-		test("returns false for address with invalid characters", () => {
-			const result = isValidAddress("0xGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
-			expect(result).toBe(false);
 		});
 	});
 

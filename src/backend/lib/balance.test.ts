@@ -2,45 +2,8 @@ import { describe, expect, test } from "bun:test";
 import {
     fetchBalance,
     isSupportedChainId,
-    isValidAddress,
     parseChainId,
 } from "./balance";
-
-describe("isValidAddress", () => {
-    test("returns true for valid checksummed address", () => {
-        expect(isValidAddress("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045")).toBe(
-            true,
-        );
-    });
-
-    test("returns true for valid lowercase address", () => {
-        expect(isValidAddress("0xd8da6bf26964af9d7eed9e03e53415d37aa96045")).toBe(
-            true,
-        );
-    });
-
-    test("returns false for invalid address (too short)", () => {
-        expect(isValidAddress("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA9604")).toBe(
-            false,
-        );
-    });
-
-    test("returns false for invalid address (no 0x prefix)", () => {
-        expect(isValidAddress("d8dA6BF26964aF9D7eEd9e03E53415D37aA96045")).toBe(
-            false,
-        );
-    });
-
-    test("returns false for empty string", () => {
-        expect(isValidAddress("")).toBe(false);
-    });
-
-    test("returns false for non-hex characters", () => {
-        expect(isValidAddress("0xGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG")).toBe(
-            false,
-        );
-    });
-});
 
 describe("isSupportedChainId", () => {
     test("returns true for Ethereum mainnet (1)", () => {

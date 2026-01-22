@@ -120,15 +120,6 @@ export function formatWeiForDisplay(wei: string): string {
 }
 
 /**
- * Validate Ethereum address format.
- * @param address - Address to validate
- * @returns true if valid EVM address
- */
-export function isValidAddress(address: string): boolean {
-	return /^0x[a-fA-F0-9]{40}$/.test(address);
-}
-
-/**
  * Truncate address for display (e.g., "0x1234...5678").
  * @param address - Full address
  * @returns Truncated address

@@ -176,3 +176,23 @@ export interface Erc20GasEstimateRequest {
 }
 
 export type Erc20GasEstimateResult = GasEstimateSuccess | GasEstimateError;
+
+// ENS Name types
+export interface EnsNameRequest {
+	address: string;
+}
+
+export interface EnsNameSuccess {
+	ok: true;
+	address: string;
+	ensName: string | null;
+	timestamp: number;
+}
+
+export interface EnsNameError {
+	ok: false;
+	error: string;
+	code: "INVALID_ADDRESS" | "NETWORK_ERROR";
+}
+
+export type EnsNameResult = EnsNameSuccess | EnsNameError;

@@ -3,6 +3,7 @@ import type {
 	BalanceError,
 	BroadcastTransactionError,
 	BroadcastTransactionRequest,
+	EnsNameError,
 	Erc20BalanceError,
 	Erc20GasEstimateRequest,
 	GasEstimateError,
@@ -14,13 +15,9 @@ import { cors } from "hono/cors";
 import { csrf } from "hono/csrf";
 import { secureHeaders } from "hono/secure-headers";
 import invariant from "tiny-invariant";
-import { formatEther, isAddress } from "viem";
-import {
-	fetchBalance,
-	isSupportedChainId,
-	isValidAddress,
-	parseChainId,
-} from "./lib/balance";
+import { formatEther, getAddress, isAddress } from "viem";
+import { fetchBalance, isSupportedChainId, parseChainId } from "./lib/balance";
+import { fetchEnsName } from "./lib/ens";
 import { estimateErc20Transfer, fetchErc20Balance } from "./lib/erc20";
 import {
 	broadcastTransaction,
@@ -32,6 +29,7 @@ import {
 const app = new Hono<{ Bindings: Cloudflare.Env }>().basePath("/api");
 
 const BALANCE_CACHE_TTL_SECONDS = 60 * 5; // 5 minutes
+const ENS_CACHE_TTL_SECONDS = 60 * 24; // 24 minutes
 
 app
 	.use(cors())
@@ -49,7 +47,7 @@ app
 		const bypassCache = cacheBust !== undefined;
 
 		// Validate address
-		if (!isValidAddress(address)) {
+		if (!isAddress(address)) {
 			const error: BalanceError = {
 				ok: false,
 				error: "Invalid Ethereum address format",
@@ -105,12 +103,58 @@ app
 
 		return c.json(result);
 	})
+	.get("/ens/:address", async (c) => {
+		const address = c.req.param("address");
+		const cacheBust = c.req.query("cacheBust");
+		const bypassCache = cacheBust !== undefined;
+
+		// Validate address
+		if (!isAddress(address)) {
+			const error: EnsNameError = {
+				ok: false,
+				error: "Invalid Ethereum address format",
+				code: "INVALID_ADDRESS",
+			};
+			return c.json(error, 400);
+		}
+
+		// Normalize to checksummed format for consistency
+		const normalizedAddress = getAddress(address);
+		const cacheKey = `ens:${normalizedAddress.toLowerCase()}`;
+
+		if (!bypassCache) {
+			const cached = await c.env.BALANCE_CACHE.get(cacheKey, "json");
+			if (cached) {
+				c.header("x-ens-cache", "hit");
+				return c.json(cached);
+			}
+			c.header("x-ens-cache", "miss");
+		} else {
+			c.header("x-ens-cache", "bypass");
+		}
+
+		// Fetch ENS name (pass normalized address)
+		const result = await fetchEnsName(normalizedAddress);
+
+		if (!result.ok) {
+			const status = result.code === "INVALID_ADDRESS" ? 400 : 502;
+			return c.json(result, status);
+		}
+
+		if (!bypassCache) {
+			await c.env.BALANCE_CACHE.put(cacheKey, JSON.stringify(result), {
+				expirationTtl: ENS_CACHE_TTL_SECONDS,
+			});
+		}
+
+		return c.json(result);
+	})
 	.get("/transaction-count/:address", async (c) => {
 		const address = c.req.param("address");
 		const chainIdParam = c.req.query("chainId");
 
 		// Validate address
-		if (!isValidAddress(address)) {
+		if (!isAddress(address)) {
 			const error: TransactionCountError = {
 				ok: false,
 				error: "Invalid Ethereum address format",
@@ -290,7 +334,7 @@ app
 		const chainIdParam = c.req.query("chainId");
 
 		// Validate inputs
-		if (!isValidAddress(address) || !isValidAddress(contract)) {
+		if (!isAddress(address) || !isAddress(contract)) {
 			const error: Erc20BalanceError = {
 				ok: false,
 				error: "Invalid address",
