@@ -47,7 +47,7 @@ export const OwnerActions: FC = () => {
 			<div className="text-center">
 				<div className="mb-6">
 					<div className="mb-4">
-						<i className="fa-solid fa-database text-6xl text-primary opacity-80" />
+						<i className="fa-solid fa-cloud-bolt text-6xl text-primary opacity-80" />
 					</div>
 					<h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
 						Data Settings

@@ -131,7 +131,10 @@ export const QRScannerModal: FC<QRScannerModalProps> = ({
 				)}
 
 				{/* Camera feed */}
-				<div className="w-full bg-black rounded-lg mt-4 relative" style={{ height: "400px" }}>
+				<div
+					className="w-full bg-black rounded-lg mt-4 relative"
+					style={{ height: "400px" }}
+				>
 					<QrReader
 						videoId="qr-video"
 						videoStyle={{

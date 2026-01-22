@@ -62,7 +62,7 @@ export const Landing = () => {
 					<p className="text-lg opacity-80 max-w-2xl mx-auto">
 						Secure, local-first crypto wallet with private sync
 					</p>
-					<h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+					<h1 className="text-5xl font-bold mb-4 pb-2 leading-tight bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
 						Underground Velvet
 					</h1>
 				</div>
