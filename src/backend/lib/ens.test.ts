@@ -4,7 +4,7 @@ import { fetchEnsName } from "./ens";
 describe("fetchEnsName", () => {
 	describe("address validation", () => {
 		test("returns error for invalid address (too short)", async () => {
-			const result = await fetchEnsName("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA9604");
+			const result = await fetchEnsName({} as Env, "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA9604");
 			expect(result.ok).toBe(false);
 			if (!result.ok) {
 				expect(result.code).toBe("INVALID_ADDRESS");
@@ -13,7 +13,7 @@ describe("fetchEnsName", () => {
 		});
 
 		test("returns error for invalid address (no 0x prefix)", async () => {
-			const result = await fetchEnsName("d8dA6BF26964aF9D7eEd9e03E53415D37aA96045");
+			const result = await fetchEnsName({} as Env, "d8dA6BF26964aF9D7eEd9e03E53415D37aA96045");
 			expect(result.ok).toBe(false);
 			if (!result.ok) {
 				expect(result.code).toBe("INVALID_ADDRESS");
@@ -22,7 +22,7 @@ describe("fetchEnsName", () => {
 		});
 
 		test("returns error for empty string", async () => {
-			const result = await fetchEnsName("");
+			const result = await fetchEnsName({} as Env, "");
 			expect(result.ok).toBe(false);
 			if (!result.ok) {
 				expect(result.code).toBe("INVALID_ADDRESS");
@@ -31,7 +31,7 @@ describe("fetchEnsName", () => {
 		});
 
 		test("returns error for non-hex characters", async () => {
-			const result = await fetchEnsName("0xGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
+			const result = await fetchEnsName({} as Env, "0xGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
 			expect(result.ok).toBe(false);
 			if (!result.ok) {
 				expect(result.code).toBe("INVALID_ADDRESS");
@@ -47,7 +47,7 @@ describe("fetchEnsName", () => {
 			const lowercaseAddress = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045";
 			const uppercaseAddress = "0xD8DA6BF26964AF9D7EED9E03E53415D37AA96045";
 			const checksummedAddress = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
-			
+
 			// All should normalize to the same checksummed format
 			// This is a type/understanding test, not a network test
 			expect(lowercaseAddress.toLowerCase()).toBe(checksummedAddress.toLowerCase());
@@ -62,7 +62,7 @@ describe("fetchEnsName", () => {
 				error: "Invalid Ethereum address format",
 				code: "INVALID_ADDRESS" as const,
 			};
-			
+
 			expect(errorResult.ok).toBe(false);
 			expect(errorResult.code).toBe("INVALID_ADDRESS");
 			expect(typeof errorResult.error).toBe("string");
@@ -75,7 +75,7 @@ describe("fetchEnsName", () => {
 				ensName: "vitalik.eth",
 				timestamp: Date.now(),
 			};
-			
+
 			expect(successResult.ok).toBe(true);
 			expect(typeof successResult.address).toBe("string");
 			expect(successResult.address.startsWith("0x")).toBe(true);
@@ -91,7 +91,7 @@ describe("fetchEnsName", () => {
 				ensName: null,
 				timestamp: Date.now(),
 			};
-			
+
 			expect(successResult.ok).toBe(true);
 			expect(successResult.ensName).toBeNull();
 		});
@@ -99,7 +99,7 @@ describe("fetchEnsName", () => {
 
 	describe("error codes", () => {
 		test("INVALID_ADDRESS code for invalid addresses", async () => {
-			const result = await fetchEnsName("invalid");
+			const result = await fetchEnsName({} as Env, "invalid");
 			expect(result.ok).toBe(false);
 			if (!result.ok) {
 				expect(result.code).toBe("INVALID_ADDRESS");
@@ -112,7 +112,7 @@ describe("fetchEnsName", () => {
 				error: "Network request failed",
 				code: "NETWORK_ERROR" as const,
 			};
-			
+
 			expect(networkError.ok).toBe(false);
 			expect(networkError.code).toBe("NETWORK_ERROR");
 		});
@@ -124,7 +124,7 @@ describe("fetchEnsName", () => {
 			// This is a validation test, not a network test
 			const validChecksummed = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
 			const validLowercase = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045";
-			
+
 			// Both should be valid address formats
 			// We're testing the validation logic, not the network call
 			expect(validChecksummed.startsWith("0x")).toBe(true);

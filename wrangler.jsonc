@@ -5,7 +5,7 @@
 	"compatibility_date": "2026-01-16",
 	"vars": {
 		"NAME": "Underground Velvet",
-		"ETHEREUM_RPC_URL": "https://cloudflare-eth.com",
+		"ETHEREUM_RPC_URL": "https://eth.merkle.io",
 		"BASE_RPC_URL": "https://mainnet.base.org"
 	},
 	"kv_namespaces": [

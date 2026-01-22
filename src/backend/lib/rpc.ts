@@ -6,19 +6,15 @@
 import { createPublicClient, http } from "viem";
 import { base, mainnet } from "viem/chains";
 
-// Cloudflare EVM RPC endpoints
-const ETHEREUM_RPC_URL = "https://eth.merkle.io";
-const BASE_RPC_URL = "https://mainnet.base.org";
-
 /**
  * Get the RPC URL for a given chain ID.
  */
-export function getRpcUrl(chainId: number): string {
+export function getRpcUrl(env: Env, chainId: number): string {
 	switch (chainId) {
 		case 1:
-			return ETHEREUM_RPC_URL;
+			return env.ETHEREUM_RPC_URL;
 		case 8453:
-			return BASE_RPC_URL;
+			return env.BASE_RPC_URL;
 		default:
 			throw new Error(`Unsupported chain ID: ${chainId}`);
 	}
@@ -27,8 +23,8 @@ export function getRpcUrl(chainId: number): string {
 /**
  * Get a public client for the given chain ID.
  */
-export function getPublicClient(chainId: number) {
-	const rpcUrl = getRpcUrl(chainId);
+export function getPublicClient(env: Env, chainId: number) {
+	const rpcUrl = getRpcUrl(env, chainId);
 	return createPublicClient({
 		chain: chainId === 8453 ? base : mainnet,
 		transport: http(rpcUrl),
@@ -39,13 +35,16 @@ export function getPublicClient(chainId: number) {
  * Estimate gas for a transaction.
  * Returns EIP-1559 fee parameters.
  */
-export async function estimateGas(params: {
-	from: string;
-	to: string;
-	value: bigint;
-	chainId: number;
-}) {
-	const client = getPublicClient(params.chainId);
+export async function estimateGas(
+	env: Env,
+	params: {
+		from: string;
+		to: string;
+		value: bigint;
+		chainId: number;
+	},
+) {
+	const client = getPublicClient(env, params.chainId);
 
 	// Estimate gas limit
 	const gasLimit = await client.estimateGas({
@@ -77,11 +76,14 @@ export function estimateGasCost(
 /**
  * Broadcast a signed transaction to the network.
  */
-export async function broadcastTransaction(params: {
-	signedTransaction: string;
-	chainId: number;
-}): Promise<`0x${string}`> {
-	const client = getPublicClient(params.chainId);
+export async function broadcastTransaction(
+	env: Env,
+	params: {
+		signedTransaction: string;
+		chainId: number;
+	},
+): Promise<`0x${string}`> {
+	const client = getPublicClient(env, params.chainId);
 	const hash = await client.sendRawTransaction({
 		serializedTransaction: params.signedTransaction as `0x${string}`,
 	});
@@ -92,10 +94,11 @@ export async function broadcastTransaction(params: {
  * Get the transaction count (nonce) for an address.
  */
 export async function getTransactionCount(
+	env: Env,
 	address: string,
 	chainId: number,
 ): Promise<number> {
-	const client = getPublicClient(chainId);
+	const client = getPublicClient(env, chainId);
 	const count = await client.getTransactionCount({
 		address: address as `0x${string}`,
 	});

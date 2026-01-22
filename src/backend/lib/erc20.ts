@@ -45,12 +45,13 @@ const ERC20_ABI = [
  * Fetch ERC20 token balance for an address.
  */
 export async function fetchErc20Balance(
+	env: Env,
 	address: string,
 	contract: string,
 	chainId: number,
 ): Promise<Erc20BalanceResult> {
 	try {
-		const client = getPublicClient(chainId);
+		const client = getPublicClient(env, chainId);
 
 		// Parallel calls: balanceOf, decimals, symbol
 		const [balance, decimals, symbol] = await Promise.all([
@@ -109,6 +110,7 @@ export async function fetchErc20Balance(
  * Estimate gas for an ERC20 transfer.
  */
 export async function estimateErc20Transfer(
+	env: Env,
 	from: string,
 	to: string,
 	contract: string,
@@ -116,7 +118,7 @@ export async function estimateErc20Transfer(
 	chainId: number,
 ): Promise<GasEstimateResult> {
 	try {
-		const client = getPublicClient(chainId);
+		const client = getPublicClient(env, chainId);
 
 		// ERC20 transfer encoding: transfer(address to, uint256 amount)
 		const data = encodeFunctionData({

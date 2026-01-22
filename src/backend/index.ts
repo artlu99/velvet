@@ -134,7 +134,7 @@ app
 		}
 
 		// Fetch ENS name (pass normalized address)
-		const result = await fetchEnsName(normalizedAddress);
+		const result = await fetchEnsName(c.env, normalizedAddress);
 
 		if (!result.ok) {
 			const status = result.code === "INVALID_ADDRESS" ? 400 : 502;
@@ -175,7 +175,7 @@ app
 		}
 
 		try {
-			const nonce = await getTransactionCount(address, chainId);
+			const nonce = await getTransactionCount(c.env, address, chainId);
 			return c.json({
 				ok: true,
 				nonce,
@@ -247,7 +247,7 @@ app
 
 		try {
 			// Estimate gas
-			const estimate = await estimateGas({
+			const estimate = await estimateGas(c.env, {
 				from: body.from,
 				to: body.to,
 				value,
@@ -308,7 +308,7 @@ app
 
 		try {
 			// Broadcast the signed transaction
-			const txHash = await broadcastTransaction({
+			const txHash = await broadcastTransaction(c.env, {
 				signedTransaction: body.signedTransaction,
 				chainId: body.chainId,
 			});
@@ -354,7 +354,7 @@ app
 		}
 
 		// Fetch ERC20 balance via RPC
-		const result = await fetchErc20Balance(address, contract, chainId);
+		const result = await fetchErc20Balance(c.env, address, contract, chainId);
 
 		if (!result.ok) {
 			return c.json(result, 502);
@@ -427,6 +427,7 @@ app
 
 		// Estimate gas for ERC20 transfer
 		const result = await estimateErc20Transfer(
+			c.env,
 			body.from,
 			body.to,
 			body.contract,

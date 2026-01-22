@@ -11,7 +11,10 @@ import { getPublicClient } from "./rpc";
  * Fetch ENS name for an address via reverse lookup.
  * Hardcoded to Ethereum mainnet (chainId 1).
  */
-export async function fetchEnsName(address: string): Promise<EnsNameResult> {
+export async function fetchEnsName(
+	env: Env,
+	address: string,
+): Promise<EnsNameResult> {
 	try {
 		// Validate address format
 		if (!isAddress(address)) {
@@ -26,7 +29,7 @@ export async function fetchEnsName(address: string): Promise<EnsNameResult> {
 		const normalizedAddress = getAddress(address);
 
 		// Get mainnet client (hardcoded to chainId 1)
-		const client = getPublicClient(1);
+		const client = getPublicClient(env, 1);
 
 		// Reverse lookup: get ENS name from address
 		const ensName = await client.getEnsName({
