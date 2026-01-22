@@ -20,6 +20,6 @@ export const useEnsNameQuery = ({
 			return api.get<ApiResponses["ensName"]>(url);
 		},
 		enabled: enabled && Boolean(address),
-		staleTime: 1000 * 60 * 30, // 30 minutes
+		staleTime: 1000 * 60 * 60 * 4, // 4 hours
 	});
 };

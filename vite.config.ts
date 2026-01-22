@@ -9,14 +9,18 @@ export default defineConfig({
 	optimizeDeps: {
 		exclude: ["@evolu/sqlite-wasm", "kysely", "@evolu/react-web"],
 		include: ["react", "react-dom", "react/jsx-runtime"],
-	  },	
-	plugins: [react(), cloudflare(), tailwindcss(), 
-	    VitePWA({
-			pwaAssets: {
-				preset: 'minimal-2023'
-			  },
-		
-			registerType: 'autoUpdate' })
+	},
+	plugins: [react(), cloudflare(), tailwindcss(),
+	VitePWA({
+		manifest: {
+			theme_color: "#303041",
+		},
+		pwaAssets: {
+			preset: 'minimal-2023'
+		},
+
+		registerType: 'autoUpdate'
+	})
 	],
 	server: { allowedHosts: ["vmi2697213.tailb8f35.ts.net"] },
 	resolve: {

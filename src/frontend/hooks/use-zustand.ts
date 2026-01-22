@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { combine, createJSONStorage, persist } from "zustand/middleware";
-import type { Themes } from "~/constants";
 
 export const useZustand = create(
 	persist(
@@ -11,18 +10,6 @@ export const useZustand = create(
 		{
 			name: "zustand-store",
 			storage: createJSONStorage(() => sessionStorage),
-		},
-	),
-);
-
-export const useLocalStorageZustand = create(
-	persist(
-		combine({ themeName: null as Themes | null }, (set) => ({
-			setThemeName: (themeName: Themes | null) => set({ themeName }),
-		})),
-		{
-			name: "zustand-store",
-			storage: createJSONStorage(() => localStorage),
 		},
 	),
 );

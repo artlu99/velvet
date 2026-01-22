@@ -6,10 +6,10 @@ This document addresses security considerations for Underground Velvet Wallet. E
 
 **How are private keys stored and encrypted? Are they ever exposed in memory longer than necessary? When and how are they removed from memory after use?**
 
-Private keys are stored in the local Evolu sqlite database. They are **encrypted at rest** using `XChaCha20-Poly1305` encryption with the owner's encryption key (derived from the Evolu mnemonic). The encryption implementation is in `src/frontend/lib/crypto.ts`:
+Private keys are stored in the local Evolu SQLite database. They are **encrypted at rest** using `XChaCha20-Poly1305` encryption with the owner's encryption key (derived from the Evolu mnemonic). The encryption implementation is in `src/frontend/lib/crypto.ts`:
 
 - **Encryption**: Private keys are encrypted using `encryptPrivateKey()` which uses `XChaCha20-Poly1305` (via Evolu's `createSymmetricCrypto`). Each encrypted key includes a 24-byte nonce and is stored as base64.
-- **Storage**: Encrypted keys are stored in the `eoa` table's `encryptedPrivateKey` field. The database itself is local sqlite, not encrypted at the local level.
+- **Storage**: Encrypted keys are stored in the `eoa` table's `encryptedPrivateKey` field. The database itself is local SQLite, not encrypted at the local level.
 - **Memory handling**: When decrypting, the decrypted bytes are wiped using `secureWipe()` which fills the Uint8Array with zeros. However, there's a limitation: the final private key string cannot be securely wiped in JavaScript (strings are immutable). The code acknowledges this in `SendForm.tsx` line 174-176: "Note: privateKey is a string and cannot be securely wiped. The decrypted bytes in decryptPrivateKey are already wiped. The string will be garbage collected when it goes out of scope."
 - **Exposure window**: Private keys exist in memory as strings during transaction signing, which happens in `SendForm.tsx`. The key is decrypted, used to sign a transaction via `viem`'s `privateKeyToAccount()`, and then goes out of scope.
 

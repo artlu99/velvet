@@ -3,9 +3,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Suspense } from "react";
 import { Toaster } from "react-hot-toast";
 import { Route, Switch } from "wouter";
+import { OwnerActions } from "~/components/DataActions";
 import { Dock } from "~/components/Dock";
 import { NavBar } from "~/components/NavBar";
-import { OwnerActions } from "~/components/OwnerActions";
 import { evoluInstance } from "~/lib/evolu";
 import { Landing } from "~/routes/Landing";
 import { Receive } from "~/routes/Receive";
@@ -18,7 +18,7 @@ function App() {
 	return (
 		<div
 			className="min-h-screen bg-base-100 flex flex-col"
-			data-theme="bumblebee"
+			data-theme="dracula"
 		>
 			<EvoluProvider value={evoluInstance}>
 				<Suspense fallback={<div>Loading...</div>}>

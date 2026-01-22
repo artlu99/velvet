@@ -28,8 +28,8 @@ import {
 
 const app = new Hono<{ Bindings: Cloudflare.Env }>().basePath("/api");
 
-const BALANCE_CACHE_TTL_SECONDS = 60 * 5; // 5 minutes
-const ENS_CACHE_TTL_SECONDS = 60 * 24; // 24 minutes
+const BALANCE_CACHE_TTL_SECONDS = 60; // 1 minute
+const ENS_CACHE_TTL_SECONDS = 60 * 30; // 30 minutes
 
 app
 	.use(cors())
@@ -93,6 +93,63 @@ app
 		if (!result.ok) {
 			const status = result.code === "RATE_LIMITED" ? 429 : 502;
 			return c.json(result, status);
+		}
+
+		if (!bypassCache) {
+			await c.env.BALANCE_CACHE.put(cacheKey, JSON.stringify(result), {
+				expirationTtl: BALANCE_CACHE_TTL_SECONDS,
+			});
+		}
+
+		return c.json(result);
+	})
+	.get("/balance/erc20/:address/:contract", async (c) => {
+		const address = c.req.param("address");
+		const contract = c.req.param("contract");
+		const chainIdParam = c.req.query("chainId");
+		const cacheBust = c.req.query("cacheBust");
+		const bypassCache = cacheBust !== undefined;
+
+		// Validate inputs
+		if (!isAddress(address) || !isAddress(contract)) {
+			const error: Erc20BalanceError = {
+				ok: false,
+				error: "Invalid address",
+				code: "INVALID_ADDRESS",
+			};
+			return c.json(error, 400);
+		}
+
+		const chainId = parseChainId(chainIdParam);
+		if (chainId === null || !isSupportedChainId(chainId)) {
+			const error: Erc20BalanceError = {
+				ok: false,
+				error: "Invalid chain",
+				code: "INVALID_CHAIN",
+			};
+			return c.json(error, 400);
+		}
+
+		const normalizedAddress = address.toLowerCase();
+		const normalizedContract = contract.toLowerCase();
+		const cacheKey = `erc20Balance:${chainId}:${normalizedAddress}:${normalizedContract}`;
+
+		if (!bypassCache) {
+			const cached = await c.env.BALANCE_CACHE.get(cacheKey, "json");
+			if (cached) {
+				c.header("x-balance-cache", "hit");
+				return c.json(cached);
+			}
+			c.header("x-balance-cache", "miss");
+		} else {
+			c.header("x-balance-cache", "bypass");
+		}
+
+		// Fetch ERC20 balance via RPC
+		const result = await fetchErc20Balance(c.env, address, contract, chainId);
+
+		if (!result.ok) {
+			return c.json(result, 502);
 		}
 
 		if (!bypassCache) {
@@ -327,40 +384,6 @@ app
 			};
 			return c.json(err, 500);
 		}
-	})
-	.get("/balance/erc20/:address/:contract", async (c) => {
-		const address = c.req.param("address");
-		const contract = c.req.param("contract");
-		const chainIdParam = c.req.query("chainId");
-
-		// Validate inputs
-		if (!isAddress(address) || !isAddress(contract)) {
-			const error: Erc20BalanceError = {
-				ok: false,
-				error: "Invalid address",
-				code: "INVALID_ADDRESS",
-			};
-			return c.json(error, 400);
-		}
-
-		const chainId = parseChainId(chainIdParam);
-		if (chainId === null || !isSupportedChainId(chainId)) {
-			const error: Erc20BalanceError = {
-				ok: false,
-				error: "Invalid chain",
-				code: "INVALID_CHAIN",
-			};
-			return c.json(error, 400);
-		}
-
-		// Fetch ERC20 balance via RPC
-		const result = await fetchErc20Balance(c.env, address, contract, chainId);
-
-		if (!result.ok) {
-			return c.json(result, 502);
-		}
-
-		return c.json(result);
 	})
 	.post("/estimate-gas/erc20", async (c) => {
 		const body = await c.req.json<Erc20GasEstimateRequest>();

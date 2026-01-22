@@ -14,5 +14,7 @@ export const EnsOrAddress: FC<EnsOrAddressProps> = ({ address }) => {
 			? ensData.ensName
 			: `${address.slice(0, 6)}...${address.slice(-4)}`;
 
-	return <span className="font-mono">{addressDisplay}</span>;
+	return (
+		<span className="font-mono truncate block min-w-0">{addressDisplay}</span>
+	);
 };

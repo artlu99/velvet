@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { format } from "d3-format";
 import type { FC } from "react";
 import { useBalanceQuery } from "~/hooks/queries/useBalanceQuery";
@@ -20,8 +21,8 @@ const CHAINS: Array<{ id: 1 | 8453; name: string; nativeAsset: string }> = [
 
 export const WalletBalance: FC<WalletBalanceProps> = ({ address }) => {
 	return (
-		<div className="flex gap-2 flex-col">
-			<div className="flex gap-2 flex-wrap">
+		<div className="flex gap-2 flex-col min-w-0 w-full">
+			<div className="flex gap-2 flex-wrap min-w-0 w-full">
 				{CHAINS.map((chain) => (
 					<ChainBalance
 						key={chain.id}
@@ -42,6 +43,7 @@ interface ChainBalanceProps {
 }
 
 const ChainBalance: FC<ChainBalanceProps> = ({ address, chainId, name }) => {
+	const queryClient = useQueryClient();
 	const { data, isLoading, error } = useBalanceQuery({ address, chainId });
 
 	if (isLoading) {
@@ -75,19 +77,28 @@ const ChainBalance: FC<ChainBalanceProps> = ({ address, chainId, name }) => {
 	})();
 
 	return (
-		<>
-			<div
-				className="badge badge-sm max-w-full"
-				title={`${name}: ${data.balanceEth}`}
-			>
+		<button
+			type="button"
+			className="btn btn-ghost "
+			onClick={() => {
+				queryClient.invalidateQueries({
+					queryKey: ["balance", address, chainId],
+				});
+				queryClient.invalidateQueries({
+					queryKey: ["erc20Balance", address],
+				});
+			}}
+		>
+			<div className="badge badge-sm max-w-full">
 				<span className="opacity-80 shrink-0">{name}</span>
 				<span className="mx-1 opacity-60 shrink-0">·</span>
 				<span className="font-mono tabular-nums truncate min-w-0">
 					{formattedBalanceEth}
 				</span>
+
+				<TokenBalances address={address} chainId={chainId} />
 			</div>
-			<TokenBalances address={address} chainId={chainId} />
-		</>
+		</button>
 	);
 };
 
@@ -153,7 +164,7 @@ const TokenBalance: FC<TokenBalanceProps> = ({
 
 	return (
 		<div
-			className="badge badge-sm max-w-full"
+			className="badge badge-sm max-w-full min-w-0 overflow-hidden"
 			title={`${token.name}: ${formattedBalance}`}
 		>
 			<span className="opacity-80 shrink-0">{label}</span>

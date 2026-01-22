@@ -10,6 +10,7 @@ interface UseErc20BalanceQueryOptions {
 	contract: string;
 	chainId: SupportedChainId;
 	enabled?: boolean;
+	cacheBust?: boolean;
 }
 
 export const useErc20BalanceQuery = ({
@@ -17,17 +18,23 @@ export const useErc20BalanceQuery = ({
 	contract,
 	chainId,
 	enabled = true,
+	cacheBust = false,
 }: UseErc20BalanceQueryOptions) => {
 	return useQuery({
 		queryKey: ["erc20Balance", address, contract, chainId],
 		queryFn: async () => {
+			const query: Record<string, string> = { chainId: String(chainId) };
+			if (cacheBust) {
+				query.cacheBust = "1";
+			}
 			const url = buildUrl(apiEndpoints.erc20Balance.path, {
 				address,
 				contract,
-				query: { chainId: String(chainId) },
+				query,
 			});
 			return api.get<ApiResponses["erc20Balance"]>(url);
 		},
 		enabled: enabled && Boolean(address) && Boolean(contract),
+		staleTime: 1000 * 60 * 5, // 5 minutes
 	});
 };

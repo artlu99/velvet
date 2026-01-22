@@ -1,11 +1,7 @@
 import { Mnemonic } from "@evolu/common";
 import { useEvolu } from "@evolu/react";
-import { localAuth } from "@evolu/react-web";
 import { type FC, use, useState } from "react";
-import { OwnerProfile } from "~/components/OwnerProfile";
 import { formatTypeError } from "~/lib/evolu";
-
-const authResult = await localAuth.getOwner({ service: "evolu" });
 
 export const OwnerActions: FC = () => {
 	const evolu = useEvolu();
@@ -51,35 +47,20 @@ export const OwnerActions: FC = () => {
 			<div className="text-center">
 				<div className="mb-6">
 					<div className="mb-4">
-						<i className="fa-solid fa-user-circle text-6xl text-primary opacity-80" />
+						<i className="fa-solid fa-database text-6xl text-primary opacity-80" />
 					</div>
 					<h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-						Account Settings
+						Data Settings
 					</h1>
 					<p className="text-lg opacity-80 max-w-2xl mx-auto">
-						Manage account, backup your data, and sync across your devices
+						Sync and Export across your devices
 					</p>
 				</div>
 			</div>
 
-			{/* Account Card */}
+			{/* Data Card */}
 			<div className="card bg-base-100 shadow-xl">
 				<div className="card-body">
-					<h2 className="card-title mb-4">
-						<i className="fa-solid fa-user text-xl mr-2" />
-						Account Profile
-					</h2>
-					{appOwner && (
-						<div className="mb-6">
-							<OwnerProfile
-								{...{
-									ownerId: appOwner.id,
-									username: authResult?.username ?? "Guest",
-								}}
-							/>
-						</div>
-					)}
-
 					<div className="alert alert-info mb-6">
 						<i className="fa-solid fa-info-circle" />
 						<div>

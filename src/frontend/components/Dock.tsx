@@ -1,24 +1,18 @@
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 
 export const Dock = () => {
-	const [location] = useLocation();
-	const isActive = (path: string) => location === path;
-
 	return (
-		<div className="dock dock-sm flex items-center justify-center scale-120">
-			<button type="button" className={isActive("/") ? "dock-active" : ""}>
+		<div className="dock dock-xs flex items-center justify-center">
+			<button type="button">
 				<Link to="/">
-					<i className="fa-solid fa-wallet text-lg" />
+					<i className="fa-solid fa-wallet text-lg text-secondary" />
 					<div className="dock-label">Wallet</div>
 				</Link>
 			</button>
-			<button
-				type="button"
-				className={isActive("/account") ? "dock-active" : ""}
-			>
+			<button type="button">
 				<Link to="/account">
-					<i className="fa-solid fa-user text-lg" />
-					<div className="dock-label">Account</div>
+					<i className="fa-solid fa-database text-lg text-primary" />
+					<div className="dock-label">Data</div>
 				</Link>
 			</button>
 		</div>

@@ -75,10 +75,13 @@ export const WalletManagement: FC = () => {
 			) : (
 				<div className="space-y-3">
 					{rows.map((row) => (
-						<div key={row.id} className="card card-compact bg-base-200 shadow">
-							<div className="card-body p-3 sm:p-4">
-								<div className="flex flex-col sm:flex-row items-start justify-between gap-3">
-									<div className="flex items-start gap-3">
+						<div
+							key={row.id}
+							className="card card-compact bg-base-200 shadow overflow-hidden"
+						>
+							<div className="card-body p-3 sm:p-4 overflow-hidden">
+								<div className="flex flex-col sm:flex-row items-start justify-between gap-3 min-w-0">
+									<div className="flex items-start gap-3 min-w-0 flex-1">
 										{(row.origin === "imported" ||
 											row.origin === "watchOnly") && (
 											<button
@@ -98,8 +101,8 @@ export const WalletManagement: FC = () => {
 												/>
 											</button>
 										)}
-										<div>
-											<div className="flex items-center gap-2">
+										<div className="min-w-0 flex-1">
+											<div className="flex items-center gap-2 min-w-0">
 												{row.origin === "watchOnly" && (
 													<i
 														className="fa-solid fa-eye text-info text-xs"
@@ -107,7 +110,7 @@ export const WalletManagement: FC = () => {
 														aria-hidden="true"
 													/>
 												)}
-												<h3 className="text-sm">
+												<h3 className="text-sm min-w-0 flex-1">
 													<EnsOrAddress address={row.address} />
 												</h3>
 												<button

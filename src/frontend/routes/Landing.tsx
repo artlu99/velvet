@@ -9,7 +9,6 @@ export const Landing = () => {
 
 	const walletCount = wallets.length;
 	const importedCount = wallets.filter((w) => w.origin === "imported").length;
-	const derivedCount = wallets.filter((w) => w.origin === "derived").length;
 	const watchOnlyCount = wallets.filter((w) => w.origin === "watchOnly").length;
 
 	return (
@@ -37,16 +36,6 @@ export const Landing = () => {
 								<i className="fa-solid fa-download text-xl text-secondary" />
 								<div className="stat-value text-2xl text-secondary">
 									{importedCount}
-								</div>
-							</div>
-						</div>
-
-						<div className="stat py-2 px-4">
-							<div className="stat-title text-xs">Derived</div>
-							<div className="flex items-center gap-2">
-								<i className="fa-solid fa-key text-xl text-accent" />
-								<div className="stat-value text-2xl text-accent">
-									{derivedCount}
 								</div>
 							</div>
 						</div>

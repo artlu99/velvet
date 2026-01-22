@@ -24,7 +24,7 @@ Simplicity of code paths means that a skilled programmer, human or otherwise, ca
 
 **What's yours stays yours.**
 
-Private keys are stored encrypted in your local sqlite database. They belong to you, on your device, under your control. During sync, data is encrypted in transport using your mnemonic—but at rest, it's yours to manage, backup, and restore as you see fit.
+Private keys are stored encrypted in your local SQLite database. They belong to you, on your device, under your control. During sync, data is encrypted in transport using your mnemonic—but at rest, it's yours to manage, backup, and restore as you see fit.
 
 You own your wallet data. You own your backups. We don't store your data in the cloud, although we faciliate cross-platform, multi-device private syncing. We don't analyze your usage patterns. We don't monetize your information.
 
