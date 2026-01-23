@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type Network = "ethereum" | "base";
+export type Network = "ethereum" | "base" | "tron";
 export const DEFAULT_NETWORK: Network = "base";
 
 interface ReceiveState {

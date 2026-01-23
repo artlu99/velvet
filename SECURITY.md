@@ -105,7 +105,7 @@ Sync is handled by Evolu:
 - **Encryption**: Data is encrypted during transport using the owner's encryption key (derived from the Evolu mnemonic). The encryption happens at the Evolu layer, not in application code.
 - **Encryption algorithm**: Evolu uses `XChaCha20-Poly1305` for encryption (same as private key encryption).
 - **Key derivation**: The encryption key is derived from the Evolu mnemonic. The exact derivation is handled by Evolu's internal implementation.
-- **Sync endpoints**: Sync happens via WebSocket to `wss://evolu-relay-1.artlu.xyz` and `wss://evolu-relay-2.artlu.xyz` (configured in `src/frontend/lib/evolu.ts`).
+- **Sync endpoints**: Sync happens via WebSocket to `wss://evolu-relay-1.artlu.xyz` (configured in `src/frontend/lib/evolu.ts`).
 - **Data at rest**: Private keys are encrypted before being stored in the local SQLite database (using `XChaCha20-Poly1305`). However, the SQLite database file itself is not encrypted at the file system level. If someone gains access to the database file, *e.g.*, by downloading their own data, they would see encrypted private keys (base64-encoded ciphertext), not plaintext keys.
 
 **Risks**:

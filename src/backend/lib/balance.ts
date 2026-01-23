@@ -5,7 +5,7 @@ import { formatEther } from "viem";
 // Etherscan API V2 - unified endpoint for all chains
 const ETHERSCAN_API_V2_URL = "https://api.etherscan.io/v2/api";
 
-const SUPPORTED_CHAIN_IDS: SupportedChainId[] = [1, 8453];
+const SUPPORTED_CHAIN_IDS: SupportedChainId[] = [1, 8453, "tron"];
 
 // Rate limiting: 4 calls/sec (250ms interval) for safety margin on 5 calls/sec limit
 const MIN_INTERVAL_MS = 250;
@@ -30,15 +30,19 @@ async function rateLimitedFetch(url: string): Promise<Response> {
 }
 
 export function isSupportedChainId(
-	chainId: number,
+	chainId: string | number,
 ): chainId is SupportedChainId {
 	return SUPPORTED_CHAIN_IDS.includes(chainId as SupportedChainId);
 }
 
-export function parseChainId(value: string | undefined): number | null {
-	if (!value) return null;
-	const parsed = Number.parseInt(value, 10);
-	return Number.isNaN(parsed) ? null : parsed;
+export function parseChainId(
+	value: string | number | null | undefined,
+): SupportedChainId | null {
+	if (value === null || value === undefined) return null;
+	if (value === "tron") return "tron";
+	const parsed = typeof value === "string" ? Number.parseInt(value, 10) : value;
+	if (parsed === 1 || parsed === 8453) return parsed;
+	return null;
 }
 
 function buildBalanceUrl(

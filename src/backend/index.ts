@@ -9,6 +9,8 @@ import type {
 	GasEstimateError,
 	GasEstimateRequest,
 	TransactionCountError,
+	TronBroadcastError,
+	TronGasEstimateRequest,
 } from "@shared/types";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -25,11 +27,25 @@ import {
 	estimateGasCost,
 	getTransactionCount,
 } from "./lib/rpc";
+import {
+	broadcastTronTransaction,
+	estimateTrc20Transfer,
+	estimateTrxTransfer,
+	getTrc20Balance,
+	getTronBalance,
+} from "./lib/tron/rpc";
 
 const app = new Hono<{ Bindings: Cloudflare.Env }>().basePath("/api");
 
 const BALANCE_CACHE_TTL_SECONDS = 60; // 1 minute
 const ENS_CACHE_TTL_SECONDS = 60 * 30; // 30 minutes
+
+function isNumericChainId(chainId: string | number): chainId is number {
+	return (
+		typeof chainId === "number" ||
+		(typeof chainId === "string" && chainId !== "tron")
+	);
+}
 
 app
 	.use(cors())
@@ -58,7 +74,11 @@ app
 
 		// Validate chainId
 		const chainId = parseChainId(chainIdParam);
-		if (chainId === null || !isSupportedChainId(chainId)) {
+		if (
+			chainId === null ||
+			!isSupportedChainId(chainId) ||
+			!isNumericChainId(chainId)
+		) {
 			const error: BalanceError = {
 				ok: false,
 				error:
@@ -121,7 +141,11 @@ app
 		}
 
 		const chainId = parseChainId(chainIdParam);
-		if (chainId === null || !isSupportedChainId(chainId)) {
+		if (
+			chainId === null ||
+			!isSupportedChainId(chainId) ||
+			!isNumericChainId(chainId)
+		) {
 			const error: Erc20BalanceError = {
 				ok: false,
 				error: "Invalid chain",
@@ -222,7 +246,11 @@ app
 
 		// Validate chainId
 		const chainId = parseChainId(chainIdParam);
-		if (chainId === null || !isSupportedChainId(chainId)) {
+		if (
+			chainId === null ||
+			!isSupportedChainId(chainId) ||
+			!isNumericChainId(chainId)
+		) {
 			const error: TransactionCountError = {
 				ok: false,
 				error: "Invalid or unsupported chain ID",
@@ -271,7 +299,7 @@ app
 		}
 
 		// Validate chainId
-		if (!isSupportedChainId(body.chainId)) {
+		if (!isSupportedChainId(body.chainId) || !isNumericChainId(body.chainId)) {
 			const error: GasEstimateError = {
 				ok: false,
 				error: "Invalid or unsupported chain ID",
@@ -354,7 +382,7 @@ app
 		}
 
 		// Validate chainId
-		if (!isSupportedChainId(body.chainId)) {
+		if (!isSupportedChainId(body.chainId) || !isNumericChainId(body.chainId)) {
 			const error: BroadcastTransactionError = {
 				ok: false,
 				error: "Invalid or unsupported chain ID",
@@ -417,7 +445,7 @@ app
 		}
 
 		// Validate chainId
-		if (!isSupportedChainId(body.chainId)) {
+		if (!isSupportedChainId(body.chainId) || !isNumericChainId(body.chainId)) {
 			const error: GasEstimateError = {
 				ok: false,
 				error: "Invalid or unsupported chain ID",
@@ -460,6 +488,102 @@ app
 
 		if (!result.ok) {
 			return c.json(result, 500);
+		}
+
+		return c.json(result);
+	})
+	.get("/balance/tron/:address", async (c) => {
+		const address = c.req.param("address");
+		const cacheBust = c.req.query("cacheBust");
+		const bypassCache = cacheBust !== undefined;
+
+		const result = await getTronBalance(c.env, address);
+
+		if (!result.ok) {
+			const status = result.code === "INVALID_TRON_ADDRESS" ? 400 : 502;
+			return c.json(result, status);
+		}
+
+		const cacheKey = `tronBalance:${address}`;
+
+		if (!bypassCache) {
+			await c.env.BALANCE_CACHE.put(cacheKey, JSON.stringify(result), {
+				expirationTtl: BALANCE_CACHE_TTL_SECONDS,
+			});
+		}
+
+		return c.json(result);
+	})
+	.get("/balance/trc20/:address/:contract", async (c) => {
+		const address = c.req.param("address");
+		const contract = c.req.param("contract");
+		const cacheBust = c.req.query("cacheBust");
+		const bypassCache = cacheBust !== undefined;
+
+		const result = await getTrc20Balance(c.env, address, contract);
+
+		if (!result.ok) {
+			const status =
+				result.code === "INVALID_TRON_ADDRESS" ||
+				result.code === "INVALID_CONTRACT"
+					? 400
+					: 502;
+			return c.json(result, status);
+		}
+
+		const cacheKey = `trc20Balance:${address}:${contract}`;
+
+		if (!bypassCache) {
+			await c.env.BALANCE_CACHE.put(cacheKey, JSON.stringify(result), {
+				expirationTtl: BALANCE_CACHE_TTL_SECONDS,
+			});
+		}
+
+		return c.json(result);
+	})
+	.post("/estimate-gas/tron", async (c) => {
+		const body = await c.req.json<TronGasEstimateRequest>();
+
+		// If contract is empty or null, it's a native TRX transfer
+		// Otherwise, it's a TRC20 transfer
+		const result =
+			!body.contract || body.contract === ""
+				? await estimateTrxTransfer(c.env, body.from, body.to, body.amount)
+				: await estimateTrc20Transfer(
+						c.env,
+						body.from,
+						body.to,
+						body.contract,
+						body.amount,
+					);
+
+		if (!result.ok) {
+			const status = result.code === "NETWORK_ERROR" ? 502 : 400;
+			return c.json(result, status);
+		}
+
+		return c.json(result);
+	})
+	.post("/broadcast-transaction/tron", async (c) => {
+		const body = await c.req.json<{ signedTransaction: string }>();
+
+		if (!body.signedTransaction) {
+			const error: TronBroadcastError = {
+				ok: false,
+				error: "Missing signed transaction",
+				code: "INVALID_TRANSACTION",
+			};
+			return c.json(error, 400);
+		}
+
+		const result = await broadcastTronTransaction(
+			c.env,
+			body.signedTransaction,
+		);
+
+		if (!result.ok) {
+			const status = result.code === "INVALID_TRANSACTION" ? 400 : 502;
+			return c.json(result, status);
 		}
 
 		return c.json(result);

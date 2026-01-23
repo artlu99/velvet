@@ -190,10 +190,13 @@ describe("Crypto Utilities", () => {
 			expect(result.ok).toBe(true);
 			if (result.ok) {
 				expect(result.type).toBe("privateKey");
-				expect(result.privateKey).toBe(privateKey);
+				if (result.type === "privateKey") {
+					expect(result.privateKey).toBe(privateKey);
+				}
 				expect(result.address).toBe(
 					"0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf",
 				);
+				expect(result.keyType).toBe("evm");
 			}
 		});
 
@@ -204,8 +207,8 @@ describe("Crypto Utilities", () => {
 			expect(result.ok).toBe(true);
 			if (result.ok) {
 				expect(result.type).toBe("address");
-				expect(result.privateKey).toBe(null);
 				expect(result.address).toBe(address);
+				expect(result.keyType).toBe("evm");
 			}
 		});
 

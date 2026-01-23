@@ -1,23 +1,26 @@
 import { useEvolu, useQuery } from "@evolu/react";
-import { useState } from "react";
+import type { KeyType, SupportedChainId } from "@shared/types";
+import { useEffect, useState } from "react";
 import invariant from "tiny-invariant";
 import { Link, useParams } from "wouter";
 import { SendForm } from "~/components/SendForm";
 import { TokenSelector } from "~/components/TokenSelector";
 import { useBalanceQuery } from "~/hooks/queries/useBalanceQuery";
 import { useErc20BalanceQuery } from "~/hooks/queries/useErc20BalanceQuery";
+import { useTrc20BalanceQuery } from "~/hooks/queries/useTrc20BalanceQuery";
+import { useTronBalanceQuery } from "~/hooks/queries/useTronBalanceQuery";
 import { createAllEoasQuery } from "~/lib/queries/eoa";
 import { getTokenAddress, isNativeToken } from "~/lib/tokenUtils";
-import { useReceiveStore } from "~/providers/store";
 import { useTokenStore } from "~/providers/tokenStore";
 
 export const Send = () => {
 	const evolu = useEvolu();
 	const { address } = useParams<{ address?: string }>();
-	const { network, setNetwork } = useReceiveStore();
-	const getTokensByChain = useTokenStore((state) => state.getTokensByChain);
 
-	const chainId = network === "ethereum" ? 1 : 8453;
+	// Local state for EVM network selection (only used for EVM wallets)
+	const [evmNetwork, setEvmNetwork] = useState<"ethereum" | "base">("base");
+
+	const getTokensByChain = useTokenStore((state) => state.getTokensByChain);
 
 	// Get all wallets
 	const allEoasQuery = createAllEoasQuery(evolu);
@@ -28,21 +31,34 @@ export const Send = () => {
 		? allWallets.find((w) => w.address.toLowerCase() === address.toLowerCase())
 		: (allWallets.find((w) => w.isSelected === 1) ?? allWallets[0]);
 
+	// Get the wallet's keyType and derive network
+	const walletKeyType: KeyType = selectedWallet?.keyType ?? "evm";
+
+	// Derive network from wallet type - no global state, no side effects
+	// Tron wallets always use "tron", EVM wallets use local state
+	const isEvmWallet = walletKeyType === "evm";
+	const isTronWallet = walletKeyType === "tron";
+
+	// Map network selection to chainId
+	const chainId: SupportedChainId = isTronWallet
+		? "tron"
+		: evmNetwork === "ethereum"
+			? 1
+			: 8453;
+
 	// Get available tokens for the selected chain
 	const tokens = getTokensByChain(chainId);
 
 	// Default to first token (usually ETH)
 	const [selectedToken, setSelectedToken] = useState(() => tokens[0]);
 
-	// Update selected token when network changes
-	const [prevNetwork, setPrevNetwork] = useState(network);
-	if (network !== prevNetwork) {
-		setPrevNetwork(network);
+	// Update selected token when chainId changes (for EVM wallets switching networks)
+	useEffect(() => {
 		const newTokens = getTokensByChain(chainId);
 		if (newTokens.length > 0) {
 			setSelectedToken(newTokens[0]);
 		}
-	}
+	}, [chainId, getTokensByChain]);
 
 	// Get balance based on token type
 	const isNative = selectedToken && isNativeToken(selectedToken, chainId);
@@ -50,17 +66,37 @@ export const Send = () => {
 		? getTokenAddress(selectedToken, chainId)
 		: "0x0";
 
+	const isTron = chainId === "tron";
+
+	// EVM balance queries
 	const { data: nativeBalanceData } = useBalanceQuery({
 		address: selectedWallet?.address ?? "",
 		chainId,
-		enabled: !!selectedWallet?.address && isNative,
+		enabled: !!selectedWallet?.address && isNative && !isTron,
 	});
 
 	const { data: erc20BalanceData } = useErc20BalanceQuery({
 		address: selectedWallet?.address ?? "",
 		contract: tokenAddress,
 		chainId,
-		enabled: !!selectedWallet?.address && !isNative && tokenAddress !== "0x0",
+		enabled:
+			!!selectedWallet?.address &&
+			!isNative &&
+			!isTron &&
+			tokenAddress !== "0x0",
+	});
+
+	// Tron balance queries
+	const { data: tronBalanceData } = useTronBalanceQuery({
+		address: selectedWallet?.address ?? "",
+		enabled: !!selectedWallet?.address && isNative && isTron,
+	});
+
+	const { data: trc20BalanceData } = useTrc20BalanceQuery({
+		address: selectedWallet?.address ?? "",
+		contract: tokenAddress,
+		enabled:
+			!!selectedWallet?.address && !isNative && isTron && tokenAddress !== "",
 	});
 
 	if (!selectedWallet) {
@@ -81,14 +117,22 @@ export const Send = () => {
 
 	invariant(selectedWallet.address, "Wallet address is required");
 
-	// Determine balance based on token type
-	const balance = isNative
-		? nativeBalanceData?.ok && nativeBalanceData.balanceWei
-			? nativeBalanceData.balanceWei
-			: "0"
-		: erc20BalanceData?.ok && erc20BalanceData.balanceRaw
-			? erc20BalanceData.balanceRaw
-			: "0";
+	// Determine balance based on token type and chain
+	const balance = isTron
+		? isNative
+			? tronBalanceData?.ok && tronBalanceData.balanceSun
+				? tronBalanceData.balanceSun
+				: "0"
+			: trc20BalanceData?.ok && trc20BalanceData.balanceRaw
+				? trc20BalanceData.balanceRaw
+				: "0"
+		: isNative
+			? nativeBalanceData?.ok && nativeBalanceData.balanceWei
+				? nativeBalanceData.balanceWei
+				: "0"
+			: erc20BalanceData?.ok && erc20BalanceData.balanceRaw
+				? erc20BalanceData.balanceRaw
+				: "0";
 
 	const encryptedPrivateKey = selectedWallet.encryptedPrivateKey;
 	const isWatchOnly = selectedWallet.origin === "watchOnly";
@@ -138,24 +182,39 @@ export const Send = () => {
 									<span className="label-text">Network</span>
 								</div>
 								<div role="tablist" className="tabs tabs-boxed w-full">
-									<button
-										type="button"
-										role="tab"
-										className={`tab ${network === "ethereum" ? "tab-active" : ""}`}
-										onClick={() => setNetwork("ethereum")}
-										aria-label="Ethereum network"
-									>
-										Ethereum
-									</button>
-									<button
-										type="button"
-										role="tab"
-										className={`tab ${network === "base" ? "tab-active" : ""}`}
-										onClick={() => setNetwork("base")}
-										aria-label="Base network"
-									>
-										Base
-									</button>
+									{isEvmWallet && (
+										<>
+											<button
+												type="button"
+												role="tab"
+												className={`tab ${chainId === 1 ? "tab-active" : ""}`}
+												onClick={() => setEvmNetwork("ethereum")}
+												aria-label="Ethereum network"
+											>
+												Ethereum
+											</button>
+											<button
+												type="button"
+												role="tab"
+												className={`tab ${chainId === 8453 ? "tab-active" : ""}`}
+												onClick={() => setEvmNetwork("base")}
+												aria-label="Base network"
+											>
+												Base
+											</button>
+										</>
+									)}
+									{isTronWallet && (
+										<button
+											type="button"
+											role="tab"
+											className="tab tab-active"
+											disabled
+											aria-label="Tron network"
+										>
+											Tron
+										</button>
+									)}
 								</div>
 							</div>
 							<TokenSelector

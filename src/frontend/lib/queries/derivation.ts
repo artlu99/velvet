@@ -74,11 +74,13 @@ export async function updateDerivationCounter(
  *
  * @param evolu - Evolu instance
  * @param data - Key data to insert/update
+ * @param keyType - Type of key ("evm" | "tron" | "btc" | "solana")
  * @returns Result with inserted flag and EOA ID
  */
 export async function insertDerivedKeyIfNew(
 	evolu: Evolu,
 	data: { index: number; address: string; encryptedPrivateKey: string },
+	keyType: KeyType = "evm",
 ): Promise<{ inserted: boolean; eoaId: string | null }> {
 	// Check for ANY existing record with this address (including deleted ones)
 	// Import dynamically to avoid circular dependency
@@ -99,7 +101,7 @@ export async function insertDerivedKeyIfNew(
 			evolu.update("eoa", {
 				id: existingId,
 				encryptedPrivateKey: data.encryptedPrivateKey,
-				keyType: "evm",
+				keyType,
 				origin: "derived",
 				derivationIndex: data.index,
 				isDeleted: sqliteFalse, // Restore deleted wallet
@@ -115,7 +117,7 @@ export async function insertDerivedKeyIfNew(
 		evolu.update("eoa", {
 			id: existingId,
 			encryptedPrivateKey: data.encryptedPrivateKey,
-			keyType: "evm",
+			keyType,
 			origin: "derived",
 			derivationIndex: data.index,
 			// Preserve isSelected if it exists, otherwise set to null
@@ -129,7 +131,7 @@ export async function insertDerivedKeyIfNew(
 	const result = evolu.insert("eoa", {
 		address: data.address,
 		encryptedPrivateKey: data.encryptedPrivateKey,
-		keyType: "evm",
+		keyType,
 		origin: "derived",
 		derivationIndex: data.index,
 		isSelected: null,

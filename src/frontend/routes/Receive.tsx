@@ -1,14 +1,17 @@
 import { useEvolu, useQuery } from "@evolu/react";
+import type { KeyType } from "@shared/types";
+import { useState } from "react";
 import invariant from "tiny-invariant";
 import { Link, useParams } from "wouter";
 import { QRCodeDisplay } from "~/components/QRCodeDisplay";
 import { createAllEoasQuery } from "~/lib/queries/eoa";
-import { useReceiveStore } from "~/providers/store";
 
 export const Receive = () => {
 	const evolu = useEvolu();
 	const { address } = useParams<{ address?: string }>();
-	const { network, setNetwork } = useReceiveStore();
+
+	// Local state for EVM network selection (only used for EVM wallets)
+	const [evmNetwork, setEvmNetwork] = useState<"ethereum" | "base">("base");
 
 	// Get all wallets for selection dropdown
 	const allEoasQuery = createAllEoasQuery(evolu);
@@ -48,17 +51,73 @@ export const Receive = () => {
 
 	invariant(selectedWallet.address, "Wallet address is required");
 
+	// Get the wallet's keyType and derive the appropriate network
+	const walletKeyType: KeyType = selectedWallet.keyType ?? "evm";
+
+	// Derive network from wallet type - no global state, no useEffect needed
+	// Tron wallets always use "tron", EVM wallets use local state
+	const isEvmWallet = walletKeyType === "evm";
+	const isTronWallet = walletKeyType === "tron";
+	const network = isTronWallet ? "tron" : evmNetwork;
+
 	return (
-		<div className="max-w-md mx-auto p-4">
+		<div className="max-w-md mx-auto p-4 mb-12">
 			<h1 className="text-2xl font-bold mb-6">Receive Crypto</h1>
+
+			{/* Network Selection */}
+			<div className="mb-6">
+				<div className="label">
+					<span className="label-text">Network</span>
+				</div>
+				<div role="tablist" className="tabs tabs-boxed w-full">
+					{isEvmWallet && (
+						<>
+							<button
+								type="button"
+								role="tab"
+								className={`tab ${network === "ethereum" ? "tab-active" : ""}`}
+								onClick={() => setEvmNetwork("ethereum")}
+							>
+								Ethereum
+							</button>
+							<button
+								type="button"
+								role="tab"
+								className={`tab ${network === "base" ? "tab-active" : ""}`}
+								onClick={() => setEvmNetwork("base")}
+							>
+								Base
+							</button>
+						</>
+					)}
+					{isTronWallet && (
+						<button
+							type="button"
+							role="tab"
+							className="tab tab-active"
+							disabled
+						>
+							Tron
+						</button>
+					)}
+				</div>
+			</div>
+
+			{/* QR Code Display */}
+			<div className="card card-compact bg-base-200 shadow-xl mb-6">
+				<div className="card-body">
+					<h2 className="card-title">Scan to Receive</h2>
+					<QRCodeDisplay address={selectedWallet.address} network={network} />
+				</div>
+			</div>
 
 			{/* Wallet Selection */}
 			{allWallets.length > 1 && (
-				<div className="mb-6">
+				<div>
 					<div className="label">
 						<span className="label-text">Select Wallet</span>
 					</div>
-					<div className="dropdown dropdown-bottom w-full">
+					<div className="dropdown dropdown-top w-full">
 						<button
 							type="button"
 							className="btn btn-bordered w-full justify-between"
@@ -72,7 +131,7 @@ export const Receive = () => {
 								{selectedWallet.address.slice(-4)}
 							</span>
 							<i
-								className="fa-solid fa-chevron-down text-xs"
+								className="fa-solid fa-chevron-up text-xs"
 								aria-hidden="true"
 							/>
 						</button>
@@ -95,39 +154,6 @@ export const Receive = () => {
 					</div>
 				</div>
 			)}
-
-			{/* Network Selection */}
-			<div className="mb-6">
-				<div className="label">
-					<span className="label-text">Network</span>
-				</div>
-				<div role="tablist" className="tabs tabs-boxed w-full">
-					<button
-						type="button"
-						role="tab"
-						className={`tab ${network === "ethereum" ? "tab-active" : ""}`}
-						onClick={() => setNetwork("ethereum")}
-					>
-						Ethereum
-					</button>
-					<button
-						type="button"
-						role="tab"
-						className={`tab ${network === "base" ? "tab-active" : ""}`}
-						onClick={() => setNetwork("base")}
-					>
-						Base
-					</button>
-				</div>
-			</div>
-
-			{/* QR Code Display */}
-			<div className="card card-compact bg-base-200 shadow-xl">
-				<div className="card-body">
-					<h2 className="card-title">Scan to Receive</h2>
-					<QRCodeDisplay address={selectedWallet.address} network={network} />
-				</div>
-			</div>
 		</div>
 	);
 };

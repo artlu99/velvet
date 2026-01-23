@@ -5,6 +5,10 @@ import type {
 	Erc20BalanceResult,
 	Erc20GasEstimateResult,
 	TransactionCountResult,
+	Trc20BalanceResult,
+	TronBalanceResult,
+	TronBroadcastResult,
+	TronGasEstimateResult,
 } from "./types";
 
 /**
@@ -50,6 +54,26 @@ export const apiEndpoints = {
 		path: "estimate-gas/erc20" as const,
 		method: "POST" as const,
 	},
+	/** GET /api/balance/tron/:address - Get TRX balance */
+	tronBalance: {
+		path: "balance/tron/:address" as const,
+		method: "GET" as const,
+	},
+	/** GET /api/balance/trc20/:address/:contract - Get TRC20 balance */
+	trc20Balance: {
+		path: "balance/trc20/:address/:contract" as const,
+		method: "GET" as const,
+	},
+	/** POST /api/estimate-gas/tron - Estimate TRC20 transfer gas */
+	tronGasEstimate: {
+		path: "estimate-gas/tron" as const,
+		method: "POST" as const,
+	},
+	/** POST /api/broadcast-transaction/tron - Broadcast Tron transaction */
+	tronBroadcast: {
+		path: "broadcast-transaction/tron" as const,
+		method: "POST" as const,
+	},
 } as const;
 
 /** Response types for each endpoint */
@@ -60,6 +84,10 @@ export type ApiResponses = {
 	erc20Balance: Erc20BalanceResult;
 	ensName: EnsNameResult;
 	erc20GasEstimate: Erc20GasEstimateResult;
+	tronBalance: TronBalanceResult;
+	trc20Balance: Trc20BalanceResult;
+	tronGasEstimate: TronGasEstimateResult;
+	tronBroadcast: TronBroadcastResult;
 };
 
 /**

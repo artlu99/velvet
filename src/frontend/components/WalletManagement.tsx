@@ -178,19 +178,50 @@ export const WalletManagement: FC = () => {
 														/>
 													)}
 												</button>
-												<Link
-													href={`https://etherscan.io/address/${row.address}`}
-													target="_blank"
-													rel="noopener noreferrer"
-													className="btn btn-ghost btn-xs btn-circle"
-													aria-label="View on Etherscan"
-													title="View on Etherscan"
-												>
-													<i
-														className="fa-solid fa-external-link h-4 w-4"
-														aria-hidden="true"
-													/>
-												</Link>
+												{row.keyType === "evm" ? (
+													<>
+														<a
+															href={`https://etherscan.io/address/${row.address}`}
+															target="_blank"
+															rel="noopener noreferrer"
+															className="btn btn-ghost btn-xs btn-circle"
+															aria-label="View on Etherscan"
+															title="View on Etherscan"
+														>
+															<i
+																className="fa-solid fa-external-link h-4 w-4"
+																aria-hidden="true"
+															/>{" "}
+														</a>
+														<a
+															href={`https://basescan.org/address/${row.address}`}
+															target="_blank"
+															rel="noopener noreferrer"
+															className="btn btn-ghost btn-xs btn-circle"
+															aria-label="View on Basescan"
+															title="View on Basescan"
+														>
+															<i
+																className="fa-solid fa-external-link h-4 w-4"
+																aria-hidden="true"
+															/>{" "}
+														</a>
+													</>
+												) : row.keyType === "tron" ? (
+													<a
+														href={`https://tronscan.org/#/address/${row.address}`}
+														target="_blank"
+														rel="noopener noreferrer"
+														className="btn btn-ghost btn-xs btn-circle"
+														aria-label="View on TronScan"
+														title="View on TronScan"
+													>
+														<i
+															className="fa-solid fa-external-link h-4 w-4"
+															aria-hidden="true"
+														/>{" "}
+													</a>
+												) : null}
 											</div>
 											<div className="mt-1 flex gap-1">
 												{row.origin && (

@@ -11,11 +11,21 @@ export const TransactionStatus: FC<TransactionStatusProps> = ({ params }) => {
 	const query = new URLSearchParams(search);
 	const chainId = query.get("chainId");
 
-	const isBase = chainId === "8453";
-	const explorerUrl = isBase
-		? `https://basescan.org/tx/${txHash}`
-		: `https://etherscan.io/tx/${txHash}`;
-	const explorerName = isBase ? "Basescan" : "Etherscan";
+	// Determine explorer URL and name based on chain
+	let explorerUrl: string;
+	let explorerName: string;
+
+	if (chainId === "tron") {
+		explorerUrl = `https://tronscan.org/#/transaction/${txHash}`;
+		explorerName = "TronScan";
+	} else if (chainId === "8453") {
+		explorerUrl = `https://basescan.org/tx/${txHash}`;
+		explorerName = "Basescan";
+	} else {
+		// Default to Ethereum (chainId 1 or null)
+		explorerUrl = `https://etherscan.io/tx/${txHash}`;
+		explorerName = "Etherscan";
+	}
 
 	// TODO: Fetch transaction details from Evolu database
 	// For now, just display the hash

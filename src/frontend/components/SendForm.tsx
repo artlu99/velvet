@@ -3,6 +3,8 @@ import type {
 	BroadcastTransactionResult,
 	GasEstimateResult,
 	SupportedChainId,
+	TronBroadcastResult,
+	TronGasEstimateResult,
 } from "@shared/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { type FC, useState } from "react";
@@ -12,10 +14,18 @@ import { privateKeyToAccount } from "viem/accounts";
 import { useLocation } from "wouter";
 import { QRScannerModal } from "~/components/QRScannerModal";
 import { useBroadcastTransactionMutation } from "~/hooks/mutations/useBroadcastTransactionMutation";
+import { useBroadcastTronTransactionMutation } from "~/hooks/mutations/useBroadcastTronTransactionMutation";
 import { useEstimateErc20GasMutation } from "~/hooks/mutations/useEstimateErc20GasMutation";
 import { useEstimateGasMutation } from "~/hooks/mutations/useEstimateGasMutation";
+import { useTronGasEstimateMutation } from "~/hooks/mutations/useTronGasEstimateMutation";
 import { useTransactionCountQuery } from "~/hooks/queries/useTransactionCountQuery";
-import { decryptPrivateKey, validateQRScannedData } from "~/lib/crypto";
+import {
+	buildAndSignTrc20Transfer,
+	buildAndSignTrxTransfer,
+	decryptPrivateKey,
+	isValidTronAddress,
+	validateQRScannedData,
+} from "~/lib/crypto";
 import { refreshAddressQueries } from "~/lib/refreshQueries";
 import {
 	getTokenAddress,
@@ -56,12 +66,31 @@ export const SendForm: FC<SendFormProps> = ({
 	const broadcastTransactionMutation = useBroadcastTransactionMutation();
 	const estimateGasMutation = useEstimateGasMutation();
 	const estimateErc20GasMutation = useEstimateErc20GasMutation();
+	const broadcastTronTransactionMutation =
+		useBroadcastTronTransactionMutation();
+	const tronGasEstimateMutation = useTronGasEstimateMutation();
 
 	const transactionCountQuery = useTransactionCountQuery({
 		address,
 		chainId,
 		enabled: false,
 	});
+
+	const isTron = chainId === "tron";
+
+	// Type guard for EVM gas estimate
+	function isEvmGasEstimate(
+		estimate: GasEstimateResult | TronGasEstimateResult,
+	): estimate is GasEstimateResult {
+		return "gasLimit" in estimate && estimate.ok;
+	}
+
+	// Type guard for Tron gas estimate
+	function isTronGasEstimate(
+		estimate: GasEstimateResult | TronGasEstimateResult,
+	): estimate is TronGasEstimateResult {
+		return "bandwidthRequired" in estimate && estimate.ok;
+	}
 
 	// Get token properties
 	const tokenAddress = getTokenAddress(token, chainId);
@@ -70,9 +99,9 @@ export const SendForm: FC<SendFormProps> = ({
 
 	const [recipient, setRecipient] = useState("");
 	const [amount, setAmount] = useState("");
-	const [gasEstimate, setGasEstimate] = useState<GasEstimateResult | null>(
-		null,
-	);
+	const [gasEstimate, setGasEstimate] = useState<
+		GasEstimateResult | TronGasEstimateResult | null
+	>(null);
 	const [isEstimating, setIsEstimating] = useState(false);
 	const [isSending, setIsSending] = useState(false);
 	const [showQRScanner, setShowQRScanner] = useState(false);
@@ -87,9 +116,11 @@ export const SendForm: FC<SendFormProps> = ({
 
 		setRecipient(result.data);
 		if (result.type === "evm") {
-			toast.success("Address scanned successfully!");
+			toast.success("EVM address scanned successfully!");
 		} else if (result.type === "ens") {
 			toast.success("ENS name scanned!");
+		} else if (result.type === "tron") {
+			toast.success("Tron address scanned successfully!");
 		}
 	};
 
@@ -97,39 +128,73 @@ export const SendForm: FC<SendFormProps> = ({
 	const estimateGas = async () => {
 		if (!recipient || !amount) return;
 
-		if (!isAddress(recipient)) {
-			toast.error("Invalid recipient address");
-			return;
+		// Validate address based on chain
+		if (isTron) {
+			if (!isValidTronAddress(recipient)) {
+				toast.error("Invalid Tron address");
+				return;
+			}
+		} else {
+			if (!isAddress(recipient)) {
+				toast.error("Invalid recipient address");
+				return;
+			}
 		}
 
 		setIsEstimating(true);
 		try {
-			const amountRaw = isNative
-				? ethToWei(amount)
-				: amountToRaw(amount, decimals);
+			if (isTron) {
+				// Tron gas estimation
+				// For native TRX, pass empty contract; for TRC20, pass contract address
+				const contractAddress = isNative ? "" : tokenAddress;
+				const amountRaw = isNative
+					? amountToRaw(amount, decimals) // TRX uses 6 decimals
+					: amountToRaw(amount, decimals);
 
-			const result: GasEstimateResult = isNative
-				? await estimateGasMutation.mutateAsync({
+				const result: TronGasEstimateResult =
+					await tronGasEstimateMutation.mutateAsync({
 						from: address,
 						to: recipient,
-						value: amountRaw,
-						chainId,
-					})
-				: await estimateErc20GasMutation.mutateAsync({
-						from: address,
-						to: recipient,
-						contract: tokenAddress,
+						contract: contractAddress,
 						amount: amountRaw,
-						chainId,
 					});
 
-			if (!result.ok) {
-				toast.error(result.error);
-				setGasEstimate(null);
-				return;
-			}
+				if (!result.ok) {
+					toast.error(result.error);
+					setGasEstimate(null);
+					return;
+				}
 
-			setGasEstimate(result);
+				setGasEstimate(result);
+			} else {
+				// EVM gas estimation
+				const amountRaw = isNative
+					? ethToWei(amount)
+					: amountToRaw(amount, decimals);
+
+				const result: GasEstimateResult = isNative
+					? await estimateGasMutation.mutateAsync({
+							from: address,
+							to: recipient,
+							value: amountRaw,
+							chainId,
+						})
+					: await estimateErc20GasMutation.mutateAsync({
+							from: address,
+							to: recipient,
+							contract: tokenAddress,
+							amount: amountRaw,
+							chainId,
+						});
+
+				if (!result.ok) {
+					toast.error(result.error);
+					setGasEstimate(null);
+					return;
+				}
+
+				setGasEstimate(result);
+			}
 		} catch {
 			toast.error("Failed to estimate gas");
 		} finally {
@@ -161,68 +226,120 @@ export const SendForm: FC<SendFormProps> = ({
 			const privateKey = decryptResult.value;
 
 			try {
-				// Create account from private key
-				const account = privateKeyToAccount(privateKey as `0x${string}`);
+				if (isTron) {
+					// Tron transaction flow
+					if (!isTronGasEstimate(gasEstimate)) {
+						toast.error("Invalid gas estimate for Tron transaction");
+						return;
+					}
 
-				// Fetch nonce (transaction count)
-				const { data: nonceResult } = await transactionCountQuery.refetch();
+					const amountRaw = amountToRaw(amount, decimals);
 
-				if (!nonceResult || !nonceResult.ok) {
-					toast.error(
-						nonceResult?.error ?? "Failed to fetch transaction count",
-					);
-					return;
-				}
+					// Build and sign the transfer - use native TRX or TRC20 based on token type
+					const signedTx = isNative
+						? await buildAndSignTrxTransfer(
+								privateKey as `0x${string}`,
+								recipient, // to
+								amountRaw, // amount in SUN
+							)
+						: await buildAndSignTrc20Transfer(
+								privateKey as `0x${string}`,
+								recipient, // to
+								tokenAddress, // contract
+								amountRaw, // amount
+							);
 
-				// Build transaction parameters
-				const amountRaw = isNative
-					? ethToWei(amount)
-					: amountToRaw(amount, decimals);
+					// Broadcast via backend API (transaction object needs to be stringified)
+					const result: TronBroadcastResult =
+						await broadcastTronTransactionMutation.mutateAsync({
+							signedTransaction: JSON.stringify(signedTx),
+						});
 
-				// Sign transaction - EIP-1559 format
-				const signedTx = await account.signTransaction({
-					to: isNative
-						? (recipient as `0x${string}`)
-						: (tokenAddress as `0x${string}`),
-					value: isNative ? BigInt(amountRaw) : 0n,
-					data: isNative
-						? undefined
-						: encodeErc20Transfer(recipient, amountRaw),
-					gas: BigInt(gasEstimate.gasLimit),
-					maxFeePerGas: BigInt(gasEstimate.maxFeePerGas),
-					maxPriorityFeePerGas: BigInt(gasEstimate.maxPriorityFeePerGas),
-					chainId,
-					nonce: nonceResult.nonce,
-					type: "eip1559",
-				});
+					if (!result.ok) {
+						toast.error(result.error);
+						return;
+					}
 
-				// Broadcast via backend API
-				const result: BroadcastTransactionResult =
-					await broadcastTransactionMutation.mutateAsync({
-						signedTransaction: signedTx,
+					// Refresh all address-related queries for sender + recipient
+					await Promise.all([
+						refreshAddressQueries(queryClient, address),
+						refreshAddressQueries(queryClient, recipient),
+					]);
+
+					toast.success("Transaction submitted!");
+
+					// Navigate to transaction status page
+					navigate(`/transaction/${result.txHash}?chainId=${chainId}`);
+				} else {
+					// EVM transaction flow
+					if (!isEvmGasEstimate(gasEstimate)) {
+						toast.error("Invalid gas estimate for EVM transaction");
+						return;
+					}
+
+					// Create account from private key
+					const account = privateKeyToAccount(privateKey as `0x${string}`);
+
+					// Fetch nonce (transaction count)
+					const { data: nonceResult } = await transactionCountQuery.refetch();
+
+					if (!nonceResult || !nonceResult.ok) {
+						toast.error(
+							nonceResult?.error ?? "Failed to fetch transaction count",
+						);
+						return;
+					}
+
+					// Build transaction parameters
+					const amountRaw = isNative
+						? ethToWei(amount)
+						: amountToRaw(amount, decimals);
+
+					// Sign transaction - EIP-1559 format
+					const signedTx = await account.signTransaction({
+						to: isNative
+							? (recipient as `0x${string}`)
+							: (tokenAddress as `0x${string}`),
+						value: isNative ? BigInt(amountRaw) : 0n,
+						data: isNative
+							? undefined
+							: encodeErc20Transfer(recipient, amountRaw),
+						gas: BigInt(gasEstimate.gasLimit),
+						maxFeePerGas: BigInt(gasEstimate.maxFeePerGas),
+						maxPriorityFeePerGas: BigInt(gasEstimate.maxPriorityFeePerGas),
 						chainId,
+						nonce: nonceResult.nonce,
+						type: "eip1559",
 					});
 
-				if (!result.ok) {
-					toast.error(result.error);
-					return;
+					// Broadcast via backend API
+					const result: BroadcastTransactionResult =
+						await broadcastTransactionMutation.mutateAsync({
+							signedTransaction: signedTx,
+							chainId,
+						});
+
+					if (!result.ok) {
+						toast.error(result.error);
+						return;
+					}
+
+					// Refresh all address-related queries (balance, transaction-count) for sender + recipient
+					// Uses cacheBust=1 for balance queries to bypass KV cache
+					await Promise.all([
+						refreshAddressQueries(queryClient, address),
+						refreshAddressQueries(queryClient, recipient),
+					]);
+
+					// Save transaction to Evolu database
+					// Note: Skipped for now due to type issues
+					// Transaction will be tracked on blockchain
+
+					toast.success("Transaction submitted!");
+
+					// Navigate to transaction status page
+					navigate(`/transaction/${result.txHash}?chainId=${chainId}`);
 				}
-
-				// Refresh all address-related queries (balance, transaction-count) for sender + recipient
-				// Uses cacheBust=1 for balance queries to bypass KV cache
-				await Promise.all([
-					refreshAddressQueries(queryClient, address),
-					refreshAddressQueries(queryClient, recipient),
-				]);
-
-				// Save transaction to Evolu database
-				// Note: Skipped for now due to type issues
-				// Transaction will be tracked on blockchain
-
-				toast.success("Transaction submitted!");
-
-				// Navigate to transaction status page
-				navigate(`/transaction/${result.txHash}?chainId=${chainId}`);
 			} finally {
 				// Note: privateKey is a string and cannot be securely wiped.
 				// The decrypted bytes in decryptPrivateKey are already wiped.
@@ -244,14 +361,18 @@ export const SendForm: FC<SendFormProps> = ({
 
 	const totalCost =
 		gasEstimate?.ok && amount
-			? calculateTotalCost(
-					isNative ? ethToWei(amount) : amountToRaw(amount, decimals),
-					gasEstimate.gasLimit,
-					gasEstimate.maxFeePerGas,
-				)
+			? isTron && isTronGasEstimate(gasEstimate)
+				? gasEstimate.totalCostTrx // Tron provides total cost directly
+				: isEvmGasEstimate(gasEstimate)
+					? calculateTotalCost(
+							isNative ? ethToWei(amount) : amountToRaw(amount, decimals),
+							gasEstimate.gasLimit,
+							gasEstimate.maxFeePerGas,
+						)
+					: "0"
 			: "0";
 
-	const totalCostEth = weiToEth(totalCost);
+	const totalCostEth = isTron ? totalCost : weiToEth(totalCost);
 	const hasEnoughBalance =
 		BigInt(balance) >=
 		BigInt(isNative ? ethToWei(amount) : amountToRaw(amount, decimals));
@@ -326,13 +447,32 @@ export const SendForm: FC<SendFormProps> = ({
 			{gasEstimate?.ok && (
 				<div className="mb-4 card card-compact bg-base-200">
 					<div className="card-body">
-						<h3 className="card-title text-sm">Estimated Gas Fees</h3>
+						<h3 className="card-title text-sm">
+							{isTron ? "Estimated Fees" : "Estimated Gas Fees"}
+						</h3>
 						<div className="text-sm space-y-1">
-							<div>Gas Limit: {gasEstimate.gasLimit}</div>
-							<div>Max Fee: {formatGwei(gasEstimate.maxFeePerGas)} Gwei</div>
-							<div className="font-semibold">
-								Cost: {gasEstimate.totalCostEth} ETH
-							</div>
+							{isTron && isTronGasEstimate(gasEstimate) ? (
+								<>
+									<div>Bandwidth Required: {gasEstimate.bandwidthRequired}</div>
+									<div>Energy Required: {gasEstimate.energyRequired}</div>
+									<div className="font-semibold">
+										Energy Fee: {gasEstimate.energyFee} SUN
+									</div>
+									<div className="font-semibold">
+										Total Cost: {gasEstimate.totalCostTrx} TRX
+									</div>
+								</>
+							) : isEvmGasEstimate(gasEstimate) ? (
+								<>
+									<div>Gas Limit: {gasEstimate.gasLimit}</div>
+									<div>
+										Max Fee: {formatGwei(gasEstimate.maxFeePerGas)} Gwei
+									</div>
+									<div className="font-semibold">
+										Cost: {gasEstimate.totalCostEth} ETH
+									</div>
+								</>
+							) : null}
 						</div>
 					</div>
 				</div>

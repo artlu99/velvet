@@ -29,10 +29,10 @@ interface TokenStoreActions {
 	// Get token by contract address + chainId
 	getTokenByAddress: (
 		address: string,
-		chainId: number,
+		chainId: number | string,
 	) => CoinGeckoToken | undefined;
 	// Get all tokens for a specific chain
-	getTokensByChain: (chainId: number) => CoinGeckoToken[];
+	getTokensByChain: (chainId: number | string) => CoinGeckoToken[];
 	// Update token (for manual editing via DevTools)
 	updateToken: (id: string, token: CoinGeckoToken) => void;
 	// Add new token
@@ -59,6 +59,20 @@ const INITIAL_TOKENS: Record<string, CoinGeckoToken> = {
 			},
 		},
 	},
+	tron: {
+		id: "tron",
+		symbol: "trx",
+		name: "TRON",
+		platforms: {
+			tron: "", // Native on Tron
+		},
+		detail_platforms: {
+			tron: {
+				decimal_place: 6,
+				contract_address: "",
+			},
+		},
+	},
 	"usd-coin": {
 		id: "usd-coin",
 		symbol: "usdc",
@@ -70,6 +84,20 @@ const INITIAL_TOKENS: Record<string, CoinGeckoToken> = {
 			base: {
 				decimal_place: 6,
 				contract_address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+			},
+		},
+	},
+	tether: {
+		id: "tether",
+		symbol: "usdt",
+		name: "Tether USD",
+		platforms: {
+			tron: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+		},
+		detail_platforms: {
+			tron: {
+				decimal_place: 6,
+				contract_address: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
 			},
 		},
 	},
@@ -97,7 +125,7 @@ export const useTokenStore = create<TokenStoreState & TokenStoreActions>()(
 
 			getTokenById: (id: string) => get().tokens[id],
 
-			getTokenByAddress: (address: string, chainId: number) => {
+			getTokenByAddress: (address: string, chainId: number | string) => {
 				const { lookupMap, tokens } = get();
 				// Map chainId to CoinGecko platform ID
 				const platformId =
@@ -105,20 +133,24 @@ export const useTokenStore = create<TokenStoreState & TokenStoreActions>()(
 						? "ethereum"
 						: chainId === 8453
 							? "base"
-							: String(chainId);
+							: chainId === "tron"
+								? "tron"
+								: String(chainId);
 				const key = `${platformId}:${address || "0x0"}`;
 				const tokenId = lookupMap[key];
 				return tokenId ? tokens[tokenId] : undefined;
 			},
 
-			getTokensByChain: (chainId: number) => {
+			getTokensByChain: (chainId: number | string) => {
 				const { tokens } = get();
 				const platformId =
 					chainId === 1
 						? "ethereum"
 						: chainId === 8453
 							? "base"
-							: String(chainId);
+							: chainId === "tron"
+								? "tron"
+								: String(chainId);
 				return Object.values(tokens).filter(
 					(token) => token.platforms[platformId] !== undefined,
 				);

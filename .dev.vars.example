@@ -1,2 +1,3 @@
 SECRET=this is a secret
 ETHERSCAN_API_KEY=XXXX
+TRONGRID_API_KEY=your_api_key_here

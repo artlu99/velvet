@@ -1,7 +1,8 @@
 import { QRCodeSVG } from "qrcode.react";
 import { type FC, useState } from "react";
 import toast from "react-hot-toast";
-import type { Network } from "~/providers/store";
+
+type Network = "ethereum" | "base" | "tron";
 
 interface QRCodeDisplayProps {
 	/** Wallet address to display */
@@ -30,9 +31,15 @@ export const QRCodeDisplay: FC<QRCodeDisplayProps> = ({
 		}
 	};
 
-	const networkLabel = network === "ethereum" ? "Ethereum" : "Base";
+	// Derive network label and badge color
+	const networkLabel =
+		network === "ethereum" ? "Ethereum" : network === "base" ? "Base" : "Tron";
 	const networkBadgeClass =
-		network === "ethereum" ? "badge-primary" : "badge-neutral";
+		network === "ethereum"
+			? "badge-primary"
+			: network === "base"
+				? "badge-neutral"
+				: "badge-secondary";
 
 	return (
 		<div className="flex flex-col items-center gap-4">

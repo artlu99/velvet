@@ -8,7 +8,8 @@ export function getTokenDecimals(
 	token: CoinGeckoToken,
 	chainId: SupportedChainId,
 ): number {
-	const platformId = chainId === 1 ? "ethereum" : "base";
+	const platformId =
+		chainId === 1 ? "ethereum" : chainId === 8453 ? "base" : "tron";
 	const detail = token.detail_platforms[platformId];
 	return detail?.decimal_place ?? 18; // Default to 18 if not found
 }
@@ -21,9 +22,10 @@ export function getTokenAddress(
 	token: CoinGeckoToken,
 	chainId: SupportedChainId,
 ): string {
-	const platformId = chainId === 1 ? "ethereum" : "base";
+	const platformId =
+		chainId === 1 ? "ethereum" : chainId === 8453 ? "base" : "tron";
 	const address = token.platforms[platformId];
-	return address || "0x0";
+	return address || (chainId === "tron" ? "" : "0x0");
 }
 
 /**

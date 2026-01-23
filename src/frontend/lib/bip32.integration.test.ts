@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { deriveEvmAddress, deriveEvmKeyFromMnemonic } from "./bip32";
 
+const MAX_DERIVATION_INDEX = 2 ** 31 - 1; // BIP32 hardened limit
+
 // Test mnemonic (valid BIP39)
 const testMnemonic =
 	"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
@@ -84,5 +86,10 @@ describe("error handling", () => {
 		const privateKey = deriveEvmKeyFromMnemonic(testMnemonic, largeIndex);
 
 		expect(privateKey).toMatch(/^0x[0-9a-f]{64}$/);
+	});
+	
+	test("handles index greater than MAX_DERIVATION_INDEX", () => {
+		const largeIndex =MAX_DERIVATION_INDEX + 1; // 2^31 is the first index that is greater than MAX_DERIVATION_INDEX
+		expect(() => deriveEvmKeyFromMnemonic(testMnemonic, largeIndex)).toThrow(`Index must be less than ${MAX_DERIVATION_INDEX}`);
 	});
 });

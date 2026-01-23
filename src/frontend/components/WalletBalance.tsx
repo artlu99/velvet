@@ -1,36 +1,81 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { format } from "d3-format";
 import type { FC } from "react";
 import { useBalanceQuery } from "~/hooks/queries/useBalanceQuery";
 import { useErc20BalanceQuery } from "~/hooks/queries/useErc20BalanceQuery";
+import { useTrc20BalanceQuery } from "~/hooks/queries/useTrc20BalanceQuery";
+import { useTronBalanceQuery } from "~/hooks/queries/useTronBalanceQuery";
+import { discriminateAddressType } from "~/lib/crypto";
 import { getTokenDecimals } from "~/lib/tokenUtils";
 import { rawToAmount } from "~/lib/transaction";
 import type { CoinGeckoToken } from "~/providers/tokenStore";
 import { useTokenStore } from "~/providers/tokenStore";
 
+// Format numbers with locale-aware thousands separators
+const formatWithLocale = new Intl.NumberFormat(undefined, {
+	minimumFractionDigits: 2,
+	maximumFractionDigits: 6,
+});
+
+const formatTrc20 = new Intl.NumberFormat(undefined, {
+	minimumFractionDigits: 0,
+	maximumFractionDigits: 2,
+});
+
 interface WalletBalanceProps {
 	address: string;
 }
 
-const formatEth = format(".6~g");
-
-const CHAINS: Array<{ id: 1 | 8453; name: string; nativeAsset: string }> = [
+const CHAINS: Array<
+	| { id: 1 | 8453; name: string; nativeAsset: string }
+	| { id: "tron"; name: string; nativeAsset: string }
+> = [
 	{ id: 1, name: "ETH", nativeAsset: "ETH" },
 	{ id: 8453, name: "Base", nativeAsset: "Base ETH" },
+	{ id: "tron", name: "Tron", nativeAsset: "TRX" },
 ];
 
 export const WalletBalance: FC<WalletBalanceProps> = ({ address }) => {
+	const addressType = discriminateAddressType(address);
+
+	// Filter chains based on address type
+	const relevantChains = CHAINS.filter((chain) => {
+		if (addressType.type === "unknown") {
+			return false; // Don't show balances for unknown address types
+		}
+		if (addressType.type === "evm") {
+			// EVM addresses only show EVM chains (ETH, Base)
+			return chain.id !== "tron";
+		}
+		if (addressType.type === "tron") {
+			// Tron addresses only show Tron chain
+			return chain.id === "tron";
+		}
+		return false;
+	});
+
+	if (relevantChains.length === 0) {
+		return null;
+	}
+
 	return (
 		<div className="flex gap-2 flex-col min-w-0 w-full">
 			<div className="flex gap-2 flex-wrap min-w-0 w-full">
-				{CHAINS.map((chain) => (
-					<ChainBalance
-						key={chain.id}
-						address={address}
-						chainId={chain.id}
-						name={chain.nativeAsset}
-					/>
-				))}
+				{relevantChains.map((chain) =>
+					chain.id === "tron" ? (
+						<TronChainBalance
+							key={chain.id}
+							address={address}
+							name={chain.nativeAsset}
+						/>
+					) : (
+						<ChainBalance
+							key={chain.id}
+							address={address}
+							chainId={chain.id}
+							name={chain.nativeAsset}
+						/>
+					),
+				)}
 			</div>
 		</div>
 	);
@@ -73,7 +118,7 @@ const ChainBalance: FC<ChainBalanceProps> = ({ address, chainId, name }) => {
 
 	const formattedBalanceEth = (() => {
 		const n = Number(data.balanceEth);
-		return Number.isFinite(n) ? formatEth(n) : data.balanceEth;
+		return Number.isFinite(n) ? formatWithLocale.format(n) : data.balanceEth;
 	})();
 
 	return (
@@ -156,11 +201,124 @@ const TokenBalance: FC<TokenBalanceProps> = ({
 	}
 
 	const decimals = getTokenDecimals(token, chainId);
-	const formattedBalance = rawToAmount(erc20Data.balanceRaw, decimals);
+	const balanceAmount = rawToAmount(erc20Data.balanceRaw, decimals);
+	const formattedBalance = (() => {
+		const n = Number(balanceAmount);
+		return Number.isFinite(n) ? formatWithLocale.format(n) : balanceAmount;
+	})();
 	const label =
 		chainId === 8453
 			? `Base ${token.symbol.toUpperCase()}`
 			: token.symbol.toUpperCase();
+
+	return (
+		<div
+			className="badge badge-sm max-w-full min-w-0 overflow-hidden"
+			title={`${token.name}: ${formattedBalance}`}
+		>
+			<span className="opacity-80 shrink-0">{label}</span>
+			<span className="mx-1 opacity-60 shrink-0">·</span>
+			<span className="font-mono tabular-nums truncate min-w-0">
+				{formattedBalance}
+			</span>
+		</div>
+	);
+};
+
+interface TronChainBalanceProps {
+	address: string;
+	name: string;
+}
+
+const TronChainBalance: FC<TronChainBalanceProps> = ({ address, name }) => {
+	const queryClient = useQueryClient();
+	const { data: trxData, isLoading: trxLoading } = useTronBalanceQuery({
+		address,
+	});
+	const getTokensByChain = useTokenStore((state) => state.getTokensByChain);
+	const tokens = getTokensByChain("tron");
+
+	if (trxLoading) {
+		return (
+			<div className="badge badge-sm badge-outline">
+				<span className="loading loading-spinner loading-xs mr-1" />
+				{name}
+			</div>
+		);
+	}
+
+	const formattedTrxBalance = (() => {
+		if (!trxData?.ok) return null;
+		const n = Number(trxData.balanceTrx);
+		return Number.isFinite(n) ? formatWithLocale.format(n) : trxData.balanceTrx;
+	})();
+
+	return (
+		<button
+			type="button"
+			className="btn btn-ghost "
+			onClick={() => {
+				queryClient.invalidateQueries({
+					queryKey: ["tronBalance", address],
+				});
+				queryClient.invalidateQueries({
+					queryKey: ["trc20Balance", address],
+				});
+			}}
+		>
+			<div className="badge badge-sm max-w-full">
+				<span className="opacity-80 shrink-0">{name}</span>
+				<span className="mx-1 opacity-60 shrink-0">·</span>
+				<span className="font-mono tabular-nums truncate min-w-0">
+					{formattedTrxBalance ?? "Error"}
+				</span>
+
+				{tokens.map((token) => {
+					const tokenAddress = token.platforms.tron;
+					if (!tokenAddress) return null; // Skip native tokens
+
+					return (
+						<TronTokenBalance
+							key={token.id}
+							address={address}
+							contract={tokenAddress}
+							token={token}
+						/>
+					);
+				})}
+			</div>
+		</button>
+	);
+};
+
+interface TronTokenBalanceProps {
+	address: string;
+	contract: string;
+	token: CoinGeckoToken;
+}
+
+const TronTokenBalance: FC<TronTokenBalanceProps> = ({
+	address,
+	contract,
+	token,
+}) => {
+	const { data: trc20Data } = useTrc20BalanceQuery({
+		address,
+		contract,
+	});
+
+	if (!trc20Data?.ok) {
+		return null;
+	}
+
+	const formattedBalance = (() => {
+		const n = Number(trc20Data.balanceFormatted);
+		return Number.isFinite(n)
+			? formatTrc20.format(n)
+			: trc20Data.balanceFormatted;
+	})();
+
+	const label = `Tron ${token.symbol.toUpperCase()}`;
 
 	return (
 		<div

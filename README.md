@@ -12,22 +12,29 @@ FOSS, modular, and self-hostable at *de minimis* cost.
   - Supports deriving wallets at any index (0, 1, 2, ...)
   - Idempotent: re-deriving the same index updates existing wallet
   - Can restore previously deleted wallets by re-deriving
-- [x] Support EVM chains (eth/Base): same private key, different chain IDs
+- [x] Support EVM chains (Ethereum, Base): same private key, different chain IDs
 - [x] Import private keys (imported wallets) from anywhere, including the FOSS [Poor Richard's Wallet](https://github.com/artlu99/poor-richards-wallet)
 - [x] Watch-only addresses
-- [ ] Support Tron: different address format (base58check)
+- [x] Support Tron: different address format (base58check, T-addresses)
+  - Path: `m/44'/195'/0'/0/{index}` (BIP44 standard for Tron)
+  - Type-safe wallet filtering by keyType (EVM vs Tron)
 
-## view ETH balances on mainnet+Base
-- [x] RPC calls to multiple networks (Etherscan API)
-- [x] Balance queries for Ethereum and Base
+## view balances on all supported chains
+- [x] RPC calls to multiple networks (Etherscan API, TronGrid API)
+- [x] Balance queries for Ethereum, Base, and Tron
+- [x] View ETH/ETH balances on Ethereum and Base
+- [x] View TRX/TRC20 balances on Tron
 - [x] Handle RPC failures and fallbacks
 - [x] Display balances in UI
+- [ ] Aggregate balances across chains
+- [ ] Convert to USD display value
+- [x] Refresh on demand
 
-## send/hold/receive (QR code) ETH on mainnet, Base
+## send/hold/receive (QR code) ETH on Ethereum, Base
 - [x] Generate QR codes for receiving addresses
 - [x] Scan QR codes from camera
 - [x] Sign transactions with private keys
-- [x] Estimate gas fees
+- [x] Estimate gas fees (EIP-1559)
 - [x] Broadcast transactions to network
 - [x] Track transaction status
 
@@ -35,17 +42,18 @@ FOSS, modular, and self-hostable at *de minimis* cost.
 - [x] ERC20 token transfer
 - [x] Handle 6 decimals for USDC
 
-## send/hold/receive (QR code) USDT on Tron
-- [ ] TRC20 token standard
-- [ ] TronGrid RPC integration
-- [ ] Different address format (T-addresses)
-- [ ] Bandwidth/energy fee model
+## send/hold/receive (QR code) TRX on Tron
+- [x] Native TRX transfers
+- [x] TronGrid RPC integration
+- [x] Bandwidth fee model
+- [x] Base58check address format (T-addresses)
 
-## view balances for all of the above
-- [x] View ETH balances on Ethereum and Base
-- [ ] Aggregate balances across chains
-- [ ] Convert to USD display value
-- [x] Refresh on demand
+## send/hold/receive (QR code) USDT on Tron
+- [x] TRC20 token standard
+- [x] TronGrid RPC integration
+- [x] Different address format (T-addresses)
+- [x] Energy fee model
+- [x] Handle 6 decimals for USDT
 
 # TODO
 

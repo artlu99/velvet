@@ -2,7 +2,49 @@ export interface AppName {
 	name: string;
 }
 
-export type SupportedChainId = 1 | 8453;
+export type SupportedChainId = 1 | 8453 | "tron";
+
+// Discriminated union mapping keyType to supported chains
+// This ensures type safety - Tron wallets can only use Tron chains, EVM wallets only EVM chains
+export type KeyType = "evm" | "tron" | "btc" | "solana";
+
+export type EvmChainId = 1 | 8453; // Ethereum, Base
+export type TronChainId = "tron";
+
+// Maps wallet keyType to its supported chain IDs
+export type KeyTypeToChainId = {
+	evm: EvmChainId;
+	tron: TronChainId;
+	btc: never; // Not yet supported
+	solana: never; // Not yet supported
+};
+
+// Type guard to check if a chainId is valid for a given keyType
+export function isValidChainForKeyType<T extends KeyType>(
+	keyType: T,
+	chainId: SupportedChainId,
+): chainId is KeyTypeToChainId[T] {
+	if (keyType === "evm") {
+		return chainId === 1 || chainId === 8453;
+	}
+	if (keyType === "tron") {
+		return chainId === "tron";
+	}
+	return false;
+}
+
+// Get all supported chain IDs for a keyType
+export function getSupportedChainsForKeyType(
+	keyType: KeyType,
+): SupportedChainId[] {
+	if (keyType === "evm") {
+		return [1, 8453];
+	}
+	if (keyType === "tron") {
+		return ["tron"];
+	}
+	return [];
+}
 
 export interface BalanceRequest {
 	address: string;
@@ -196,3 +238,98 @@ export interface EnsNameError {
 }
 
 export type EnsNameResult = EnsNameSuccess | EnsNameError;
+
+// Tron Balance types
+export interface TronBalanceRequest {
+	address: string;
+}
+
+export interface TronBalanceSuccess {
+	readonly ok: true;
+	readonly address: string;
+	readonly balanceTrx: string;
+	readonly balanceSun: string;
+	readonly bandwidth: { free: number; used: number };
+	readonly energy: { free: number; used: number };
+	readonly timestamp: number;
+}
+
+export interface TronBalanceError {
+	readonly ok: false;
+	readonly error: string;
+	readonly code: "INVALID_TRON_ADDRESS" | "NETWORK_ERROR";
+}
+
+export type TronBalanceResult = TronBalanceSuccess | TronBalanceError;
+
+// TRC20 Balance types
+export interface Trc20BalanceRequest {
+	address: string;
+	contract: string;
+}
+
+export interface Trc20BalanceSuccess {
+	readonly ok: true;
+	readonly address: string;
+	readonly contract: string;
+	readonly symbol: string;
+	readonly decimals: number;
+	readonly balanceRaw: string;
+	readonly balanceFormatted: string;
+	readonly timestamp: number;
+}
+
+export interface Trc20BalanceError {
+	readonly ok: false;
+	readonly error: string;
+	readonly code: "INVALID_TRON_ADDRESS" | "INVALID_CONTRACT" | "NETWORK_ERROR";
+}
+
+export type Trc20BalanceResult = Trc20BalanceSuccess | Trc20BalanceError;
+
+// Tron Gas Estimation types
+export interface TronGasEstimateRequest {
+	from: string;
+	to: string;
+	contract: string;
+	amount: string;
+}
+
+export interface TronGasEstimateSuccess {
+	readonly ok: true;
+	readonly bandwidthRequired: number;
+	readonly energyRequired: number;
+	readonly energyFee: string;
+	readonly totalCostTrx: string;
+}
+
+export interface TronGasEstimateError {
+	readonly ok: false;
+	readonly error: string;
+	readonly code:
+		| "INSUFFICIENT_BANDWIDTH"
+		| "INSUFFICIENT_ENERGY"
+		| "NETWORK_ERROR";
+}
+
+export type TronGasEstimateResult =
+	| TronGasEstimateSuccess
+	| TronGasEstimateError;
+
+// Tron Broadcast types
+export interface TronBroadcastRequest {
+	signedTransaction: string;
+}
+
+export interface TronBroadcastSuccess {
+	readonly ok: true;
+	readonly txHash: string;
+}
+
+export interface TronBroadcastError {
+	readonly ok: false;
+	readonly error: string;
+	readonly code: "INVALID_TRANSACTION" | "BROADCAST_FAILED";
+}
+
+export type TronBroadcastResult = TronBroadcastSuccess | TronBroadcastError;

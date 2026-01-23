@@ -14,7 +14,7 @@ export const evoluInstance = createEvolu(evoluReactWebDeps)(Schema, {
 	name: SimpleName.orThrow(EVOLU_INSTANCE),
 	transports: [
 		{ type: "WebSocket", url: "wss://evolu-relay-1.artlu.xyz" },
-		{ type: "WebSocket", url: "wss://evolu-relay-2.artlu.xyz" },
+		// { type: "WebSocket", url: "wss://evolu-relay-2.artlu.xyz" },
 	],
 
 	// Disable sync for development to avoid WebSocket connection issues

@@ -25,12 +25,12 @@ export const ImportPrivateKey: FC = () => {
 			return;
 		}
 
-		const {
-			type,
-			address,
-			privateKey: unencryptedPrivateKey,
-		} = validationResult;
+		const { type, address, keyType } = validationResult;
 		const isWatchOnly = type === "address";
+		const unencryptedPrivateKey =
+			validationResult.ok && type === "privateKey"
+				? validationResult.privateKey
+				: null;
 
 		// Show warning for watch-only addresses
 		if (isWatchOnly) {
@@ -66,7 +66,7 @@ export const ImportPrivateKey: FC = () => {
 		const insertData: EoaInsert = {
 			address,
 			encryptedPrivateKey,
-			keyType: "evm",
+			keyType,
 			origin: isWatchOnly ? "watchOnly" : "imported",
 			isSelected: sqliteFalse,
 			derivationIndex: null,
@@ -111,11 +111,13 @@ export const ImportPrivateKey: FC = () => {
 				</div>
 
 				<fieldset className="fieldset">
-					<legend className="fieldset-legend">Private Key or Address</legend>
+					<legend className="fieldset-legend">
+						Private Key or Address (EVM or Tron)
+					</legend>
 					<div className="join w-full">
 						<input
 							type={showKey ? "text" : "password"}
-							placeholder="0x..."
+							placeholder="0x... or T..."
 							className={`input join-item grow font-mono text-sm ${error ? "input-error" : ""}`}
 							value={importInput}
 							onChange={(e) => setImportInput(e.target.value)}
@@ -136,6 +138,9 @@ export const ImportPrivateKey: FC = () => {
 						</button>
 					</div>
 					{error && <p className="fieldset-label text-error">{error}</p>}
+					<p className="fieldset-label text-sm opacity-70">
+						Auto-detects: EVM (0x...), Tron (T...), or ENS (.eth)
+					</p>
 				</fieldset>
 
 				<div className="card-actions justify-end">

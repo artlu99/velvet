@@ -6,7 +6,8 @@
 	"vars": {
 		"NAME": "Underground Velvet",
 		"ETHEREUM_RPC_URL": "https://eth.merkle.io",
-		"BASE_RPC_URL": "https://mainnet.base.org"
+		"BASE_RPC_URL": "https://mainnet.base.org",
+		"TRONGRID_API_URL": "https://api.trongrid.io"
 	},
 	"kv_namespaces": [
 		{

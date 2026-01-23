@@ -155,3 +155,32 @@ export function encodeErc20Transfer(to: string, amount: string): `0x${string}` {
 		args: [to as `0x${string}`, BigInt(amount)],
 	});
 }
+
+// Tron unit conversions
+/**
+ * Convert TRX to SUN (smallest unit).
+ * @param trx - Amount in TRX (e.g., "1.5")
+ * @returns Amount in SUN as string
+ */
+export function trxToSun(trx: string): string {
+	return amountToRaw(trx, 6);
+}
+
+/**
+ * Convert SUN to TRX.
+ * @param sun - Amount in SUN as string
+ * @returns Amount in TRX as string
+ */
+export function sunToTrx(sun: string): string {
+	return rawToAmount(sun, 6);
+}
+
+/**
+ * Convert amount to TRC20 raw units.
+ * @param amount - Human-readable amount (e.g., "100.5" USDT)
+ * @param decimals - Number of decimals for the token (6 for USDT)
+ * @returns Raw amount as string
+ */
+export function amountToTrc20Raw(amount: string, decimals: number): string {
+	return amountToRaw(amount, decimals);
+}

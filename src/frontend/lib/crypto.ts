@@ -5,9 +5,64 @@ import {
 	type SymmetricCrypto,
 	utf8ToBytes,
 } from "@evolu/common";
+import type { KeyType } from "@shared/types";
 import * as v from "valibot";
 import { isAddress } from "viem";
 import { type Address, privateKeyToAccount } from "viem/accounts";
+import {
+	isValidTronAddress as checkValidTronAddress,
+	deriveTronAddress as deriveTronAddressFromTron,
+} from "./tron";
+
+// Re-export type-safe Tron utilities
+export {
+	buildAndSignTrc20Transfer,
+	buildAndSignTrxTransfer,
+	deriveTronAddress,
+	isValidTronAddress,
+} from "./tron";
+
+/**
+ * Address type discriminated union
+ */
+export type AddressType =
+	| { type: "evm"; address: Address }
+	| { type: "tron"; address: string }
+	| { type: "unknown"; address: string };
+
+/**
+ * Type guard to check if an address is an EVM address (0x-prefixed hex)
+ * @param address - The address to check
+ * @returns true if the address is a valid EVM address
+ */
+export function isEvmAddress(address: string): address is Address {
+	return isAddress(address as Address);
+}
+
+/**
+ * Type guard to check if an address is a Tron address (base58check, T-address)
+ * @param address - The address to check
+ * @returns true if the address is a valid Tron address
+ */
+export function isTronAddress(address: string): boolean {
+	// Tron addresses start with 'T' and are 34 characters (base58check)
+	return /^T[a-zA-Z0-9]{33}$/.test(address) && checkValidTronAddress(address);
+}
+
+/**
+ * Discriminates an address into its blockchain type
+ * @param address - The address to discriminate
+ * @returns Address type object with discriminated type
+ */
+export function discriminateAddressType(address: string): AddressType {
+	if (isEvmAddress(address)) {
+		return { type: "evm", address };
+	}
+	if (isTronAddress(address)) {
+		return { type: "tron", address };
+	}
+	return { type: "unknown", address };
+}
 
 // EVM Private Key Validation Schema
 // Must be 0x-prefixed, 64 hex characters
@@ -58,22 +113,29 @@ export function validateAndDeriveAddress(
  * Result type for unified import input validation
  */
 export type ImportInputResult =
-	| { ok: true; type: "privateKey"; address: Address; privateKey: string }
-	| { ok: true; type: "address"; address: Address; privateKey: null }
+	| {
+			ok: true;
+			type: "privateKey";
+			address: string;
+			privateKey: string;
+			keyType: KeyType;
+	  }
+	| { ok: true; type: "address"; address: string; keyType: KeyType }
 	| { ok: false; error: string };
 
 /**
- * Validates import input and auto-detects whether it's a private key or address
+ * Validates import input and auto-detects key type and format
+ * Waterfall: EVM private key → EVM address → Tron address → Tron private key
  * @param input - The input string to validate (private key or address)
- * @returns Object with success status, type, address, and optional private key
+ * @returns Object with success status, type, address, keyType, and optional private key
  */
 export function validateImportInput(input: string): ImportInputResult {
 	const trimmed = input.trim();
 
-	// Try private key first (66 chars: 0x + 64 hex)
-	const keyResult = v.safeParse(EvmPrivateKeySchema, trimmed);
-	if (keyResult.success) {
-		const derivationResult = validateAndDeriveAddress(keyResult.output);
+	// 1. Try EVM private key (0x + 64 hex)
+	const evmKeyResult = v.safeParse(EvmPrivateKeySchema, trimmed);
+	if (evmKeyResult.success) {
+		const derivationResult = validateAndDeriveAddress(evmKeyResult.output);
 		if (!derivationResult.ok) {
 			return { ok: false, error: derivationResult.error };
 		}
@@ -81,25 +143,67 @@ export function validateImportInput(input: string): ImportInputResult {
 			ok: true,
 			type: "privateKey",
 			address: derivationResult.address,
-			privateKey: keyResult.output,
+			privateKey: evmKeyResult.output,
+			keyType: "evm",
 		};
 	}
 
-	// Try address (42 chars: 0x + 40 hex)
-	const addressResult = v.safeParse(EvmAddressSchema, trimmed);
-	if (addressResult.success) {
+	// 2. Try EVM address (0x + 40 hex)
+	const evmAddressResult = v.safeParse(EvmAddressSchema, trimmed);
+	if (evmAddressResult.success) {
 		return {
 			ok: true,
 			type: "address",
-			address: addressResult.output,
-			privateKey: null,
+			address: evmAddressResult.output,
+			keyType: "evm",
 		};
+	}
+
+	// 3. Try Tron address (base58, T-address, 34 chars)
+	// Check format first
+	if (/^T[a-zA-Z0-9]{33}$/.test(trimmed)) {
+		// Then validate checksum
+		if (isTronAddress(trimmed)) {
+			return {
+				ok: true,
+				type: "address",
+				address: trimmed,
+				keyType: "tron",
+			};
+		}
+		// Format is correct but checksum failed
+		return {
+			ok: false,
+			error:
+				"Invalid Tron address checksum. This address may have a typo. Please verify and try again.",
+		};
+	}
+
+	// 4. Try Tron private key (64 hex, with or without 0x prefix)
+	const tronKeyHex = trimmed.startsWith("0x") ? trimmed.slice(2) : trimmed;
+	if (/^[0-9a-fA-F]{64}$/.test(tronKeyHex)) {
+		// Derive Tron address from private key
+		try {
+			const privateKeyHex = `0x${tronKeyHex}` as `0x${string}`;
+			const address = deriveTronAddressFromTron(privateKeyHex);
+			return {
+				ok: true,
+				type: "privateKey",
+				address,
+				privateKey: privateKeyHex,
+				keyType: "tron",
+			};
+		} catch {
+			// If derivation fails, continue to error
+		}
 	}
 
 	return {
 		ok: false,
 		error:
-			"Invalid input. Enter a private key (0x + 64 hex chars) or an address (0x + 40 hex chars).",
+			"Invalid input. Supported formats:\n" +
+			"• EVM: 0x-prefixed private key (66 chars) or address (42 chars)\n" +
+			"• Tron: 0x-prefixed private key (66 chars) or T-address (34 chars)",
 	};
 }
 
@@ -212,12 +316,12 @@ export function decryptPrivateKey(
  * Result type for QR-scanned data validation
  */
 export type QRScannedDataResult =
-	| { ok: true; type: "evm" | "ens"; data: string }
+	| { ok: true; type: "evm" | "ens" | "tron"; data: string }
 	| { ok: false; error: string };
 
 /**
  * Validates data from QR code scan.
- * Supports EVM addresses and ENS names.
+ * Supports EVM addresses, Tron addresses, and ENS names.
  * @param data - The scanned data string
  * @returns Object with success status, type, and data
  */
@@ -233,6 +337,15 @@ export function validateQRScannedData(data: string): QRScannedDataResult {
 		};
 	}
 
+	// Check if it's a Tron address
+	if (isTronAddress(trimmed)) {
+		return {
+			ok: true,
+			type: "tron",
+			data: trimmed,
+		};
+	}
+
 	// Check if it's an ENS name (basic check: ends with .eth and reasonable length)
 	if (trimmed.endsWith(".eth") && trimmed.length > 4 && trimmed.length < 50) {
 		return {
@@ -244,6 +357,7 @@ export function validateQRScannedData(data: string): QRScannedDataResult {
 
 	return {
 		ok: false,
-		error: "Invalid QR code format. Please scan a wallet address or ENS name.",
+		error:
+			"Invalid QR code format. Please scan an EVM address, Tron address, or ENS name.",
 	};
 }
