@@ -8,6 +8,7 @@ import type {
 	Erc20GasEstimateRequest,
 	GasEstimateError,
 	GasEstimateRequest,
+	PricesResult,
 	TransactionCountError,
 	TronBroadcastError,
 	TronGasEstimateRequest,
@@ -19,6 +20,7 @@ import { secureHeaders } from "hono/secure-headers";
 import invariant from "tiny-invariant";
 import { formatEther, getAddress, isAddress } from "viem";
 import { fetchBalance, isSupportedChainId, parseChainId } from "./lib/balance";
+import { fetchPrices } from "./lib/coingecko";
 import { fetchEnsName } from "./lib/ens";
 import { estimateErc20Transfer, fetchErc20Balance } from "./lib/erc20";
 import {
@@ -491,6 +493,72 @@ app
 		}
 
 		return c.json(result);
+	})
+	.get("/prices", async (c) => {
+		const idsParam = c.req.query("ids");
+		const cacheBust = c.req.query("cacheBust");
+		const bypassCache = cacheBust !== undefined;
+
+		// Default to common tokens if not specified
+		const coinIds = idsParam
+			? idsParam.split(",").map((id) => id.trim())
+			: ["ethereum", "tron", "usd-coin", "tether"];
+
+		// Sort IDs to normalize cache key
+		const sortedIds = [...coinIds].sort().join(",");
+		const cacheKey = `prices:${sortedIds}`;
+
+		if (!bypassCache) {
+			const cached = await c.env.BALANCE_CACHE.get(cacheKey, "json");
+			if (cached) {
+				c.header("x-prices-cache", "hit");
+				return c.json(cached);
+			}
+			c.header("x-prices-cache", "miss");
+		} else {
+			c.header("x-prices-cache", "bypass");
+		}
+
+		try {
+			// Fetch prices from CoinGecko
+			invariant(
+				c.env.COINGECKO_API_KEY,
+				"COINGECKO_API_KEY is not set in environment",
+			);
+			const prices = await fetchPrices({
+				env: c.env,
+				coinIds,
+			});
+
+			const result: PricesResult = {
+				ok: true,
+				prices,
+				timestamp: Date.now(),
+			};
+
+			if (!bypassCache) {
+				await c.env.BALANCE_CACHE.put(cacheKey, JSON.stringify(result), {
+					expirationTtl: BALANCE_CACHE_TTL_SECONDS,
+				});
+			}
+
+			return c.json(result);
+		} catch (error) {
+			const errorMessage =
+				error instanceof Error ? error.message : "Unknown error";
+			const errorResult: PricesResult = {
+				ok: false,
+				error: errorMessage,
+				code: errorMessage.includes("rate limit")
+					? "RATE_LIMITED"
+					: "API_ERROR",
+			};
+			const status =
+				errorMessage.includes("rate limit") || errorMessage.includes("429")
+					? 429
+					: 502;
+			return c.json(errorResult, status);
+		}
 	})
 	.get("/balance/tron/:address", async (c) => {
 		const address = c.req.param("address");

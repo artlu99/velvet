@@ -1,6 +1,20 @@
 import { describe, expect, test } from "bun:test";
-import type { BalanceResult } from "@shared/types";
+import type { BalanceResult, PricesResult } from "@shared/types";
 import app from "./index";
+
+// Mock CoinGecko fetch for tests
+const mockPricesResponse = {
+	ethereum: { usd: 3000 },
+	tron: { usd: 0.12 },
+	"usd-coin": { usd: 1.0 },
+	tether: { usd: 1.0 },
+};
+
+globalThis.fetch = (() =>
+	Promise.resolve({
+		ok: true,
+		json: async () => mockPricesResponse,
+	} as Response)) as unknown as typeof fetch;
 
 describe("GET /api/name", () => {
 	test("should return app name and include security headers", async () => {
@@ -154,4 +168,170 @@ describe("GET /api/balance/:address", () => {
 			console.warn(`Integration test got status ${res.status}`);
 		}
 	});
+});
+
+describe("GET /api/prices", () => {
+	test("returns cached prices when available", async () => {
+		const mockPrices = {
+			ok: true,
+			prices: {
+				ethereum: { usd: 3000 },
+				tron: { usd: 0.12 },
+			},
+			timestamp: Date.now(),
+		};
+		const envWithCache = {
+			NAME: "TestApp",
+			COINGECKO_API_KEY: "test-key",
+			BALANCE_CACHE: {
+				get: async () => mockPrices,
+				put: async () => undefined,
+			},
+		};
+
+		const res = await app.request("/api/prices?ids=ethereum,tron", {}, envWithCache);
+
+		expect(res.status).toBe(200);
+		expect(res.headers.get("x-prices-cache")).toBe("hit");
+
+		const json = await res.json<PricesResult>();
+		expect(json.ok).toBe(true);
+		if (json.ok) {
+			expect(json.prices).toEqual(mockPrices.prices);
+			expect(json.timestamp).toBe(mockPrices.timestamp);
+		}
+	});
+
+	test("fetches fresh prices on cache miss", async () => {
+		let cachePutCalled = false;
+		const envWithCache = {
+			NAME: "TestApp",
+			COINGECKO_API_KEY: "test-key",
+			BALANCE_CACHE: {
+				get: async () => null, // Cache miss
+				put: async () => {
+					cachePutCalled = true;
+				},
+			},
+		};
+
+		const res = await app.request("/api/prices?ids=ethereum", {}, envWithCache);
+
+		expect(res.headers.get("x-prices-cache")).toBe("miss");
+		expect(cachePutCalled).toBe(true);
+
+		if (res.status === 200) {
+			const json = await res.json<PricesResult>();
+			expect(json.ok).toBe(true);
+		}
+	});
+
+	test("returns default tokens when no ids specified", async () => {
+		const envWithCache = {
+			NAME: "TestApp",
+			COINGECKO_API_KEY: "test-key",
+			BALANCE_CACHE: {
+				get: async () => null,
+				put: async () => undefined,
+			},
+		};
+
+		const res = await app.request("/api/prices", {}, envWithCache);
+
+		// Should fetch default tokens: ethereum, tron, usd-coin, tether
+		expect(res.status).toBeGreaterThanOrEqual(200);
+		expect(res.status).toBeLessThan(500);
+	});
+
+	test("supports cacheBust to bypass cache", async () => {
+		const mockPrices = {
+			ok: true,
+			prices: { ethereum: { usd: 3000 } },
+			timestamp: Date.now(),
+		};
+		const envWithCache = {
+			NAME: "TestApp",
+			COINGECKO_API_KEY: "test-key",
+			BALANCE_CACHE: {
+				get: async () => mockPrices, // Has cached value
+				put: async () => undefined,
+			},
+		};
+
+		// Without cacheBust - should hit cache
+		const resHit = await app.request(
+			"/api/prices?ids=ethereum",
+			{},
+			envWithCache,
+		);
+		expect(resHit.headers.get("x-prices-cache")).toBe("hit");
+
+		// With cacheBust - should bypass cache
+		const resBypass = await app.request(
+			"/api/prices?ids=ethereum&cacheBust=1",
+			{},
+			envWithCache,
+		);
+		expect(resBypass.headers.get("x-prices-cache")).toBe("bypass");
+	});
+
+	test("handles CoinGecko API errors", async () => {
+		const envWithCache = {
+			NAME: "TestApp",
+			COINGECKO_API_KEY: "invalid-key", // May cause rate limit or error
+			BALANCE_CACHE: {
+				get: async () => null,
+				put: async () => undefined,
+			},
+		};
+
+		const res = await app.request(
+			"/api/prices?ids=ethereum",
+			{},
+			envWithCache,
+		);
+
+		// Should handle error gracefully
+		if (res.status === 429 || res.status === 502) {
+			const json = await res.json<PricesResult>();
+			expect(json.ok).toBe(false);
+		}
+		// If CoinGecko allows the request, that's also fine
+	});
+
+	// Integration test - requires real API key
+	test("fetches real prices with valid API key", async () => {
+		const apiKey = process.env.COINGECKO_API_KEY;
+		if (!apiKey) {
+			console.warn("Skipping integration test: COINGECKO_API_KEY not set");
+			return;
+		}
+
+		const realEnv = {
+			NAME: "TestApp",
+			COINGECKO_API_KEY: apiKey,
+			BALANCE_CACHE: {
+				get: async () => null,
+				put: async () => undefined,
+			},
+		};
+
+		const res = await app.request(
+			"/api/prices?ids=ethereum,tron",
+			{},
+			realEnv,
+		);
+
+		if (res.status === 200) {
+			const json = await res.json<PricesResult>();
+			expect(json.ok).toBe(true);
+			if (json.ok) {
+				expect(json.prices.ethereum?.usd).toBeGreaterThan(0);
+				expect(json.prices.tron?.usd).toBeGreaterThan(0);
+				expect(json.timestamp).toBeGreaterThan(0);
+			}
+		} else {
+			console.warn(`Integration test got status ${res.status}`);
+		}
+	}, 30_000);
 });

@@ -1,3 +1,4 @@
 SECRET=this is a secret
+COINGECKO_API_KEY=XXXX
 ETHERSCAN_API_KEY=XXXX
 TRONGRID_API_KEY=your_api_key_here

@@ -8,6 +8,7 @@ import type { EoaId } from "~/lib/schema";
 import { DeleteKeyConfirmation } from "./DeleteKeyConfirmation";
 import { DeriveWallet } from "./DeriveWallet";
 import { EnsOrAddress } from "./EnsOrAddress";
+import { GlobalPortfolioTotal } from "./GlobalPortfolioTotal";
 import { ImportPrivateKey } from "./ImportPrivateKey";
 import { WalletBalance } from "./WalletBalance";
 
@@ -87,6 +88,11 @@ export const WalletManagement: FC = () => {
 
 			{showDerive && <DeriveWallet />}
 			{showImport && <ImportPrivateKey />}
+
+			{/* Global portfolio total */}
+			{rows.length > 0 && (
+				<GlobalPortfolioTotal addresses={rows.map((row) => row.address)} />
+			)}
 
 			{rows.length === 0 ? (
 				<div className="card card-compact bg-base-200 shadow-xl">

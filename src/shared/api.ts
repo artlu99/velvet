@@ -4,6 +4,7 @@ import type {
 	EnsNameResult,
 	Erc20BalanceResult,
 	Erc20GasEstimateResult,
+	PricesResult,
 	TransactionCountResult,
 	Trc20BalanceResult,
 	TronBalanceResult,
@@ -74,6 +75,11 @@ export const apiEndpoints = {
 		path: "broadcast-transaction/tron" as const,
 		method: "POST" as const,
 	},
+	/** GET /api/prices?ids={ids} - Get CoinGecko prices */
+	prices: {
+		path: "prices" as const,
+		method: "GET" as const,
+	},
 } as const;
 
 /** Response types for each endpoint */
@@ -88,6 +94,7 @@ export type ApiResponses = {
 	trc20Balance: Trc20BalanceResult;
 	tronGasEstimate: TronGasEstimateResult;
 	tronBroadcast: TronBroadcastResult;
+	prices: PricesResult;
 };
 
 /**

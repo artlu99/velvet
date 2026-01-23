@@ -26,8 +26,12 @@ FOSS, modular, and self-hostable at *de minimis* cost.
 - [x] View TRX/TRC20 balances on Tron
 - [x] Handle RPC failures and fallbacks
 - [x] Display balances in UI
-- [ ] Aggregate balances across chains
-- [ ] Convert to USD display value
+- [x] Aggregate balances across chains
+- [x] Convert to USD display value (CoinGecko integration)
+  - Backend: `/api/prices` endpoint with 1-minute cache TTL
+  - Frontend: 5-minute polling interval for price updates
+  - Global portfolio total component showing total USD value
+  - Individual token USD values displayed inline
 - [x] Refresh on demand
 
 ## send/hold/receive (QR code) ETH on Ethereum, Base

@@ -333,3 +333,22 @@ export interface TronBroadcastError {
 }
 
 export type TronBroadcastResult = TronBroadcastSuccess | TronBroadcastError;
+
+// CoinGecko Price types
+export interface CoinGeckoPriceMap {
+	[coinId: string]: { usd: number };
+}
+
+export interface PricesSuccess {
+	readonly ok: true;
+	readonly prices: CoinGeckoPriceMap;
+	readonly timestamp: number;
+}
+
+export interface PricesError {
+	readonly ok: false;
+	readonly error: string;
+	readonly code: "RATE_LIMITED" | "API_ERROR";
+}
+
+export type PricesResult = PricesSuccess | PricesError;
