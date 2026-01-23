@@ -13,12 +13,12 @@ export const Home = () => {
 	const derivedCount = wallets.filter((w) => w.origin === "derived").length;
 
 	return (
-		<div className="container mx-auto px-4 py-8 max-w-4xl space-y-12">
+		<div className="container mx-auto px-4 max-w-4xl">
 			{/* Wallet Management Section */}
 			<WalletManagement />
 
-			{/* Stats Overview Card */}
-			<div className="card bg-base-200 max-w-lg mx-auto border border-base-300">
+			{/* Stats Overview Card - desktop only */}
+			<div className="hidden sm:block card bg-base-200 max-w-lg mx-auto border border-base-300">
 				<div className="card-body p-4">
 					<div className="stats stats-horizontal w-full compact">
 						<div className="stat py-2 px-4">

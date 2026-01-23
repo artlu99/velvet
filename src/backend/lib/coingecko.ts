@@ -61,7 +61,6 @@ export async function fetchPrices({
 	searchParams.set("x-cg-demo-api-key", env.COINGECKO_API_KEY);
 
 	try {
-		console.log("fetching prices with search params", searchParams.toString());
 		const res = await api.get<CoinGeckoPriceMap>(
 			`simple/price?${searchParams.toString()}`,
 		);

@@ -11,3 +11,4 @@ bun.lock
 .wrangler
 worker-configuration.d.ts
 .dev.vars
+__*__/
