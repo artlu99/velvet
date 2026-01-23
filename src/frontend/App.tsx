@@ -3,10 +3,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Suspense } from "react";
 import { Toaster } from "react-hot-toast";
 import { Route, Switch } from "wouter";
-import { OwnerActions } from "~/components/DataActions";
 import { Dock } from "~/components/Dock";
 import { NavBar } from "~/components/NavBar";
 import { evoluInstance } from "~/lib/evolu";
+import { DataActions } from "~/routes/DataActions";
+import { Home } from "~/routes/Home";
 import { Landing } from "~/routes/Landing";
 import { Receive } from "~/routes/Receive";
 import { Send } from "~/routes/Send";
@@ -21,12 +22,13 @@ function App() {
 			data-theme="dracula"
 		>
 			<EvoluProvider value={evoluInstance}>
-				<Suspense fallback={<div>Loading...</div>}>
+				<Suspense fallback={<Landing />}>
 					<QueryClientProvider client={queryClient}>
 						<NavBar />
 						<Switch>
-							<Route path="/" component={Landing} />
-							<Route path="/account" component={OwnerActions} />
+							<Route path="/" component={Home} />
+							<Route path="/account" component={DataActions} />
+							<Route path="/landing" component={Landing} />
 							<Route path="/receive" component={Receive} />
 							<Route path="/receive/:address" component={Receive} />
 							<Route path="/send" component={Send} />
@@ -39,9 +41,7 @@ function App() {
 
 						<Dock />
 					</QueryClientProvider>
-					<div>
-						<Toaster />
-					</div>
+					<Toaster />
 				</Suspense>
 			</EvoluProvider>
 		</div>

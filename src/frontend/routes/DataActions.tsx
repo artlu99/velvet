@@ -1,9 +1,9 @@
 import { Mnemonic } from "@evolu/common";
 import { useEvolu } from "@evolu/react";
-import { type FC, use, useState } from "react";
+import { use, useState } from "react";
 import { formatTypeError } from "~/lib/evolu";
 
-export const OwnerActions: FC = () => {
+export const DataActions = () => {
 	const evolu = useEvolu();
 	const appOwner = use(evolu.appOwner);
 
@@ -145,11 +145,17 @@ export const OwnerActions: FC = () => {
 
 			{/* Image Section */}
 			<div className="flex justify-center mt-12">
-				<img
-					src="/the-velvet-underground-now-playing-silver-vinyl-cover-art.webp"
-					alt="Underground Velvet Wallet"
-					className="rounded-lg shadow-xl max-w-full h-auto"
-				/>
+				<a
+					href="https://youtu.be/uqAN9Ox2Stw?si=501QygjKvQPXaAPk"
+					target="_blank"
+					rel="noopener noreferrer"
+				>
+					<img
+						src="/the-velvet-underground-now-playing-silver-vinyl-cover-art.webp"
+						alt="Underground Velvet Wallet"
+						className="rounded-lg shadow-xl max-w-full h-auto"
+					/>
+				</a>
 			</div>
 		</div>
 	);

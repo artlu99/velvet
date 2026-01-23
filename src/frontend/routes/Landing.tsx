@@ -1,92 +1,29 @@
-import { useEvolu, useQuery } from "@evolu/react";
-import { WalletManagement } from "~/components/WalletManagement";
-import { createAllEoasQuery } from "~/lib/queries/eoa";
-
-export const Landing = () => {
-	const evolu = useEvolu();
-	const allEoasQuery = createAllEoasQuery(evolu);
-	const wallets = useQuery(allEoasQuery);
-
-	const walletCount = wallets.length;
-	const importedCount = wallets.filter((w) => w.origin === "imported").length;
-	const watchOnlyCount = wallets.filter((w) => w.origin === "watchOnly").length;
-	const derivedCount = wallets.filter((w) => w.origin === "derived").length;
-
-	return (
-		<div className="container mx-auto px-4 py-8 max-w-4xl space-y-12">
-			{/* Wallet Management Section */}
-			<WalletManagement />
-
-			{/* Stats Overview Card */}
-			<div className="card bg-base-200 max-w-lg mx-auto border border-base-300">
-				<div className="card-body p-4">
-					<div className="stats stats-horizontal w-full compact">
-						<div className="stat py-2 px-4">
-							<div className="stat-title text-xs">Total</div>
-							<div className="flex items-center gap-2">
-								<i className="fa-solid fa-wallet text-xl text-primary" />
-								<div className="stat-value text-2xl text-primary">
-									{walletCount}
-								</div>
-							</div>
-						</div>
-
-						<div className="stat py-2 px-4">
-							<div className="stat-title text-xs">Derived</div>
-							<div className="flex items-center gap-2">
-								<i className="fa-solid fa-key text-xl text-accent" />
-								<div className="stat-value text-2xl text-accent">
-									{derivedCount}
-								</div>
-							</div>
-						</div>
-
-						<div className="stat py-2 px-4">
-							<div className="stat-title text-xs">Imported</div>
-							<div className="flex items-center gap-2">
-								<i className="fa-solid fa-download text-xl text-secondary" />
-								<div className="stat-value text-2xl text-secondary">
-									{importedCount}
-								</div>
-							</div>
-						</div>
-
-						<div className="stat py-2 px-4">
-							<div className="stat-title text-xs">Watch Only</div>
-							<div className="flex items-center gap-2">
-								<i className="fa-solid fa-eye text-xl text-info" />
-								<div className="stat-value text-2xl text-info">
-									{watchOnlyCount}
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-
+export const Landing = () => (
+	<div className="flex-1 flex flex-col items-center justify-center px-4 py-4 min-h-0">
+		<div className="container mx-auto max-w-4xl w-full flex flex-col items-center justify-center gap-6 md:gap-8 lg:gap-12 h-full">
 			{/* Hero Section */}
-			<div className="text-center mt-8">
-				<div className="mb-6">
-					<div className="mb-4">
-						<i className="fa-solid fa-bag-shopping text-6xl text-primary opacity-80" />
-					</div>
-					<p className="text-lg opacity-80 max-w-2xl mx-auto">
-						Secure, local-first crypto wallet with private sync
-					</p>
-					<h1 className="text-5xl font-bold mb-4 pb-2 leading-tight bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+			<div className="text-center flex-shrink-0">
+				<div className="mb-4 md:mb-6">
+					<h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-2 md:mb-4 pb-1 md:pb-2 leading-tight bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent px-2">
 						Underground Velvet
 					</h1>
+					<div className="mb-3 md:mb-4">
+						<i className="fa-solid fa-bag-shopping text-4xl sm:text-5xl md:text-6xl text-primary opacity-80" />
+					</div>
+					<p className="text-base sm:text-lg md:text-xl opacity-80 max-w-2xl mx-auto px-2">
+						Secure, local-first crypto wallet with private sync
+					</p>
 				</div>
 			</div>
 
 			{/* Image Section */}
-			<div className="flex justify-center mt-12">
+			<div className="flex justify-center items-center flex-1 min-h-0 w-full">
 				<img
 					src="/3e887299569d62da0a813ec6bac7e91d.jpg"
 					alt="Underground Velvet Wallet"
-					className="rounded-lg shadow-xl max-w-full h-auto"
+					className="rounded-lg shadow-xl max-w-full max-h-full w-auto h-auto object-contain"
 				/>
 			</div>
 		</div>
-	);
-};
+	</div>
+);

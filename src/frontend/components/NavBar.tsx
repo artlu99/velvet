@@ -21,7 +21,7 @@ export const NavBar = () => {
 		return (
 			<div className="flex items-center gap-2">
 				<Link
-					href="/"
+					href="/landing"
 					className="btn btn-ghost btn-lg font-bold tracking-tight"
 					style={{ color: "#D362B4" }}
 				>
