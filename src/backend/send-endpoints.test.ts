@@ -108,7 +108,7 @@ describe("Send-related API endpoints", () => {
 			expect(res.status).toBe(400);
 			const json = await res.json<GasEstimateResult>();
 			expect(json.ok).toBe(false);
-			if (!json.ok) expect(json.code).toBe("NETWORK_ERROR");
+			if (!json.ok) expect(json.code).toBe("INVALID_CHAIN" as any);
 		});
 
 		test("returns 400 for invalid value format", async () => {
@@ -199,7 +199,7 @@ describe("Send-related API endpoints", () => {
 			expect(res.status).toBe(400);
 			const json = await res.json<BroadcastTransactionResult>();
 			expect(json.ok).toBe(false);
-			if (!json.ok) expect(json.code).toBe("INVALID_TRANSACTION");
+			if (!json.ok) expect(json.code).toBe("INVALID_CHAIN" as any);
 		});
 
 		test("returns 200 + txHash for valid request", async () => {

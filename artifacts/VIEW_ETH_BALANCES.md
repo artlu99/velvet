@@ -1,7 +1,7 @@
 # PLAN.md: View ETH Balances on Mainnet + Base
 
-## Goal
-Implement balance viewing for Ethereum mainnet and Base L2 with persistent caching and USD conversion.
+## Future plan
+A separate microservice implementing balance viewing for Ethereum mainnet and Base L2 with persistent caching and USD conversion.
 
 ## Tech Stack
 - **Language**: TypeScript/Node.js

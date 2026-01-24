@@ -4,118 +4,50 @@
 
 FOSS, modular, and self-hostable at *de minimis* cost.
 
-# WHAT YOU CAN DO
+## Features
 
-## create new addresses
-- [x] Derive hierarchical deterministic keys (BIP32/BIP44) from mnemonic
-  - Path: `m/44'/60'/0'/0/{index}` (BIP44 standard for Ethereum)
-  - Supports deriving wallets at any index (0, 1, 2, ...)
-  - Idempotent: re-deriving the same index updates existing wallet
-  - Can restore previously deleted wallets by re-deriving
-- [x] Support EVM chains (Ethereum, Base): same private key, different chain IDs
-- [x] Import private keys (imported wallets) from anywhere, including the FOSS [Poor Richard's Wallet](https://github.com/artlu99/poor-richards-wallet)
-- [x] Watch-only addresses
-- [x] Support Tron: different address format (base58check, T-addresses)
-  - Path: `m/44'/195'/0'/0/{index}` (BIP44 standard for Tron)
-  - Type-safe wallet filtering by keyType (EVM vs Tron)
+- Multi-chain wallet management (Ethereum, Base, Tron)
+- HD wallet derivation (BIP32/44/60/84)
+- ERC20/TRC20 token balances with USD values
+- Gas estimation & transaction broadcasting
+- ENS name resolution
+- Local-first encrypted sync via Evolu
 
-## view balances on all supported chains
-- [x] RPC calls to multiple networks (Etherscan API, TronGrid API)
-- [x] Balance queries for Ethereum, Base, and Tron
-- [x] View ETH/ETH balances on Ethereum and Base
-- [x] View TRX/TRC20 balances on Tron
-- [x] Handle RPC failures and fallbacks
-- [x] Display balances in UI
-- [x] Aggregate balances across chains
-- [x] Convert to USD display value (CoinGecko integration)
-  - Backend: `/api/prices` endpoint with 1-minute cache TTL
-  - Frontend: 5-minute polling interval for price updates
-  - Global portfolio total component showing total USD value
-  - Individual token USD values displayed inline
-- [x] Refresh on demand
+## Tech Stack
 
-## send/hold/receive (QR code) ETH on Ethereum, Base
-- [x] Generate QR codes for receiving addresses
-- [x] Scan QR codes from camera
-- [x] Sign transactions with private keys
-- [x] Estimate gas fees (EIP-1559)
-- [x] Broadcast transactions to network
-- [x] Track transaction status
+| Layer | Technologies |
+|-------|--------------|
+| Backend | Hono, Cloudflare Workers, Bun |
+| Frontend | React 19, Vite, TailwindCSS v4, DaisyUI |
+| State | TanStack Query, Zustand, Evolu (local-first SQLite) |
+| Blockchain | viem (EVM), TronWeb (Tron), CoinGecko (prices) |
 
-## send/hold/receive (QR code) USDC on Base
-- [x] ERC20 token transfer
-- [x] Handle 6 decimals for USDC
+## Getting Started
 
-## send/hold/receive (QR code) TRX on Tron
-- [x] Native TRX transfers
-- [x] TronGrid RPC integration
-- [x] Bandwidth fee model
-- [x] Base58check address format (T-addresses)
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup and workflow.
 
-## send/hold/receive (QR code) USDT on Tron
-- [x] TRC20 token standard
-- [x] TronGrid RPC integration
-- [x] Different address format (T-addresses)
-- [x] Energy fee model
-- [x] Handle 6 decimals for USDT
+## Documentation
 
-# TODO
+- [CLAUDE.md](./CLAUDE.md) - Coding conventions and patterns (LLM context)
+- [AGENTS.md](./AGENTS.md) - API reference and type system
+- [SECURITY.md](./SECURITY.md) - Security considerations and threat model
+- [CHANGELOG.md](./CHANGELOG.md) - Release history
+- [artifacts/PLANNING.md](./artifacts/PLANNING.md) - Roadmap and completed features
+- [artifacts/MANIFESTO.md](./artifacts/MANIFESTO.md) - Project philosophy
 
-## [Difficulty: 3] swap ETH 👉👈 stables
-- Direct DEX routing (Uniswap V2/V3, Curve)
-- Permit2 signature handling (not legacy approve())
-- Slippage tolerance settings
-- Price impact estimation
-- Maximum spendable amount calculation
+## Roadmap
 
-## [Difficulty: 2] swap via Matcha/0x
-- Integrate 0x API for swap quotes
-- Permit2 signature handling (not legacy approve())
-- Handle API rate limits
-- Parse and execute swap transactions
-- Fallback to direct DEX if API fails
+See [artifacts/PLANNING.md](./artifacts/PLANNING.md) for completed features and upcoming work.
 
-## [Difficulty: 4] proxy an x402 call
-- ERC-4337 account abstraction
-- Permit2 signature handling
-- Gas sponsorship considerations
-- UserOp bundler integration
+## WONTFIX
 
-## [Difficulty: 3] hold bitcoin
-- BIP32/BIP44/BIP84 derivation (legacy, segwit, native segwit)
-- Different address formats (1-, 3-, bc1-)
-- UTXO management
-- Fee estimation (sat/vByte)
+- **Bitcoin Lightning** - Out of scope
+- **Authentication** - Opinionated decision: locking the app with a passkey provides false security
+  - does not stop $5 wrench attacks
+  - biometrics more often betray user (rekt via unknowingly pre-loaded malicious auto-approvals)
+  - with crypto on a phone, you must be willing to fight for it, or let it go
+  - if desired, fork the repo and ask LLM to add standard OAuth2 on top of Hono + React
 
-## [Difficulty: 4] send/hold/receive USDC on Solana
-- SPL token standard
-- Solana Web3.js integration
-- Associated Token Account (ATA) creation
-- Rent exemption handling
-- Different transaction model (multiple instructions)
+## License
 
-## [Difficulty: 3] send/hold/receive USDC on Tempo
-- Research Tempo chain specifications
-- Layer 1 or sidechain integration
-- Bridge or native token handling
-
-## [Difficulty: 4] bridge/send/hold/receive ETH on mainnet, Base, Arbitrum, OP, Polygon
-- Cross-chain messaging (Canonical bridges, Celer, Stargate)
-- Gas estimation on destination chain
-- Relay transaction monitoring
-- Handle bridge delays and finality
-- Chain-specific RPC endpoints
-
-## [Difficulty: 5] swap ETH for subset of ERC20s, with safety checks
-- Token contract verification
-- Permit2 signature handling (not legacy approve())
-- isClanker integration (honeypot detection)
-- Degen bot checker integrations (Token Sniffer, De.Fi, etc.)
-- Liquidity depth checks
-- Transfer fee detection
-- Mint authority revocation check
-- Honeypot simulation testing
-- Blacklist/whitelist management
-
-# WONTFIX
-- [ ] send btc over Lightning
+[MIT](./LICENSE)

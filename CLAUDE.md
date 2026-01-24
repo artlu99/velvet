@@ -3,6 +3,8 @@
 **Stack**: Bun | Hono | React 19 | Vite | Cloudflare Workers
 **Type-safe full-stack** with shared types
 
+For API routes and type system reference, see [AGENTS.md](./AGENTS.md).
+
 ## Dir Structure
 ```
 src/
@@ -42,8 +44,7 @@ Use **itty-fetcher** (not `fetch()`) for type-safe API calls in React Query hook
 | valibot (not Zod) | itty-fetcher | Lefthook (pre-commit tsc) |
 | Zustand | tiny-invariant | TypeScript project refs |
 | TanStack Query | Evolu (local-first DB) | Bun (lockb) |
-| TailwindCSS v4 + DaisyUI | | Vite + SWC |
-| Framer Motion | | Wrangler |
+| TailwindCSS v4 + DaisyUI | Wrangler | Vite + SWC |
 
 ### Evolu Database
 **Local-first SQLite** with encrypted sync. Uses `@evolu/common` and `@evolu/react-web`.
