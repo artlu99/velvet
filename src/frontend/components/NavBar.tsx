@@ -46,17 +46,13 @@ export const NavBar = () => {
 	};
 
 	return (
-		<div className="navbar px-4">
+		<div className="navbar px-4 pt-[env(safe-area-inset-top)]">
 			<div className="navbar-start">{renderPortfolioTotal()}</div>
 			<div className="navbar-end">
-				<div className="dropdown dropdown-end">
-					<button
-						type="button"
-						className="btn btn-ghost btn-circle"
-						aria-label="Menu"
-					>
+				<details className="dropdown dropdown-end">
+					<summary className="btn btn-ghost btn-circle" aria-label="Menu">
 						<i className="fa-solid fa-bars text-lg" />
-					</button>
+					</summary>
 					<ul className="dropdown-content menu bg-base-200 rounded-box shadow-lg z-50 w-52 p-2 mt-2">
 						<li>
 							<Link href="/" className="flex items-center gap-3">
@@ -115,7 +111,7 @@ export const NavBar = () => {
 							</a>
 						</li>
 					</ul>
-				</div>
+				</details>
 			</div>
 		</div>
 	);
