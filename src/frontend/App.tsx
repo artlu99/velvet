@@ -3,7 +3,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Suspense } from "react";
 import { Toaster } from "react-hot-toast";
 import { Route, Switch } from "wouter";
-import { Dock } from "~/components/Dock";
 import { NavBar } from "~/components/NavBar";
 import { evoluInstance } from "~/lib/evolu";
 import { DataActions } from "~/routes/DataActions";
@@ -38,8 +37,6 @@ function App() {
 								component={TransactionStatus}
 							/>
 						</Switch>
-
-						<Dock />
 					</QueryClientProvider>
 					<Toaster />
 				</Suspense>

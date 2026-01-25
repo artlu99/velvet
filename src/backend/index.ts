@@ -13,7 +13,11 @@ import invariant from "tiny-invariant";
 import { formatEther } from "viem";
 import { fetchBalance, isSupportedChainId } from "./lib/balance";
 import { withCache } from "./lib/cache";
-import { fetchPrices } from "./lib/coingecko";
+import {
+	fetchAssetPlatforms,
+	fetchPrices,
+	fetchTokenMetadata,
+} from "./lib/coingecko";
 import { fetchEnsName } from "./lib/ens";
 import { estimateErc20Transfer, fetchErc20Balance } from "./lib/erc20";
 import { wrapError } from "./lib/errors";
@@ -82,6 +86,91 @@ app
 					return {
 						ok: true as const,
 						prices,
+						timestamp: Date.now(),
+					};
+				},
+			});
+
+			return c.json(result);
+		} catch (error) {
+			const errorMessage =
+				error instanceof Error ? error.message : "Unknown error";
+			const isRateLimit =
+				errorMessage.includes("rate limit") || errorMessage.includes("429");
+			const errorResult = {
+				ok: false as const,
+				error: errorMessage,
+				code: isRateLimit ? ("RATE_LIMITED" as const) : ("API_ERROR" as const),
+			};
+			return c.json(errorResult, isRateLimit ? 429 : 502);
+		}
+	})
+	.get("/tokens/metadata", async (c) => {
+		// Parse coin IDs from query param
+		const idsParam = c.req.query("ids");
+		const coinIds = idsParam
+			? idsParam.split(",").map((id) => id.trim())
+			: ["ethereum", "tron", "usd-coin", "tether"];
+
+		// Sort IDs to normalize cache key
+		const sortedIds = [...coinIds].sort().join(",");
+		const cacheKey = `tokenMetadata:${sortedIds}`;
+
+		try {
+			const result = await withCache(c, {
+				cacheKey,
+				cacheBust: c.req.query("cacheBust"),
+				headerName: "x-metadata-cache",
+				ttl: 60 * 60 * 24, // 24 hours - token logos are static
+				fetcher: async () => {
+					invariant(
+						c.env.COINGECKO_API_KEY,
+						"COINGECKO_API_KEY is not set in environment",
+					);
+					const tokens = await fetchTokenMetadata({
+						env: c.env,
+						coinIds,
+					});
+					return {
+						ok: true as const,
+						tokens,
+						timestamp: Date.now(),
+					};
+				},
+			});
+
+			return c.json(result);
+		} catch (error) {
+			const errorMessage =
+				error instanceof Error ? error.message : "Unknown error";
+			const isRateLimit =
+				errorMessage.includes("rate limit") || errorMessage.includes("429");
+			const errorResult = {
+				ok: false as const,
+				error: errorMessage,
+				code: isRateLimit ? ("RATE_LIMITED" as const) : ("API_ERROR" as const),
+			};
+			return c.json(errorResult, isRateLimit ? 429 : 502);
+		}
+	})
+	.get("/platforms/metadata", async (c) => {
+		const cacheKey = "assetPlatforms";
+
+		try {
+			const result = await withCache(c, {
+				cacheKey,
+				cacheBust: c.req.query("cacheBust"),
+				headerName: "x-platforms-cache",
+				ttl: 60 * 60 * 24 * 7, // 7 days - platform logos rarely change
+				fetcher: async () => {
+					invariant(
+						c.env.COINGECKO_API_KEY,
+						"COINGECKO_API_KEY is not set in environment",
+					);
+					const platforms = await fetchAssetPlatforms(c.env);
+					return {
+						ok: true as const,
+						platforms,
 						timestamp: Date.now(),
 					};
 				},

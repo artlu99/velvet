@@ -1,4 +1,6 @@
+import { type ApiResponses, apiEndpoints, buildUrl } from "@shared/api";
 import { useQueries } from "@tanstack/react-query";
+import { fetcher } from "itty-fetcher";
 import { useMemo } from "react";
 import {
 	DEFAULT_COIN_IDS,
@@ -7,6 +9,8 @@ import {
 import { discriminateAddressType } from "~/lib/crypto";
 import { calculateTokenUsd } from "~/lib/portfolioValue";
 import { useTokenStore } from "~/providers/tokenStore";
+
+const api = fetcher({ base: `${window.location.origin}/api` });
 
 interface UseGlobalPortfolioTotalOptions {
 	readonly addresses: ReadonlyArray<string>;
@@ -38,36 +42,55 @@ export const useGlobalPortfolioTotal = ({
 			const addressType = discriminateAddressType(address);
 			return {
 				queryKey: ["balance", address, 1],
+				queryFn: async () => {
+					const url = buildUrl(apiEndpoints.balance.path, {
+						address,
+						query: { chainId: "1" },
+					});
+					return api.get<ApiResponses["balance"]>(url);
+				},
 				enabled: addressType.type === "evm",
 				staleTime: 1000 * 60 * 5, // 5 minutes
 			};
 		}),
-	}) as Array<{ data?: { ok: boolean; balanceEth: string } }>;
+	});
 
 	const baseBalances = useQueries({
 		queries: addresses.map((address) => {
 			const addressType = discriminateAddressType(address);
 			return {
 				queryKey: ["balance", address, 8453],
+				queryFn: async () => {
+					const url = buildUrl(apiEndpoints.balance.path, {
+						address,
+						query: { chainId: "8453" },
+					});
+					return api.get<ApiResponses["balance"]>(url);
+				},
 				enabled: addressType.type === "evm",
 				staleTime: 1000 * 60 * 5, // 5 minutes
 			};
 		}),
-	}) as Array<{ data?: { ok: boolean; balanceEth: string } }>;
+	});
 
 	const trxBalances = useQueries({
 		queries: addresses.map((address) => {
 			const addressType = discriminateAddressType(address);
 			return {
 				queryKey: ["tronBalance", address],
+				queryFn: async () => {
+					const url = buildUrl(apiEndpoints.tronBalance.path, {
+						address,
+					});
+					return api.get<ApiResponses["tronBalance"]>(url);
+				},
 				enabled: addressType.type === "tron",
 				staleTime: 1000 * 60 * 5, // 5 minutes
 			};
 		}),
-	}) as Array<{ data?: { ok: boolean; balanceTrx: string } }>;
+	});
 
 	// Query all ERC20/TRC20 balances for all addresses
-	// Note: This is simplified - in production you might want to batch these differently
 	const allErc20Balances = useQueries({
 		queries: addresses.flatMap((address) => {
 			const addressType = discriminateAddressType(address);
@@ -76,15 +99,31 @@ export const useGlobalPortfolioTotal = ({
 			return [
 				...ethTokens.map((token) => ({
 					queryKey: ["erc20Balance", address, token.platforms.ethereum, 1],
+					queryFn: async () => {
+						const url = buildUrl(apiEndpoints.erc20Balance.path, {
+							address,
+							contract: token.platforms.ethereum,
+							query: { chainId: "1" },
+						});
+						return api.get<ApiResponses["erc20Balance"]>(url);
+					},
 					staleTime: 1000 * 60 * 5,
 				})),
 				...baseTokens.map((token) => ({
 					queryKey: ["erc20Balance", address, token.platforms.base, 8453],
+					queryFn: async () => {
+						const url = buildUrl(apiEndpoints.erc20Balance.path, {
+							address,
+							contract: token.platforms.base,
+							query: { chainId: "8453" },
+						});
+						return api.get<ApiResponses["erc20Balance"]>(url);
+					},
 					staleTime: 1000 * 60 * 5,
 				})),
 			];
 		}),
-	}) as Array<{ data?: { ok: boolean; balanceRaw: string } }>;
+	});
 
 	const allTrc20Balances = useQueries({
 		queries: addresses.flatMap((address) => {
@@ -93,17 +132,25 @@ export const useGlobalPortfolioTotal = ({
 
 			return tronTokens.map((token) => ({
 				queryKey: ["trc20Balance", address, token.platforms.tron],
+				queryFn: async () => {
+					const url = buildUrl(apiEndpoints.trc20Balance.path, {
+						address,
+						contract: token.platforms.tron,
+					});
+					return api.get<ApiResponses["trc20Balance"]>(url);
+				},
 				staleTime: 1000 * 60 * 5,
 			}));
 		}),
-	}) as Array<{ data?: { ok: boolean; balanceFormatted: string } }>;
+	});
 
 	// Calculate global portfolio total
 	const globalTotalUsd = useMemo(() => {
 		if (!pricesData?.ok || !pricesData.prices) return null;
 
 		let total = 0;
-		let evmAddressIndex = 0; // Track index for EVM addresses in the flatMap result
+		let erc20BalanceIndex = 0;
+		let trc20BalanceIndex = 0;
 
 		for (let i = 0; i < addresses.length; i++) {
 			const address = addresses[i];
@@ -150,14 +197,10 @@ export const useGlobalPortfolioTotal = ({
 
 			// Add ERC20 tokens (only for EVM addresses)
 			if (addressType.type === "evm") {
-				const tokensPerEvmAddress = ethTokens.length + baseTokens.length;
-				const baseIndex = evmAddressIndex * tokensPerEvmAddress;
-
 				// ETH tokens
 				for (let j = 0; j < ethTokens.length; j++) {
 					const token = ethTokens[j];
-					const balanceIndex = baseIndex + j;
-					const balance = allErc20Balances[balanceIndex];
+					const balance = allErc20Balances[erc20BalanceIndex];
 					if (balance?.data?.ok && pricesData.prices[token.id]) {
 						const decimals =
 							token.detail_platforms.ethereum?.decimal_place ?? 18;
@@ -170,13 +213,13 @@ export const useGlobalPortfolioTotal = ({
 							pricesData.prices[token.id].usd,
 						);
 					}
+					erc20BalanceIndex++;
 				}
 
 				// Base tokens
 				for (let j = 0; j < baseTokens.length; j++) {
 					const token = baseTokens[j];
-					const balanceIndex = baseIndex + ethTokens.length + j;
-					const balance = allErc20Balances[balanceIndex];
+					const balance = allErc20Balances[erc20BalanceIndex];
 					if (balance?.data?.ok && pricesData.prices[token.id]) {
 						const decimals = token.detail_platforms.base?.decimal_place ?? 18;
 						const balanceAmount = (
@@ -188,23 +231,22 @@ export const useGlobalPortfolioTotal = ({
 							pricesData.prices[token.id].usd,
 						);
 					}
+					erc20BalanceIndex++;
 				}
-
-				evmAddressIndex++;
 			}
 
 			// Add TRC20 tokens (only for Tron addresses)
 			if (addressType.type === "tron") {
 				for (let j = 0; j < tronTokens.length; j++) {
 					const token = tronTokens[j];
-					const balanceIndexTrc20 = i * tronTokens.length + j;
-					const balance = allTrc20Balances[balanceIndexTrc20];
+					const balance = allTrc20Balances[trc20BalanceIndex];
 					if (balance?.data?.ok && pricesData.prices[token.id]) {
 						total += calculateTokenUsd(
 							balance.data.balanceFormatted,
 							pricesData.prices[token.id].usd,
 						);
 					}
+					trc20BalanceIndex++;
 				}
 			}
 		}

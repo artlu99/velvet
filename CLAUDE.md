@@ -37,6 +37,9 @@ Use **itty-fetcher** (not `fetch()`) for type-safe API calls in React Query hook
 - Base URL: `fetcher({ base: \`${window.location.origin}/api\` })`
 - Types come from `@shared/types.ts`
 
+## Feature Flags
+Feature availability controlled via `@shared/feature-flags.ts`. Use for features in development, experimental, or optional functionality. Before rendering UI or executing logic that overlaps with existing flags, ask whether it should be gated.
+
 ## Tech Choices
 | Frontend | Backend | Tooling |
 |----------|---------|---------|

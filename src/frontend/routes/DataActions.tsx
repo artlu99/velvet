@@ -1,13 +1,17 @@
 import { Mnemonic } from "@evolu/common";
 import { useEvolu } from "@evolu/react";
-import { use, useState } from "react";
+import { featureFlags } from "@shared/feature-flags";
+import { use } from "react";
+import { useClipboardWithTimeout } from "~/hooks/useClipboardWithTimeout";
 import { formatTypeError } from "~/lib/evolu";
+import { CLIPBOARD_TIMEOUT_MS } from "~/lib/helpers";
 
 export const DataActions = () => {
 	const evolu = useEvolu();
 	const appOwner = use(evolu.appOwner);
 
-	const [showMnemonic, setShowMnemonic] = useState(false);
+	const { isCopied, timeLeft, copyToClipboard } =
+		useClipboardWithTimeout(CLIPBOARD_TIMEOUT_MS);
 
 	// Restore owner from mnemonic to sync data across devices.
 	const handleRestoreAppOwnerClick = () => {
@@ -26,6 +30,12 @@ export const DataActions = () => {
 	const handleResetAppOwnerClick = () => {
 		if (confirm("Are you sure? This will delete all your local data.")) {
 			void evolu.resetAppOwner();
+		}
+	};
+
+	const handleCopyMnemonic = async () => {
+		if (appOwner?.mnemonic) {
+			await copyToClipboard(appOwner.mnemonic);
 		}
 	};
 
@@ -72,20 +82,7 @@ export const DataActions = () => {
 					</div>
 
 					<div className="space-y-4">
-						<button
-							type="button"
-							className="btn btn-outline w-full"
-							onClick={() => {
-								setShowMnemonic(!showMnemonic);
-							}}
-						>
-							<i
-								className={`fa-solid ${showMnemonic ? "fa-eye-slash" : "fa-eye"} mr-2`}
-							/>
-							{showMnemonic ? "Hide" : "Show"} Mnemonic
-						</button>
-
-						{showMnemonic && appOwner.mnemonic && (
+						{appOwner?.mnemonic && (
 							<div className="card bg-base-200">
 								<div className="card-body">
 									<label htmlFor="mnemonic" className="label">
@@ -94,18 +91,36 @@ export const DataActions = () => {
 											Your Mnemonic (keep this safe!)
 										</span>
 									</label>
-									<textarea
-										id="mnemonic"
-										value={appOwner.mnemonic}
-										readOnly
-										rows={3}
-										className="textarea textarea-bordered font-mono text-sm bg-base-100"
-									/>
-									<div className="label">
+									<div className="flex gap-2">
+										<input
+											id="mnemonic"
+											value="•••• •••• •••• •••• •••• •••• •••• •••• •••• •••• •••• ••••"
+											readOnly
+											className="input input-bordered font-mono text-sm bg-base-100 w-full"
+											type="text"
+										/>
+										<button
+											type="button"
+											className="btn btn-square btn-outline"
+											onClick={handleCopyMnemonic}
+											title="Copy Mnemonic"
+										>
+											<i
+												className={`fa-solid ${isCopied ? "fa-check" : "fa-copy"}`}
+											/>
+										</button>
+									</div>
+									<div className="label flex-col items-start gap-1">
 										<span className="label-text-alt text-warning">
 											<i className="fa-solid fa-exclamation-triangle mr-1" />
 											Never share this mnemonic with anyone
 										</span>
+										{isCopied && (
+											<span className="label-text-alt text-info">
+												<i className="fa-solid fa-clock mr-1" />
+												Clipboard clears in {timeLeft}s
+											</span>
+										)}
 									</div>
 								</div>
 							</div>
@@ -144,19 +159,21 @@ export const DataActions = () => {
 			</div>
 
 			{/* Image Section */}
-			<div className="flex justify-center mt-12">
-				<a
-					href="https://youtu.be/uqAN9Ox2Stw?si=501QygjKvQPXaAPk"
-					target="_blank"
-					rel="noopener noreferrer"
-				>
-					<img
-						src="/the-velvet-underground-now-playing-silver-vinyl-cover-art.webp"
-						alt="Underground Velvet Wallet"
-						className="rounded-lg shadow-xl max-w-full h-auto"
-					/>
-				</a>
-			</div>
+			{featureFlags.MUSIC_LINKS.enabled && (
+				<div className="flex justify-center mt-12">
+					<a
+						href="https://youtu.be/uqAN9Ox2Stw?si=501QygjKvQPXaAPk"
+						target="_blank"
+						rel="noopener noreferrer"
+					>
+						<img
+							src={`/${featureFlags.MUSIC_LINKS.assets.nowPlaying}`}
+							alt="Underground Velvet Wallet"
+							className="rounded-lg shadow-xl max-w-full h-auto"
+						/>
+					</a>
+				</div>
+			)}
 		</div>
 	);
 };

@@ -1,4 +1,4 @@
-import type { CoinGeckoPriceMap } from "@shared/types";
+import type { CoinGeckoPriceMap, TokenMetadataMap } from "@shared/types";
 import { fetcher } from "itty-fetcher";
 import invariant from "tiny-invariant";
 
@@ -16,8 +16,36 @@ interface FetchPricesOptions {
 	readonly coinIds: readonly string[];
 }
 
+interface FetchTokenMetadataOptions {
+	readonly env: Env;
+	readonly coinIds: readonly string[];
+}
+
 interface CoinGeckoErrorResponse {
 	readonly error: string;
+}
+
+interface CoinGeckoCoinData {
+	id: string;
+	name: string;
+	symbol: string;
+	image: {
+		thumb: string;
+		small: string;
+		large: string;
+	};
+}
+
+export interface AssetPlatform {
+	readonly id: string;
+	readonly chain_identifier: string;
+	readonly name: string;
+	readonly shortname: string;
+	readonly image: {
+		readonly thumb: string;
+		readonly small: string;
+		readonly large: string;
+	};
 }
 
 function isCoinGeckoErrorResponse(
@@ -65,6 +93,175 @@ export async function fetchPrices({
 			`simple/price?${searchParams.toString()}`,
 		);
 		return res;
+	} catch (error) {
+		console.error("error", error);
+		// itty-fetcher throws FetchError on non-OK responses
+		if (
+			typeof error === "object" &&
+			error !== null &&
+			"status" in error &&
+			"response" in error
+		) {
+			const err = error as { status: number; response: Response };
+
+			if (err.status === 429) {
+				throw new Error("CoinGecko API rate limit exceeded");
+			}
+
+			// Try to parse error body for more details
+			const responseText = await err.response.text().catch(() => "");
+			if (responseText) {
+				try {
+					const errorData = JSON.parse(responseText);
+					if (isCoinGeckoErrorResponse(errorData)) {
+						throw new Error(
+							`CoinGecko API error: ${err.status} ${err.response.statusText}: ${errorData.error}`,
+						);
+					}
+				} catch {
+					// JSON parse failed, use raw response text
+					throw new Error(
+						`CoinGecko API error: ${err.status} ${err.response.statusText}: ${responseText}`,
+					);
+				}
+			}
+
+			throw new Error(
+				`CoinGecko API error: ${err.status} ${err.response.statusText}`,
+			);
+		}
+
+		// Re-throw network errors or unknown errors
+		throw error;
+	}
+}
+
+/**
+ * Fetch asset platforms from CoinGecko API
+ * Returns platform metadata including logos for chains like Ethereum, Base, Tron, etc.
+ * @param env - Cloudflare worker environment with API key
+ * @returns Array of asset platforms with image URLs
+ * @throws Error on rate limit (429) or API errors (5xx)
+ */
+export async function fetchAssetPlatforms(env: Env): Promise<AssetPlatform[]> {
+	invariant(
+		env.COINGECKO_API_KEY,
+		"COINGECKO_API_KEY is not set in environment",
+	);
+
+	const searchParams = new URLSearchParams();
+
+	// Demo API key goes in query params for free tier
+	searchParams.set("x-cg-demo-api-key", env.COINGECKO_API_KEY);
+
+	try {
+		const res = await api.get<AssetPlatform[]>(
+			`asset_platforms?${searchParams.toString()}`,
+		);
+		return res;
+	} catch (error) {
+		console.error("error", error);
+
+		// itty-fetcher throws FetchError on non-OK responses
+		if (
+			typeof error === "object" &&
+			error !== null &&
+			"status" in error &&
+			"response" in error
+		) {
+			const err = error as { status: number; response: Response };
+
+			if (err.status === 429) {
+				throw new Error("CoinGecko API rate limit exceeded");
+			}
+
+			// Try to parse error body for more details
+			const responseText = await err.response.text().catch(() => "");
+			if (responseText) {
+				try {
+					const errorData = JSON.parse(responseText);
+					if (isCoinGeckoErrorResponse(errorData)) {
+						throw new Error(
+							`CoinGecko API error: ${err.status} ${err.response.statusText}: ${errorData.error}`,
+						);
+					}
+				} catch {
+					// JSON parse failed, use raw response text
+					throw new Error(
+						`CoinGecko API error: ${err.status} ${err.response.statusText}: ${responseText}`,
+					);
+				}
+			}
+
+			throw new Error(
+				`CoinGecko API error: ${err.status} ${err.response.statusText}`,
+			);
+		}
+
+		// Re-throw network errors or unknown errors
+		throw error;
+	}
+}
+
+/**
+ * Fetch token metadata from CoinGecko API including image URLs
+ * @param options.coinIds - Array of CoinGecko coin IDs (e.g., ["ethereum", "tron"])
+ * @param options.env - Cloudflare worker environment with API key
+ * @returns Map of coin IDs to token metadata
+ * @throws Error on rate limit (429) or API errors (5xx)
+ */
+export async function fetchTokenMetadata({
+	env,
+	coinIds,
+}: FetchTokenMetadataOptions): Promise<TokenMetadataMap> {
+	invariant(
+		env.COINGECKO_API_KEY,
+		"COINGECKO_API_KEY is not set in environment",
+	);
+
+	if (coinIds.length === 0) {
+		return {};
+	}
+
+	// Fetch metadata for each coin in parallel
+	const metadataMap: TokenMetadataMap = {};
+	const searchParams = new URLSearchParams();
+
+	// Demo API key goes in query params for free tier
+	searchParams.set("x-cg-demo-api-key", env.COINGECKO_API_KEY);
+
+	try {
+		// Fetch all coins in parallel using Promise.allSettled
+		const results = await Promise.allSettled(
+			coinIds.map(async (coinId) => {
+				const url = `coins/${coinId}?${searchParams.toString()}`;
+				const res = await api.get<CoinGeckoCoinData>(url);
+				return { coinId, data: res };
+			}),
+		);
+
+		// Process results
+		for (const result of results) {
+			if (result.status === "fulfilled") {
+				const { coinId, data } = result.value;
+				metadataMap[coinId] = {
+					id: data.id,
+					name: data.name,
+					symbol: data.symbol,
+					image: {
+						thumb: data.image.thumb,
+						small: data.image.small,
+						large: data.image.large,
+					},
+				};
+			}
+			// Log rejected promises but don't fail entire request
+			if (result.status === "rejected") {
+				console.error("Failed to fetch token metadata:", result.reason);
+			}
+		}
+
+		return metadataMap;
 	} catch (error) {
 		console.error("error", error);
 		// itty-fetcher throws FetchError on non-OK responses

@@ -6,6 +6,7 @@ import {
 	SimpleName,
 } from "@evolu/common";
 import { evoluReactWebDeps } from "@evolu/react-web";
+import { pluralize } from "./helpers";
 import { Schema } from "./schema";
 
 const EVOLU_INSTANCE = "underground-velvet-wallet-3241038978";
@@ -29,9 +30,10 @@ export const formatTypeError = createFormatTypeError<
 >((error): string => {
 	switch (error.type) {
 		case "MinLength":
-			return `Text must be at least ${error.min} character${
-				error.min === 1 ? "" : "s"
-			} long`;
+			return `Text must be at least ${error.min} ${pluralize(
+				error.min,
+				"character",
+			)} long`;
 		case "MaxLength":
 			return `Text is too long (maximum ${error.max} characters)`;
 	}

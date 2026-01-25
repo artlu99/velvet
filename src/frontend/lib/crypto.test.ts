@@ -7,6 +7,7 @@ import {
 	validateImportInput,
 	encryptPrivateKey,
 	decryptPrivateKey,
+	normalizeEvmAddress,
 } from "./crypto";
 import * as v from "valibot";
 import type { OwnerEncryptionKey } from "@evolu/common";
@@ -140,6 +141,17 @@ describe("Crypto Utilities", () => {
 			expect(result.success).toBe(true);
 		});
 
+		test("should normalize address to checksummed format", () => {
+			const lowercaseAddress = "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf";
+			const expectedChecksummed = "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf";
+			const result = v.safeParse(EvmAddressSchema, lowercaseAddress);
+
+			expect(result.success).toBe(true);
+			if (result.success) {
+				expect(result.output).toBe(expectedChecksummed);
+			}
+		});
+
 		test("should reject invalid checksum", () => {
 			const invalidAddress = "0x7E5F4552091A69125D5DFCB7B8C2659029395BDF"; // all uppercase
 			const result = v.safeParse(EvmAddressSchema, invalidAddress);
@@ -156,6 +168,31 @@ describe("Crypto Utilities", () => {
 			const invalidAddress = "0xGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG";
 			const result = v.safeParse(EvmAddressSchema, invalidAddress);
 			expect(result.success).toBe(false);
+		});
+	});
+
+	describe("normalizeEvmAddress", () => {
+		test("should normalize lowercase address to checksummed format", () => {
+			const lowercase = "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf";
+			const expected = "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf";
+			expect(normalizeEvmAddress(lowercase)).toBe(expected);
+		});
+
+		test("should return same checksummed address if already normalized", () => {
+			const checksummed = "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf";
+			expect(normalizeEvmAddress(checksummed)).toBe(checksummed);
+		});
+
+		test("should return null for invalid EVM address", () => {
+			expect(normalizeEvmAddress("invalid")).toBe(null);
+			expect(normalizeEvmAddress("0xGGGG")).toBe(null);
+			expect(normalizeEvmAddress("")).toBe(null);
+		});
+
+		test("should return null for non-EVM addresses (Tron)", () => {
+			// Tron addresses start with T, not 0x
+			const tronAddress = "TJYeasTPa6gpEEft3AuLvSAb6DjV8fQk3F";
+			expect(normalizeEvmAddress(tronAddress)).toBe(null);
 		});
 	});
 
@@ -200,14 +237,16 @@ describe("Crypto Utilities", () => {
 			}
 		});
 
-		test("should accept valid address as watch-only", () => {
-			const address = "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf";
-			const result = validateImportInput(address);
+		test("should accept valid address as watch-only and normalize to checksummed", () => {
+			const lowercaseAddress = "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf";
+			const expectedChecksummed = "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf";
+			const result = validateImportInput(lowercaseAddress);
 
 			expect(result.ok).toBe(true);
 			if (result.ok) {
 				expect(result.type).toBe("address");
-				expect(result.address).toBe(address);
+				// Address should be normalized to checksummed format
+				expect(result.address).toBe(expectedChecksummed);
 				expect(result.keyType).toBe("evm");
 			}
 		});
@@ -229,12 +268,13 @@ describe("Crypto Utilities", () => {
 			expect(result.ok).toBe(false);
 		});
 
-		test("should trim whitespace", () => {
-			const address = "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf";
-			const result = validateImportInput(`  ${address}  `);
+		test("should trim whitespace and normalize address", () => {
+			const lowercaseAddress = "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf";
+			const expectedChecksummed = "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf";
+			const result = validateImportInput(`  ${lowercaseAddress}  `);
 			expect(result.ok).toBe(true);
 			if (result.ok) {
-				expect(result.address).toBe(address);
+				expect(result.address).toBe(expectedChecksummed);
 			}
 		});
 

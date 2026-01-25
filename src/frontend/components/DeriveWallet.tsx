@@ -1,12 +1,10 @@
 import { useEvolu } from "@evolu/react";
+import { featureFlags } from "@shared/feature-flags";
 import { type FC, use, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { deriveKeyAt } from "~/lib/bip32";
 import { getNextSuggestedIndex } from "~/lib/queries/derivation";
 import type { KeyType } from "~/lib/schema";
-
-const BTC_FEATURE_FLAG = false;
-const SOLANA_FEATURE_FLAG = false;
 
 export const DeriveWallet: FC = () => {
 	const evolu = useEvolu();
@@ -110,7 +108,7 @@ export const DeriveWallet: FC = () => {
 						>
 							Tron
 						</button>
-						{BTC_FEATURE_FLAG && (
+						{featureFlags.BITCOIN.enabled && (
 							<button
 								type="button"
 								role="tab"
@@ -121,7 +119,7 @@ export const DeriveWallet: FC = () => {
 								BTC
 							</button>
 						)}
-						{SOLANA_FEATURE_FLAG && (
+						{featureFlags.SOLANA.enabled && (
 							<button
 								type="button"
 								role="tab"

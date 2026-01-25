@@ -1,3 +1,4 @@
+import type { TokenMetadataImage } from "@shared/types";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
@@ -14,6 +15,7 @@ export interface CoinGeckoToken {
 			contract_address: string;
 		}
 	>;
+	image?: TokenMetadataImage; // Token logo URLs (optional, fetched from API)
 }
 
 interface TokenStoreState {
@@ -37,6 +39,8 @@ interface TokenStoreActions {
 	updateToken: (id: string, token: CoinGeckoToken) => void;
 	// Add new token
 	addToken: (token: CoinGeckoToken) => void;
+	// Set token images from metadata API
+	setTokenImages: (images: Record<string, TokenMetadataImage>) => void;
 }
 
 const INITIAL_TOKENS: Record<string, CoinGeckoToken> = {
@@ -173,6 +177,19 @@ export const useTokenStore = create<TokenStoreState & TokenStoreActions>()(
 						tokens: newTokens,
 						lookupMap: buildLookupMap(newTokens),
 					};
+				});
+			},
+
+			setTokenImages: (images: Record<string, TokenMetadataImage>) => {
+				set((state) => {
+					const newTokens = { ...state.tokens };
+					// Update tokens with new image data
+					for (const [id, image] of Object.entries(images)) {
+						if (newTokens[id]) {
+							newTokens[id] = { ...newTokens[id], image };
+						}
+					}
+					return { tokens: newTokens };
 				});
 			},
 		}),

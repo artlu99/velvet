@@ -352,3 +352,64 @@ export interface PricesError {
 }
 
 export type PricesResult = PricesSuccess | PricesError;
+
+// Token Metadata types (for logos and chain info)
+export interface TokenMetadataImage {
+	readonly thumb: string; // 64x64
+	readonly small: string; // 128x128
+	readonly large: string; // 512x512
+}
+
+export interface TokenMetadata {
+	readonly id: string;
+	readonly name: string;
+	readonly symbol: string;
+	readonly image: TokenMetadataImage;
+}
+
+export type TokenMetadataMap = Record<string, TokenMetadata>;
+
+export interface TokenMetadataSuccess {
+	readonly ok: true;
+	readonly tokens: TokenMetadataMap;
+	readonly timestamp: number;
+}
+
+export interface TokenMetadataError {
+	readonly ok: false;
+	readonly error: string;
+	readonly code: "RATE_LIMITED" | "API_ERROR";
+}
+
+export type TokenMetadataResult = TokenMetadataSuccess | TokenMetadataError;
+
+// Platform/Chain Metadata types (for chain logos)
+export interface PlatformMetadataImage {
+	readonly thumb: string; // 64x64
+	readonly small: string; // 128x128
+	readonly large: string; // 512x512
+}
+
+export interface PlatformMetadata {
+	readonly id: string; // Platform ID (e.g., "ethereum", "base", "tron")
+	readonly chainIdentifier: string;
+	readonly name: string;
+	readonly shortname: string;
+	readonly image: PlatformMetadataImage;
+}
+
+export interface PlatformMetadataSuccess {
+	readonly ok: true;
+	readonly platforms: PlatformMetadata[];
+	readonly timestamp: number;
+}
+
+export interface PlatformMetadataError {
+	readonly ok: false;
+	readonly error: string;
+	readonly code: "RATE_LIMITED" | "API_ERROR";
+}
+
+export type PlatformMetadataResult =
+	| PlatformMetadataSuccess
+	| PlatformMetadataError;

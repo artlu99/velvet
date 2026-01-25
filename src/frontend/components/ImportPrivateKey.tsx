@@ -1,9 +1,12 @@
-import { sqliteFalse } from "@evolu/common";
+import { sqliteFalse, sqliteTrue } from "@evolu/common";
 import { useEvolu } from "@evolu/react";
 import { type FC, useState } from "react";
 import toast from "react-hot-toast";
 import { encryptPrivateKey, validateImportInput } from "~/lib/crypto";
-import { createEoaDuplicateCheckQuery } from "~/lib/queries/eoa";
+import {
+	findEoaByAddressCaseInsensitive,
+	normalizeAddressForQuery,
+} from "~/lib/queries/eoa";
 import type { EoaInsert } from "~/lib/schema";
 
 export const ImportPrivateKey: FC = () => {
@@ -25,13 +28,101 @@ export const ImportPrivateKey: FC = () => {
 			return;
 		}
 
-		const { type, address, keyType } = validationResult;
+		const { type, address: rawAddress, keyType } = validationResult;
 		const isWatchOnly = type === "address";
 		const unencryptedPrivateKey =
 			validationResult.ok && type === "privateKey"
 				? validationResult.privateKey
 				: null;
 
+		// Normalize address for consistent storage (checksummed for EVM)
+		const address = normalizeAddressForQuery(rawAddress);
+
+		// Check for existing record (including deleted ones) with case-insensitive matching
+		const existingRecord = await findEoaByAddressCaseInsensitive(
+			evolu,
+			address,
+		);
+
+		// Handle existing record scenarios
+		if (existingRecord) {
+			// Check isDeleted using sqliteTrue pattern (Evolu SqliteBoolean)
+			const isDeleted = existingRecord.isDeleted === sqliteTrue;
+			const hasPrivateKey = existingRecord.encryptedPrivateKey !== null;
+			const isExistingWatchOnly = existingRecord.origin === "watchOnly";
+
+			// Scenario: Importing watch-only when full wallet exists (prevent downgrade)
+			if (isWatchOnly && hasPrivateKey && !isDeleted) {
+				setError(
+					"This wallet already has a private key. Cannot import as watch-only.",
+				);
+				setIsLoading(false);
+				return;
+			}
+
+			// Scenario: Importing watch-only when watch-only already exists (no change needed)
+			if (isWatchOnly && isExistingWatchOnly && !isDeleted) {
+				setError("This address is already in your wallet as watch-only.");
+				setIsLoading(false);
+				return;
+			}
+
+			// Scenario: Importing private key when full wallet already exists
+			if (!isWatchOnly && hasPrivateKey && !isDeleted) {
+				setError("This wallet already has a private key.");
+				setIsLoading(false);
+				return;
+			}
+
+			// Scenario: Upgrade watch-only to full wallet OR restore deleted wallet
+			if (!isWatchOnly && (isExistingWatchOnly || isDeleted)) {
+				const owner = await evolu.appOwner;
+				const encryptedPrivateKey = encryptPrivateKey(
+					unencryptedPrivateKey as string,
+					owner.encryptionKey,
+				);
+
+				// Update existing record: add key, change origin, restore if deleted
+				evolu.update("eoa", {
+					id: existingRecord.id,
+					address, // Update to normalized (checksummed) format
+					encryptedPrivateKey,
+					keyType,
+					origin: "imported",
+					isDeleted: sqliteFalse, // Restore if was deleted
+					// Preserve isSelected state
+				});
+
+				setImportInput("");
+				setIsLoading(false);
+
+				if (isDeleted && isExistingWatchOnly) {
+					toast.success("Deleted watch-only wallet restored with private key!");
+				} else if (isDeleted) {
+					toast.success("Wallet restored with private key!");
+				} else {
+					toast.success("Private key added to existing watch-only wallet!");
+				}
+				return;
+			}
+
+			// Scenario: Restore deleted watch-only as watch-only
+			if (isWatchOnly && isDeleted) {
+				evolu.update("eoa", {
+					id: existingRecord.id,
+					address, // Update to normalized format
+					isDeleted: sqliteFalse,
+					// Preserve other fields
+				});
+
+				setImportInput("");
+				setIsLoading(false);
+				toast.success("Watch-only wallet restored!");
+				return;
+			}
+		}
+
+		// No existing record - insert new wallet
 		// Show warning for watch-only addresses
 		if (isWatchOnly) {
 			toast(
@@ -41,16 +132,6 @@ export const ImportPrivateKey: FC = () => {
 					duration: 5000,
 				},
 			);
-		}
-
-		const duplicateCheckQuery = createEoaDuplicateCheckQuery(evolu, address);
-		const duplicateRows = await evolu.loadQuery(duplicateCheckQuery);
-
-		// Check for duplicate address
-		if (duplicateRows.length > 0) {
-			setError("This address is already in your wallet.");
-			setIsLoading(false);
-			return;
 		}
 
 		// Encrypt private key (if not watch-only)
@@ -72,8 +153,6 @@ export const ImportPrivateKey: FC = () => {
 			derivationIndex: null,
 		};
 
-		// Insert after duplicate check
-		// Note: Small race condition window exists between check and insert
 		const result = evolu.insert("eoa", insertData);
 		if (!result.ok) {
 			setError(

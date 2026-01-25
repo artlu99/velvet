@@ -27,9 +27,11 @@ FOSS, modular, and self-hostable at *de minimis* cost.
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup and workflow.
 
 ## Documentation
-
 - [CLAUDE.md](./CLAUDE.md) - Coding conventions and patterns (LLM context)
 - [AGENTS.md](./AGENTS.md) - API reference and type system
+
+AGENTS.md documents the *external contract* and what the system does (APIs, types, supported chains). CLAUDE.md documents the *internal coding patterns* and how to write the code (patterns, conventions, rules of thumb).
+
 - [SECURITY.md](./SECURITY.md) - Security considerations and threat model
 - [CHANGELOG.md](./CHANGELOG.md) - Release history
 - [artifacts/PLANNING.md](./artifacts/PLANNING.md) - Roadmap and completed features
@@ -41,12 +43,24 @@ See [artifacts/PLANNING.md](./artifacts/PLANNING.md) for completed features and 
 
 ## WONTFIX
 
-- **Bitcoin Lightning** - Out of scope
-- **Authentication** - Opinionated decision: locking the app with a passkey provides false security
-  - does not stop $5 wrench attacks
-  - biometrics more often betray user (rekt via unknowingly pre-loaded malicious auto-approvals)
-  - with crypto on a phone, you must be willing to fight for it, or let it go
-  - if desired, fork the repo and ask LLM to add standard OAuth2 on top of Hono + React
+These are intentional architectural decisions. If you need these features, consider forking the repo.
+
+### Bitcoin Lightning
+Out of scope for this project.
+
+### BIP39 Passphrase (25th Word)
+Weakens security by sending users down the wrong path:
+- the 25th word may be a word, or a sufficiently long random string
+- Dictionary-based exposes to relatively easy brute-force attacks
+- if you are securing a truly random 25th word anyway, might as well generate fresh wallets
+
+### Easy "Transfer to Myself" Between Own Wallets
+Weakens privacy by linking your wallet history:
+- On-chain analysis can cluster addresses that pay each other
+- Breaks the privacy model of separate funding wallets
+- You can already do this manually (send from address A to address B)
+
+**If you need this**: Copy-paste between your own addresses. It's deliberate that this isn't a one-click feature. 
 
 ## License
 

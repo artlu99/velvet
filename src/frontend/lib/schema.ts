@@ -36,6 +36,19 @@ export type TokenBalanceId = typeof TokenBalanceId.Type;
 const DerivationCounterId = id("DerivationCounter");
 export type DerivationCounterId = typeof DerivationCounterId.Type;
 
+// Local-only cache tables (prefixed with _ to prevent sync)
+const BalanceCacheId = id("_BalanceCache");
+export type BalanceCacheId = typeof BalanceCacheId.Type;
+
+const TokenBalanceCacheId = id("_TokenBalanceCache");
+export type TokenBalanceCacheId = typeof TokenBalanceCacheId.Type;
+
+const PriceCacheId = id("_PriceCache");
+export type PriceCacheId = typeof PriceCacheId.Type;
+
+const TokenMetadataCacheId = id("_TokenMetadataCache");
+export type TokenMetadataCacheId = typeof TokenMetadataCacheId.Type;
+
 export const Schema = {
 	eoa: {
 		id: EoaId,
@@ -82,6 +95,45 @@ export const Schema = {
 		id: DerivationCounterId,
 		keyType: KeyType,
 		nextIndex: FiniteNumber,
+	},
+
+	// Local-only cache tables (prefixed with _ to prevent sync to relay)
+	// These store stale-while-revalidate data that persists across app reloads
+
+	/** Native balance cache (ETH, TRX, etc.) - local-only, never synced */
+	_balanceCache: {
+		id: BalanceCacheId,
+		address: NonEmptyString1000, // wallet address (checksummed)
+		chainId: NonEmptyString100, // "1" | "8453" | "tron"
+		balanceRaw: NonEmptyString1000, // raw balance as string (for BigInt)
+		// updatedAt is auto-added by Evolu system columns
+	},
+
+	/** Token balance cache (ERC20, TRC20) - local-only, never synced */
+	_tokenBalanceCache: {
+		id: TokenBalanceCacheId,
+		address: NonEmptyString1000, // wallet address
+		tokenAddress: NonEmptyString1000, // token contract address
+		chainId: NonEmptyString100, // "1" | "8453" | "tron"
+		balanceRaw: NonEmptyString1000, // raw balance as string
+	},
+
+	/** Price cache (CoinGecko prices) - local-only, never synced */
+	_priceCache: {
+		id: PriceCacheId,
+		coinId: NonEmptyString100, // "ethereum", "tron", "usd-coin", etc.
+		priceUsd: FiniteNumber, // USD price
+	},
+
+	/** Token metadata cache (logos from CoinGecko) - local-only, never synced */
+	_tokenMetadataCache: {
+		id: TokenMetadataCacheId,
+		coinId: NonEmptyString100, // "ethereum", "tron", "usd-coin", etc.
+		name: NonEmptyString100, // token name
+		symbol: NonEmptyString100, // token symbol
+		imageThumb: NonEmptyString1000, // 64x64 image URL
+		imageSmall: NonEmptyString1000, // 128x128 image URL
+		imageLarge: NonEmptyString1000, // 512x512 image URL
 	},
 };
 
@@ -133,4 +185,35 @@ export type TokenBalanceInsert = {
 export type DerivationCounterInsert = {
 	keyType: "evm" | "tron" | "btc" | "solana";
 	nextIndex: number;
+};
+
+// BalanceCache insert type (local-only)
+export type BalanceCacheInsert = {
+	address: string;
+	chainId: string;
+	balanceRaw: string;
+};
+
+// TokenBalanceCache insert type (local-only)
+export type TokenBalanceCacheInsert = {
+	address: string;
+	tokenAddress: string;
+	chainId: string;
+	balanceRaw: string;
+};
+
+// PriceCache insert type (local-only)
+export type PriceCacheInsert = {
+	coinId: string;
+	priceUsd: number;
+};
+
+// TokenMetadataCache insert type (local-only)
+export type TokenMetadataCacheInsert = {
+	coinId: string;
+	name: string;
+	symbol: string;
+	imageThumb: string;
+	imageSmall: string;
+	imageLarge: string;
 };

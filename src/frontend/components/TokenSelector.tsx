@@ -1,4 +1,5 @@
 import type { FC } from "react";
+import { TokenLogo } from "~/components/TokenLogo";
 import type { CoinGeckoToken } from "~/providers/tokenStore";
 
 interface TokenSelectorProps {
@@ -21,6 +22,7 @@ export const TokenSelector: FC<TokenSelectorProps> = ({
 				aria-expanded="false"
 				aria-controls="token-dropdown"
 			>
+				<TokenLogo coinId={selectedToken.id} size="small" className="mr-2" />
 				{selectedToken.symbol.toUpperCase()}
 				<i className="fa-solid fa-chevron-down ml-2" />
 			</button>
@@ -39,6 +41,7 @@ export const TokenSelector: FC<TokenSelectorProps> = ({
 							}`}
 							onClick={() => onSelect(token)}
 						>
+							<TokenLogo coinId={token.id} size="small" className="mr-2" />
 							<span className="font-bold">{token.symbol.toUpperCase()}</span>
 							<span className="text-xs opacity-70">{token.name}</span>
 						</button>

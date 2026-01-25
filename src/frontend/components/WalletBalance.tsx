@@ -1,12 +1,18 @@
 import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { type FC, useMemo } from "react";
+import { TokenLogo } from "~/components/TokenLogo";
 import { useBalanceQuery } from "~/hooks/queries/useBalanceQuery";
-import { useErc20BalanceQuery } from "~/hooks/queries/useErc20BalanceQuery";
+import { usePersistedBalanceQuery } from "~/hooks/queries/usePersistedBalanceQuery";
 import {
 	DEFAULT_COIN_IDS,
-	usePricesQuery,
-} from "~/hooks/queries/usePricesQuery";
-import { useTrc20BalanceQuery } from "~/hooks/queries/useTrc20BalanceQuery";
+	usePersistedPricesQuery,
+} from "~/hooks/queries/usePersistedPricesQuery";
+import {
+	usePersistedErc20BalanceQuery,
+	usePersistedTrc20BalanceQuery,
+	usePersistedTronBalanceQuery,
+} from "~/hooks/queries/usePersistedTokenBalanceQuery";
+import { usePricesQuery } from "~/hooks/queries/usePricesQuery";
 import { useTronBalanceQuery } from "~/hooks/queries/useTronBalanceQuery";
 import { discriminateAddressType } from "~/lib/crypto";
 import {
@@ -275,15 +281,25 @@ interface ChainBalanceProps {
 
 const ChainBalance: FC<ChainBalanceProps> = ({ address, chainId, name }) => {
 	const queryClient = useQueryClient();
-	const { data, isLoading, error } = useBalanceQuery({ address, chainId });
+	// Use persisted balance hook for stale-while-revalidate pattern
+	const { data, cached, isLoading, isFetching, isStale, error } =
+		usePersistedBalanceQuery({ address, chainId });
 
-	// Fetch prices for all tokens (shared query, deduplicated by React Query)
-	const { data: pricesData } = usePricesQuery({
+	// Fetch prices with persistence (shared query, deduplicated by React Query)
+	const {
+		data: pricesData,
+		cached: cachedPrices,
+		isStale: pricesStale,
+	} = usePersistedPricesQuery({
 		coinIds: DEFAULT_COIN_IDS,
-		enabled: data?.ok === true,
+		enabled: data?.ok === true || cached !== null,
 	});
 
-	if (isLoading) {
+	// Use fresh prices if available, otherwise cached
+	const prices = pricesData?.ok ? pricesData.prices : cachedPrices?.prices;
+
+	// Show loading only if no cached data AND still loading from API
+	if (isLoading && !cached) {
 		return (
 			<div className="badge badge-sm badge-outline">
 				<span className="loading loading-spinner loading-xs mr-1" />
@@ -292,37 +308,46 @@ const ChainBalance: FC<ChainBalanceProps> = ({ address, chainId, name }) => {
 		);
 	}
 
-	if (error) {
+	if (error && !cached) {
 		return <div className="badge badge-sm">{name}: Error</div>;
 	}
 
-	if (!data) {
+	// Use fresh data if available, otherwise fall back to cached
+	const balanceEth = data?.ok
+		? data.balanceEth
+		: cached
+			? rawToAmount(cached.balanceRaw, 18)
+			: null;
+
+	if (!balanceEth) {
+		if (data && !data.ok) {
+			return (
+				<div className="badge badge-sm badge-ghost">
+					{name}: {data.code}
+				</div>
+			);
+		}
 		return null;
 	}
 
-	if (!data.ok) {
-		return (
-			<div className="badge badge-sm badge-ghost">
-				{name}: {data.code}
-			</div>
-		);
-	}
-
 	const formattedBalanceEth = (() => {
-		const n = Number(data.balanceEth);
-		return Number.isFinite(n) ? formatWithLocale.format(n) : data.balanceEth;
+		const n = Number(balanceEth);
+		return Number.isFinite(n) ? formatWithLocale.format(n) : balanceEth;
 	})();
 
 	// Calculate USD value for ETH
-	const ethUsdValue =
-		pricesData?.ok && pricesData.prices.ethereum
-			? calculateTokenUsd(data.balanceEth, pricesData.prices.ethereum.usd)
-			: null;
+	const ethUsdValue = prices?.ethereum
+		? calculateTokenUsd(balanceEth, prices.ethereum.usd)
+		: null;
 
-	const opacity =
+	// Opacity reflects staleness - fresh data is fully opaque, stale data fades
+	const baseOpacity =
 		pricesData?.ok && pricesData.timestamp
 			? getPriceOpacity(pricesData.timestamp)
 			: 1;
+	// If showing cached/stale data, reduce opacity
+	const opacity =
+		(isStale && !data?.ok) || pricesStale ? baseOpacity * 0.7 : baseOpacity;
 
 	return (
 		<button
@@ -338,6 +363,16 @@ const ChainBalance: FC<ChainBalanceProps> = ({ address, chainId, name }) => {
 			}}
 		>
 			<div className="badge badge-sm max-w-full" style={{ opacity }}>
+				{/* Show refresh indicator when fetching fresh data */}
+				{isFetching && (
+					<span className="loading loading-spinner loading-xs mr-1 opacity-50" />
+				)}
+				<TokenLogo
+					coinId="ethereum"
+					size="small"
+					chainId={chainId}
+					className="mr-1"
+				/>
 				<span className="opacity-80 shrink-0">{name}</span>
 				<span className="mx-1 opacity-60 shrink-0">·</span>
 				<span className="font-mono tabular-nums truncate min-w-0">
@@ -401,24 +436,39 @@ const TokenBalance: FC<TokenBalanceProps> = ({
 	chainId,
 	token,
 }) => {
-	const { data: erc20Data } = useErc20BalanceQuery({
+	// Use persisted hook for stale-while-revalidate pattern
+	const {
+		data: erc20Data,
+		cached,
+		isFetching,
+		isStale,
+	} = usePersistedErc20BalanceQuery({
 		address,
 		contract,
 		chainId,
 	});
 
-	// Fetch prices for all tokens (shared query, deduplicated by React Query)
-	const { data: pricesData } = usePricesQuery({
+	// Fetch prices with persistence
+	const {
+		data: pricesData,
+		cached: cachedPrices,
+		isStale: pricesStale,
+	} = usePersistedPricesQuery({
 		coinIds: DEFAULT_COIN_IDS,
-		enabled: erc20Data?.ok === true,
+		enabled: erc20Data?.ok === true || cached !== null,
 	});
 
-	if (!erc20Data?.ok) {
+	const prices = pricesData?.ok ? pricesData.prices : cachedPrices?.prices;
+	const decimals = getTokenDecimals(token, chainId);
+
+	// Use fresh data if available, otherwise fall back to cached
+	const balanceRaw = erc20Data?.ok ? erc20Data.balanceRaw : cached?.balanceRaw;
+
+	if (!balanceRaw) {
 		return null;
 	}
 
-	const decimals = getTokenDecimals(token, chainId);
-	const balanceAmount = rawToAmount(erc20Data.balanceRaw, decimals);
+	const balanceAmount = rawToAmount(balanceRaw, decimals);
 	const formattedBalance = (() => {
 		const n = Number(balanceAmount);
 		return Number.isFinite(n) ? formatWithLocale.format(n) : balanceAmount;
@@ -429,22 +479,35 @@ const TokenBalance: FC<TokenBalanceProps> = ({
 			: token.symbol.toUpperCase();
 
 	// Calculate USD value if prices are available
-	const usdValue =
-		pricesData?.ok && pricesData.prices[token.id]
-			? calculateTokenUsd(balanceAmount, pricesData.prices[token.id].usd)
-			: null;
+	const usdValue = prices?.[token.id]
+		? calculateTokenUsd(balanceAmount, prices[token.id].usd)
+		: null;
 
-	const opacity =
+	// Opacity reflects staleness
+	const baseOpacity =
 		pricesData?.ok && pricesData.timestamp
 			? getPriceOpacity(pricesData.timestamp)
 			: 1;
+	const opacity =
+		(isStale && !erc20Data?.ok) || pricesStale
+			? baseOpacity * 0.7
+			: baseOpacity;
 
 	return (
 		<div
 			className="badge badge-sm max-w-full min-w-0 overflow-hidden"
-			title={`${token.name}: ${formattedBalance}`}
+			title={`${token.name}: ${formattedBalance}${isStale ? " (cached)" : ""}`}
 			style={{ opacity }}
 		>
+			{isFetching && (
+				<span className="loading loading-spinner loading-xs mr-1 opacity-50" />
+			)}
+			<TokenLogo
+				coinId={token.id}
+				size="small"
+				chainId={chainId}
+				className="mr-1"
+			/>
 			<span className="opacity-80 shrink-0">{label}</span>
 			<span className="mx-1 opacity-60 shrink-0">·</span>
 			<span className="font-mono tabular-nums truncate min-w-0">
@@ -469,20 +532,33 @@ interface TronChainBalanceProps {
 
 const TronChainBalance: FC<TronChainBalanceProps> = ({ address, name }) => {
 	const queryClient = useQueryClient();
-	const { data: trxData, isLoading: trxLoading } = useTronBalanceQuery({
+	// Use persisted hook for stale-while-revalidate pattern
+	const {
+		data: trxData,
+		cached,
+		isLoading,
+		isFetching,
+		isStale,
+	} = usePersistedTronBalanceQuery({
 		address,
 	});
 
-	// Fetch prices for all tokens (shared query, deduplicated by React Query)
-	const { data: pricesData } = usePricesQuery({
+	// Fetch prices with persistence
+	const {
+		data: pricesData,
+		cached: cachedPrices,
+		isStale: pricesStale,
+	} = usePersistedPricesQuery({
 		coinIds: DEFAULT_COIN_IDS,
-		enabled: trxData?.ok === true,
+		enabled: trxData?.ok === true || cached !== null,
 	});
 
+	const prices = pricesData?.ok ? pricesData.prices : cachedPrices?.prices;
 	const getTokensByChain = useTokenStore((state) => state.getTokensByChain);
 	const tokens = getTokensByChain("tron");
 
-	if (trxLoading) {
+	// Show loading only if no cached data
+	if (isLoading && !cached) {
 		return (
 			<div className="badge badge-sm badge-outline">
 				<span className="loading loading-spinner loading-xs mr-1" />
@@ -491,22 +567,32 @@ const TronChainBalance: FC<TronChainBalanceProps> = ({ address, name }) => {
 		);
 	}
 
+	// Use fresh data if available, otherwise convert cached (stored as Sun)
+	const balanceTrx = trxData?.ok
+		? trxData.balanceTrx
+		: cached?.balanceRaw
+			? rawToAmount(cached.balanceRaw, 6) // TRX has 6 decimals
+			: null;
+
 	const formattedTrxBalance = (() => {
-		if (!trxData?.ok) return null;
-		const n = Number(trxData.balanceTrx);
-		return Number.isFinite(n) ? formatWithLocale.format(n) : trxData.balanceTrx;
+		if (!balanceTrx) return null;
+		const n = Number(balanceTrx);
+		return Number.isFinite(n) ? formatWithLocale.format(n) : balanceTrx;
 	})();
 
 	// Calculate USD value for TRX
 	const trxUsdValue =
-		trxData?.ok && pricesData?.ok && pricesData.prices.tron
-			? calculateTokenUsd(trxData.balanceTrx, pricesData.prices.tron.usd)
+		balanceTrx && prices?.tron
+			? calculateTokenUsd(balanceTrx, prices.tron.usd)
 			: null;
 
-	const opacity =
+	// Opacity reflects staleness
+	const baseOpacity =
 		pricesData?.ok && pricesData.timestamp
 			? getPriceOpacity(pricesData.timestamp)
 			: 1;
+	const opacity =
+		(isStale && !trxData?.ok) || pricesStale ? baseOpacity * 0.7 : baseOpacity;
 
 	return (
 		<button
@@ -522,6 +608,10 @@ const TronChainBalance: FC<TronChainBalanceProps> = ({ address, name }) => {
 			}}
 		>
 			<div className="badge badge-sm max-w-full" style={{ opacity }}>
+				{isFetching && (
+					<span className="loading loading-spinner loading-xs mr-1 opacity-50" />
+				)}
+				<TokenLogo coinId="tron" size="small" chainId="tron" className="mr-1" />
 				<span className="opacity-80 shrink-0">{name}</span>
 				<span className="mx-1 opacity-60 shrink-0">·</span>
 				<span className="font-mono tabular-nums truncate min-w-0">
@@ -565,47 +655,76 @@ const TronTokenBalance: FC<TronTokenBalanceProps> = ({
 	contract,
 	token,
 }) => {
-	const { data: trc20Data } = useTrc20BalanceQuery({
+	// Use persisted hook for stale-while-revalidate pattern
+	const {
+		data: trc20Data,
+		cached,
+		isFetching,
+		isStale,
+	} = usePersistedTrc20BalanceQuery({
 		address,
 		contract,
 	});
 
-	// Fetch prices for all tokens (shared query, deduplicated by React Query)
-	const { data: pricesData } = usePricesQuery({
+	// Fetch prices with persistence
+	const {
+		data: pricesData,
+		cached: cachedPrices,
+		isStale: pricesStale,
+	} = usePersistedPricesQuery({
 		coinIds: DEFAULT_COIN_IDS,
-		enabled: trc20Data?.ok === true,
+		enabled: trc20Data?.ok === true || cached !== null,
 	});
 
-	if (!trc20Data?.ok) {
+	const prices = pricesData?.ok ? pricesData.prices : cachedPrices?.prices;
+
+	// Use fresh data if available, otherwise fall back to cached
+	// TRC20 stores balanceFormatted as balanceRaw in cache
+	const balanceFormatted = trc20Data?.ok
+		? trc20Data.balanceFormatted
+		: cached?.balanceRaw;
+
+	if (!balanceFormatted) {
 		return null;
 	}
 
 	const formattedBalance = (() => {
-		const n = Number(trc20Data.balanceFormatted);
-		return Number.isFinite(n)
-			? formatTrc20.format(n)
-			: trc20Data.balanceFormatted;
+		const n = Number(balanceFormatted);
+		return Number.isFinite(n) ? formatTrc20.format(n) : balanceFormatted;
 	})();
 
 	const label = `Tron ${token.symbol.toUpperCase()}`;
 
 	// Calculate USD value if prices are available
-	const usdValue =
-		pricesData?.ok && pricesData.prices[token.id]
-			? calculateTokenUsd(formattedBalance, pricesData.prices[token.id].usd)
-			: null;
+	const usdValue = prices?.[token.id]
+		? calculateTokenUsd(formattedBalance, prices[token.id].usd)
+		: null;
 
-	const opacity =
+	// Opacity reflects staleness
+	const baseOpacity =
 		pricesData?.ok && pricesData.timestamp
 			? getPriceOpacity(pricesData.timestamp)
 			: 1;
+	const opacity =
+		(isStale && !trc20Data?.ok) || pricesStale
+			? baseOpacity * 0.7
+			: baseOpacity;
 
 	return (
 		<div
 			className="badge badge-sm max-w-full min-w-0 overflow-hidden"
-			title={`${token.name}: ${formattedBalance}`}
+			title={`${token.name}: ${formattedBalance}${isStale ? " (cached)" : ""}`}
 			style={{ opacity }}
 		>
+			{isFetching && (
+				<span className="loading loading-spinner loading-xs mr-1 opacity-50" />
+			)}
+			<TokenLogo
+				coinId={token.id}
+				size="small"
+				chainId="tron"
+				className="mr-1"
+			/>
 			<span className="opacity-80 shrink-0">{label}</span>
 			<span className="mx-1 opacity-60 shrink-0">·</span>
 			<span className="font-mono tabular-nums truncate min-w-0">

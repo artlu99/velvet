@@ -3,16 +3,22 @@ import { useEvolu, useQuery } from "@evolu/react";
 import { type FC, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Link } from "wouter";
+import { DeleteKeyConfirmation } from "~/components/DeleteKeyConfirmation";
+import { DeriveWallet } from "~/components/DeriveWallet";
+import { EnsOrAddress } from "~/components/EnsOrAddress";
+import SpringTransition from "~/components/effects/SpringTransition";
+import { ImportPrivateKey } from "~/components/ImportPrivateKey";
+import { WalletBalance } from "~/components/WalletBalance";
+import { WalletBreadcrumb } from "~/components/WalletBreadcrumb";
+import { WalletCarousel } from "~/components/WalletCarousel";
+import { useClipboardWithTimeout } from "~/hooks/useClipboardWithTimeout";
+import {
+	CLIPBOARD_TIMEOUT_MS,
+	ZERO_ADDRESS_EVM,
+	ZERO_ADDRESS_TRON,
+} from "~/lib/helpers";
 import { createAllEoasQuery } from "~/lib/queries/eoa";
 import type { EoaId } from "~/lib/schema";
-import { DeleteKeyConfirmation } from "./DeleteKeyConfirmation";
-import { DeriveWallet } from "./DeriveWallet";
-import { EnsOrAddress } from "./EnsOrAddress";
-import { GlobalPortfolioTotal } from "./GlobalPortfolioTotal";
-import { ImportPrivateKey } from "./ImportPrivateKey";
-import { WalletBalance } from "./WalletBalance";
-import { WalletBreadcrumb } from "./WalletBreadcrumb";
-import { WalletCarousel } from "./WalletCarousel";
 
 export const WalletManagement: FC = () => {
 	const evolu = useEvolu();
@@ -24,18 +30,20 @@ export const WalletManagement: FC = () => {
 		address: string;
 		mode: "delete" | "hide";
 		derivationIndex: number | null;
+		origin: "imported" | "derived" | "watchOnly" | null;
+		keyType: "evm" | "tron" | "btc" | "solana" | null;
 	} | null>(null);
-	const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
+
+	const { copyToClipboard, copiedText } =
+		useClipboardWithTimeout(CLIPBOARD_TIMEOUT_MS);
 
 	const allEoas = createAllEoasQuery(evolu);
 	const rows = useQuery(allEoas);
 
 	const handleCopyAddress = async (address: string) => {
 		try {
-			await navigator.clipboard.writeText(address);
-			setCopiedAddress(address);
+			await copyToClipboard(address);
 			toast.success("Address copied to clipboard!");
-			setTimeout(() => setCopiedAddress(null), 2000);
 		} catch (error) {
 			toast.error("Failed to copy address");
 			console.error("Clipboard error:", error);
@@ -45,10 +53,27 @@ export const WalletManagement: FC = () => {
 	const handleDelete = () => {
 		if (!deleteTarget) return;
 
-		evolu.update("eoa", {
-			id: deleteTarget.id,
-			isDeleted: sqliteTrue,
-		});
+		const isImportedOrWatchOnly =
+			deleteTarget.origin === "imported" || deleteTarget.origin === "watchOnly";
+
+		if (isImportedOrWatchOnly) {
+			// Sanitize data with sentinel values (defense-in-depth)
+			const zeroAddress =
+				deleteTarget.keyType === "tron" ? ZERO_ADDRESS_TRON : ZERO_ADDRESS_EVM;
+
+			evolu.update("eoa", {
+				id: deleteTarget.id,
+				isDeleted: sqliteTrue,
+				address: zeroAddress,
+				encryptedPrivateKey: zeroAddress,
+			});
+		} else {
+			// Derived wallets: just hide (can be re-derived from mnemonic)
+			evolu.update("eoa", {
+				id: deleteTarget.id,
+				isDeleted: sqliteTrue,
+			});
+		}
 
 		setDeleteTarget(null);
 		toast.success(
@@ -86,6 +111,8 @@ export const WalletManagement: FC = () => {
 										address: row.address,
 										mode: "hide",
 										derivationIndex: row.derivationIndex,
+										origin: row.origin,
+										keyType: row.keyType,
 									})
 								}
 							>
@@ -106,6 +133,8 @@ export const WalletManagement: FC = () => {
 										address: row.address,
 										mode: "delete",
 										derivationIndex: null,
+										origin: row.origin,
+										keyType: row.keyType,
 									})
 								}
 							>
@@ -134,7 +163,7 @@ export const WalletManagement: FC = () => {
 									aria-label="Copy address"
 									title="Copy address"
 								>
-									{copiedAddress === row.address ? (
+									{copiedText === row.address ? (
 										<i
 											className="fa-solid fa-check h-6 w-6 text-success sm:h-4 sm:w-4"
 											aria-hidden="true"
@@ -323,8 +352,12 @@ export const WalletManagement: FC = () => {
 				</div>
 			</div>
 
-			{showDerive && <DeriveWallet />}
-			{showImport && <ImportPrivateKey />}
+			<SpringTransition isActive={showDerive}>
+				<DeriveWallet />
+			</SpringTransition>
+			<SpringTransition isActive={showImport}>
+				<ImportPrivateKey />
+			</SpringTransition>
 
 			{rows.length === 0 ? (
 				<div className="card card-compact bg-base-200 shadow-xl">
@@ -351,11 +384,6 @@ export const WalletManagement: FC = () => {
 						{rows.map((row) => renderWalletCard(row))}
 					</div>
 				</>
-			)}
-
-			{/* Global portfolio total - below wallet cards */}
-			{rows.length > 0 && (
-				<GlobalPortfolioTotal addresses={rows.map((row) => row.address)} />
 			)}
 
 			{deleteTarget && (

@@ -1,6 +1,8 @@
 import { QRCodeSVG } from "qrcode.react";
-import { type FC, useState } from "react";
+import type { FC } from "react";
 import toast from "react-hot-toast";
+import { useClipboardWithTimeout } from "~/hooks/useClipboardWithTimeout";
+import { CLIPBOARD_TIMEOUT_MS } from "~/lib/helpers";
 
 type Network = "ethereum" | "base" | "tron";
 
@@ -18,14 +20,13 @@ export const QRCodeDisplay: FC<QRCodeDisplayProps> = ({
 	network,
 	size = 256,
 }) => {
-	const [copied, setCopied] = useState(false);
+	const { isCopied, timeLeft, copyToClipboard } =
+		useClipboardWithTimeout(CLIPBOARD_TIMEOUT_MS);
 
 	const handleCopy = async () => {
 		try {
-			await navigator.clipboard.writeText(address);
-			setCopied(true);
+			await copyToClipboard(address);
 			toast.success("Address copied!");
-			setTimeout(() => setCopied(false), 2000);
 		} catch {
 			toast.error("Failed to copy address");
 		}
@@ -75,7 +76,7 @@ export const QRCodeDisplay: FC<QRCodeDisplayProps> = ({
 						aria-label="Copy address to clipboard"
 						title="Copy address"
 					>
-						{copied ? (
+						{isCopied ? (
 							<i
 								className="fa-solid fa-check h-4 w-4 text-success"
 								aria-hidden="true"
@@ -85,6 +86,12 @@ export const QRCodeDisplay: FC<QRCodeDisplayProps> = ({
 						)}
 					</button>
 				</div>
+				{isCopied && (
+					<div className="text-center text-xs text-info mt-1">
+						<i className="fa-solid fa-clock mr-1" />
+						Clipboard clears in {timeLeft}s
+					</div>
+				)}
 			</div>
 
 			{/* Help text */}

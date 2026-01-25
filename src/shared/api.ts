@@ -4,7 +4,9 @@ import type {
 	EnsNameResult,
 	Erc20BalanceResult,
 	Erc20GasEstimateResult,
+	PlatformMetadataResult,
 	PricesResult,
+	TokenMetadataResult,
 	TransactionCountResult,
 	Trc20BalanceResult,
 	TronBalanceResult,
@@ -80,6 +82,16 @@ export const apiEndpoints = {
 		path: "prices" as const,
 		method: "GET" as const,
 	},
+	/** GET /api/tokens/metadata?ids={ids} - Get token metadata (logos) */
+	tokensMetadata: {
+		path: "tokens/metadata" as const,
+		method: "GET" as const,
+	},
+	/** GET /api/platforms/metadata - Get platform/chain metadata (logos) */
+	platformsMetadata: {
+		path: "platforms/metadata" as const,
+		method: "GET" as const,
+	},
 } as const;
 
 /** Response types for each endpoint */
@@ -95,6 +107,8 @@ export type ApiResponses = {
 	tronGasEstimate: TronGasEstimateResult;
 	tronBroadcast: TronBroadcastResult;
 	prices: PricesResult;
+	tokensMetadata: TokenMetadataResult;
+	platformsMetadata: PlatformMetadataResult;
 };
 
 /**

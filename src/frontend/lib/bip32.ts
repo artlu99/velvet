@@ -4,6 +4,7 @@ import * as bip39 from "@scure/bip39";
 import { mnemonicToSeedSync } from "@scure/bip39";
 import { wordlist } from "@scure/bip39/wordlists/english.js";
 import { type Address, privateKeyToAccount } from "viem/accounts";
+import { featureFlags } from "../../shared/feature-flags";
 import {
 	deriveTronAddress as deriveTronAddressFromCrypto,
 	encryptPrivateKey,
@@ -179,10 +180,26 @@ export async function deriveKeyAt(
 				address = deriveTronAddress(privateKey);
 				break;
 			case "btc":
-			case "solana":
+				if (!featureFlags.BITCOIN.enabled) {
+					return {
+						success: false,
+						error: "Bitcoin support is disabled",
+					};
+				}
 				return {
 					success: false,
-					error: `${keyType} derivation not yet supported`,
+					error: "Bitcoin derivation not yet implemented",
+				};
+			case "solana":
+				if (!featureFlags.SOLANA.enabled) {
+					return {
+						success: false,
+						error: "Solana support is disabled",
+					};
+				}
+				return {
+					success: false,
+					error: "Solana derivation not yet implemented",
 				};
 			default:
 				return {

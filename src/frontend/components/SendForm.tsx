@@ -12,12 +12,19 @@ import toast from "react-hot-toast";
 import { isAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { useLocation } from "wouter";
+import { EnsOrAddress } from "~/components/EnsOrAddress";
+import SpringTransition from "~/components/effects/SpringTransition";
 import { QRScannerModal } from "~/components/QRScannerModal";
+import { TokenLogo } from "~/components/TokenLogo";
 import { useBroadcastTransactionMutation } from "~/hooks/mutations/useBroadcastTransactionMutation";
 import { useBroadcastTronTransactionMutation } from "~/hooks/mutations/useBroadcastTronTransactionMutation";
 import { useEstimateErc20GasMutation } from "~/hooks/mutations/useEstimateErc20GasMutation";
 import { useEstimateGasMutation } from "~/hooks/mutations/useEstimateGasMutation";
 import { useTronGasEstimateMutation } from "~/hooks/mutations/useTronGasEstimateMutation";
+import {
+	DEFAULT_COIN_IDS,
+	usePricesQuery,
+} from "~/hooks/queries/usePricesQuery";
 import { useTransactionCountQuery } from "~/hooks/queries/useTransactionCountQuery";
 import {
 	buildAndSignTrc20Transfer,
@@ -26,6 +33,7 @@ import {
 	isValidTronAddress,
 	validateQRScannedData,
 } from "~/lib/crypto";
+import { calculateTokenUsd } from "~/lib/portfolioValue";
 import { refreshAddressQueries } from "~/lib/refreshQueries";
 import {
 	getTokenAddress,
@@ -74,6 +82,11 @@ export const SendForm: FC<SendFormProps> = ({
 		address,
 		chainId,
 		enabled: false,
+	});
+
+	// Fetch prices for USD calculations
+	const { data: pricesData } = usePricesQuery({
+		coinIds: DEFAULT_COIN_IDS,
 	});
 
 	const isTron = chainId === "tron";
@@ -359,6 +372,19 @@ export const SendForm: FC<SendFormProps> = ({
 		? weiToEth(balance)
 		: rawToAmount(balance, decimals);
 
+	// Calculate USD values
+	const tokenPrice =
+		pricesData?.ok && pricesData.prices[token.id]
+			? pricesData.prices[token.id].usd
+			: null;
+	const amountUsd =
+		tokenPrice && amount ? calculateTokenUsd(amount, tokenPrice) : null;
+
+	const ethPrice =
+		pricesData?.ok && pricesData.prices.ethereum
+			? pricesData.prices.ethereum.usd
+			: null;
+
 	const totalCost =
 		gasEstimate?.ok && amount
 			? isTron && isTronGasEstimate(gasEstimate)
@@ -373,6 +399,8 @@ export const SendForm: FC<SendFormProps> = ({
 			: "0";
 
 	const totalCostEth = isTron ? totalCost : weiToEth(totalCost);
+	const totalCostUsd =
+		ethPrice && totalCostEth ? calculateTokenUsd(totalCostEth, ethPrice) : null;
 	const hasEnoughBalance =
 		BigInt(balance) >=
 		BigInt(isNative ? ethToWei(amount) : amountToRaw(amount, decimals));
@@ -381,20 +409,126 @@ export const SendForm: FC<SendFormProps> = ({
 		<div className="max-w-md mx-auto p-4">
 			<h1 className="text-2xl font-bold mb-6">Send Crypto</h1>
 
-			{/* From */}
-			<div className="form-control mb-4">
-				<div className="label">
-					<span className="label-text">From</span>
+			{/* Actions - shown at very top when gas estimate exists */}
+			{gasEstimate?.ok && (
+				<div className="flex gap-2 mb-4">
+					<button
+						type="button"
+						className="btn btn-outline flex-1"
+						onClick={() => setGasEstimate(null)}
+						disabled={isSending}
+					>
+						Edit
+					</button>
+					<button
+						type="button"
+						className="btn btn-secondary flex-1"
+						onClick={sendTransaction}
+						disabled={isSending || !hasEnoughBalance}
+					>
+						{isSending ? <span className="loading loading-spinner" /> : "Send"}
+						{hasEnoughBalance ? (
+							<i
+								className="fa-solid fa-paper-plane"
+								style={{ fontSize: "1.25rem" }}
+								aria-hidden="true"
+							/>
+						) : (
+							<span className="text-error text-sm">Insufficient balance</span>
+						)}
+					</button>
 				</div>
-				<div className="stat bg-base-200 rounded-lg">
-					<div className="stat-title font-mono text-sm">
-						{truncateAddress(address)}
+			)}
+
+			{/* Transaction Details Card */}
+			<SpringTransition isActive={!!gasEstimate?.ok} skipExit={true}>
+				{gasEstimate?.ok && (
+					<div className="mb-6 card card-compact bg-base-200">
+						<div className="card-body">
+							<h3 className="card-title text-sm mb-4">Transaction Details</h3>
+							<div className="space-y-3 text-sm">
+								{/* To */}
+								<div className="flex justify-between items-start">
+									<span className="opacity-70">To:</span>
+									<span className="text-right w-full" title={recipient}>
+										<EnsOrAddress address={recipient} />
+									</span>
+								</div>
+
+								{/* Amount */}
+								<div className="flex justify-between items-start">
+									<span className="opacity-70">Amount:</span>
+									<div className="text-right">
+										<div className="font-semibold">
+											{amount} {token.symbol.toUpperCase()}
+										</div>
+										{amountUsd !== null && (
+											<div className="text-xs opacity-70">
+												≈${amountUsd.toFixed(2)} USD
+											</div>
+										)}
+									</div>
+								</div>
+
+								{/* Gas */}
+								{isTron && isTronGasEstimate(gasEstimate) ? (
+									<>
+										<div className="flex justify-between items-start">
+											<span className="opacity-70">Bandwidth:</span>
+											<span>{gasEstimate.bandwidthRequired}</span>
+										</div>
+										<div className="flex justify-between items-start">
+											<span className="opacity-70">Energy:</span>
+											<span>{gasEstimate.energyRequired}</span>
+										</div>
+										<div className="flex justify-between items-start">
+											<span className="opacity-70">Energy Fee:</span>
+											<span>{gasEstimate.energyFee} SUN</span>
+										</div>
+										<div className="flex justify-between items-start border-t border-base-300 pt-2 mt-2">
+											<span className="opacity-70">Gas Cost:</span>
+											<div className="text-right">
+												{totalCostUsd !== null && (
+													<div className="text-xs font-semibold">
+														≈${totalCostUsd.toFixed(2)} USD
+													</div>
+												)}
+												<div className="opacity-70">
+													{gasEstimate.totalCostTrx} TRX
+												</div>
+											</div>
+										</div>
+									</>
+								) : isEvmGasEstimate(gasEstimate) ? (
+									<>
+										<div className="flex justify-between items-start">
+											<span className="opacity-70">Gas Limit:</span>
+											<span>{gasEstimate.gasLimit}</span>
+										</div>
+										<div className="flex justify-between items-start">
+											<span className="opacity-70">Max Fee:</span>
+											<span>{formatGwei(gasEstimate.maxFeePerGas)} Gwei</span>
+										</div>
+										<div className="flex justify-between items-start border-t border-base-300 pt-2 mt-2">
+											<span className="opacity-70">Gas Cost:</span>
+											<div className="text-right">
+												{totalCostUsd !== null && (
+													<div className="text-xs font-semibold">
+														≈${totalCostUsd.toFixed(2)} USD
+													</div>
+												)}
+												<div className="opacity-70">
+													{gasEstimate.totalCostEth} ETH
+												</div>
+											</div>
+										</div>
+									</>
+								) : null}
+							</div>
+						</div>
 					</div>
-					<div className="stat-desc">
-						Balance: {balanceFormatted} {token.symbol.toUpperCase()}
-					</div>
-				</div>
-			</div>
+				)}
+			</SpringTransition>
 
 			{/* To */}
 			<div className="form-control mb-4">
@@ -426,7 +560,8 @@ export const SendForm: FC<SendFormProps> = ({
 			{/* Amount */}
 			<div className="form-control mb-4">
 				<label className="label" htmlFor="send-amount">
-					<span className="label-text">
+					<span className="label-text flex items-center gap-2">
+						<TokenLogo coinId={token.id} size="large" chainId={chainId} />
 						Amount ({token.symbol.toUpperCase()})
 					</span>
 				</label>
@@ -443,96 +578,45 @@ export const SendForm: FC<SendFormProps> = ({
 				/>
 			</div>
 
-			{/* Gas Estimate */}
-			{gasEstimate?.ok && (
-				<div className="mb-4 card card-compact bg-base-200">
-					<div className="card-body">
-						<h3 className="card-title text-sm">
-							{isTron ? "Estimated Fees" : "Estimated Gas Fees"}
-						</h3>
-						<div className="text-sm space-y-1">
-							{isTron && isTronGasEstimate(gasEstimate) ? (
-								<>
-									<div>Bandwidth Required: {gasEstimate.bandwidthRequired}</div>
-									<div>Energy Required: {gasEstimate.energyRequired}</div>
-									<div className="font-semibold">
-										Energy Fee: {gasEstimate.energyFee} SUN
-									</div>
-									<div className="font-semibold">
-										Total Cost: {gasEstimate.totalCostTrx} TRX
-									</div>
-								</>
-							) : isEvmGasEstimate(gasEstimate) ? (
-								<>
-									<div>Gas Limit: {gasEstimate.gasLimit}</div>
-									<div>
-										Max Fee: {formatGwei(gasEstimate.maxFeePerGas)} Gwei
-									</div>
-									<div className="font-semibold">
-										Cost: {gasEstimate.totalCostEth} ETH
-									</div>
-								</>
-							) : null}
-						</div>
+			{/* From */}
+			<div className="form-control mb-4">
+				<div className="label">
+					<span className="label-text">From</span>
+				</div>
+				<div className="stat bg-base-200 rounded-lg">
+					<div className="stat-title font-mono text-sm">
+						{truncateAddress(address)}
+					</div>
+					<div className="stat-desc">
+						Balance: {balanceFormatted} {token.symbol.toUpperCase()}
 					</div>
 				</div>
-			)}
+			</div>
 
-			{/* Total */}
-			{gasEstimate?.ok && amount && (
-				<div className="mb-6">
-					<div className="flex justify-between items-center">
-						<span className="font-semibold">Total:</span>
-						<span className="text-xl font-bold">
-							{totalCostEth} {token.symbol.toUpperCase()}
-						</span>
-					</div>
-					{!hasEnoughBalance && (
-						<div className="text-error text-sm mt-1">Insufficient balance</div>
-					)}
-				</div>
-			)}
-
-			{/* Actions */}
-			<div className="flex gap-2">
-				{!gasEstimate ? (
+			{/* Actions - only show Estimate Gas button when no estimate */}
+			{!gasEstimate && (
+				<div className="flex gap-2">
 					<button
 						type="button"
-						className="btn btn-primary flex-1"
+						className="btn btn-secondary flex-1"
 						onClick={estimateGas}
 						disabled={!recipient || !amount || isEstimating}
 					>
 						{isEstimating ? (
 							<span className="loading loading-spinner" />
 						) : (
-							"Estimate Gas"
+							<>
+								Review
+								<i
+									className="fa-solid fa-check"
+									style={{ fontSize: "1.25rem" }}
+									aria-hidden="true"
+								/>
+							</>
 						)}
 					</button>
-				) : (
-					<>
-						<button
-							type="button"
-							className="btn btn-outline flex-1"
-							onClick={() => setGasEstimate(null)}
-							disabled={isSending}
-						>
-							Edit
-						</button>
-						<button
-							type="button"
-							className="btn btn-primary flex-1"
-							onClick={sendTransaction}
-							disabled={isSending || !hasEnoughBalance}
-						>
-							{isSending ? (
-								<span className="loading loading-spinner" />
-							) : (
-								"Send"
-							)}
-						</button>
-					</>
-				)}
-			</div>
+				</div>
+			)}
 
 			{/* QR Scanner Modal */}
 			<QRScannerModal

@@ -3,9 +3,11 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react-swc";
 import { defineConfig } from "vite";
 import { VitePWA } from 'vite-plugin-pwa'
+import { featureFlags } from "./src/shared/feature-flags";
 
 // https://vite.dev/config/
 export default defineConfig({
+	build: { rollupOptions: { output: { manualChunks: { 'tron': ['tronweb'] } } } },
 	optimizeDeps: {
 		exclude: ["@evolu/sqlite-wasm", "kysely", "@evolu/react-web"],
 		include: ["react", "react-dom", "react/jsx-runtime"],
@@ -15,6 +17,9 @@ export default defineConfig({
 		manifest: {
 			theme_color: "#303041",
 		},
+		includeAssets: featureFlags.MUSIC_LINKS.enabled
+			? Object.values(featureFlags.MUSIC_LINKS.assets)
+			: [],
 		pwaAssets: {
 			preset: 'minimal-2023'
 		},
@@ -22,7 +27,6 @@ export default defineConfig({
 		registerType: 'autoUpdate'
 	})
 	],
-	server: { allowedHosts: ["vmi2697213.tailb8f35.ts.net"] },
 	resolve: {
 		alias: {
 			"~": "/src/frontend",

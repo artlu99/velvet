@@ -7,8 +7,9 @@ import {
 } from "@evolu/common";
 import type { KeyType } from "@shared/types";
 import * as v from "valibot";
-import { isAddress } from "viem";
+import { getAddress, isAddress } from "viem";
 import { type Address, privateKeyToAccount } from "viem/accounts";
+import { featureFlags } from "../../shared/feature-flags";
 import {
 	isValidTronAddress as checkValidTronAddress,
 	deriveTronAddress as deriveTronAddressFromTron,
@@ -28,6 +29,8 @@ export {
 export type AddressType =
 	| { type: "evm"; address: Address }
 	| { type: "tron"; address: string }
+	| { type: "btc"; address: string }
+	| { type: "solana"; address: string }
 	| { type: "unknown"; address: string };
 
 /**
@@ -50,6 +53,23 @@ export function isTronAddress(address: string): boolean {
 }
 
 /**
+ * Normalizes an EVM address to checksummed format for consistent storage/comparison.
+ * Returns null if the address is invalid.
+ * @param address - The address to normalize
+ * @returns Checksummed address or null if invalid
+ */
+export function normalizeEvmAddress(address: string): Address | null {
+	try {
+		if (isEvmAddress(address)) {
+			return getAddress(address);
+		}
+		return null;
+	} catch {
+		return null;
+	}
+}
+
+/**
  * Discriminates an address into its blockchain type
  * @param address - The address to discriminate
  * @returns Address type object with discriminated type
@@ -60,6 +80,20 @@ export function discriminateAddressType(address: string): AddressType {
 	}
 	if (isTronAddress(address)) {
 		return { type: "tron", address };
+	}
+	// Bitcoin addresses (bc1, 1, 3 prefixes)
+	if (
+		featureFlags.BITCOIN.enabled &&
+		/^(bc1|[13])[a-zA-Z0-9]{25,39}$/.test(address)
+	) {
+		return { type: "btc", address };
+	}
+	// Solana addresses (base58, 32-44 characters)
+	if (
+		featureFlags.SOLANA.enabled &&
+		/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)
+	) {
+		return { type: "solana", address };
 	}
 	return { type: "unknown", address };
 }
@@ -73,6 +107,7 @@ export const EvmPrivateKeySchema = v.pipe(
 );
 
 // EVM Address Validation Schema
+// Uses checksummed format (via getAddress) for consistent storage
 export const EvmAddressSchema = v.pipe(
 	v.string(),
 	v.regex(/^0x[0-9a-fA-F]{40}$/, "Invalid EVM address format"),
@@ -80,7 +115,7 @@ export const EvmAddressSchema = v.pipe(
 		(value: unknown) => typeof value === "string" && isAddress(value),
 		"Invalid EVM address checksum",
 	),
-	v.transform((addr) => addr.toLowerCase() as Address),
+	v.transform((addr) => getAddress(addr) as Address),
 );
 
 /**

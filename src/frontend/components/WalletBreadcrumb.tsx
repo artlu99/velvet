@@ -1,4 +1,5 @@
 import type { FC } from "react";
+import { pluralize } from "~/lib/helpers";
 
 interface WalletBreadcrumbProps {
 	readonly current: number; // 1-indexed
@@ -6,9 +7,9 @@ interface WalletBreadcrumbProps {
 }
 
 /**
- * Breadcrumb indicator showing current wallet position.
- * Format: "Wallet m of n"
- * Shown on both mobile and desktop, replacing "Accounts" header
+ * Breadcrumb indicator for wallet navigation.
+ * Mobile: "Wallet m of n" (for carousel)
+ * Desktop: "N wallets" heading
  */
 export const WalletBreadcrumb: FC<WalletBreadcrumbProps> = ({
 	current,
@@ -18,11 +19,19 @@ export const WalletBreadcrumb: FC<WalletBreadcrumbProps> = ({
 
 	return (
 		<div className="flex items-center justify-center py-1 sm:py-2 gap-2">
-			<div className="join">
+			{/* Mobile: Wallet m of n */}
+			<div className="join sm:hidden">
 				<div className="join-item btn btn-sm btn-ghost font-normal">
 					<i className="fa-solid fa-wallet mr-2" />
 					Wallet {current} <span className="opacity-60 mx-1">of</span> {total}
 				</div>
+			</div>
+			{/* Desktop: N wallets */}
+			<div className="hidden sm:flex items-center gap-2">
+				<i className="fa-solid fa-wallet text-primary" />
+				<span className="font-semibold">
+					{total} {pluralize(total, "wallet")}
+				</span>
 			</div>
 		</div>
 	);
