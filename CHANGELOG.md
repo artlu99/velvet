@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.2] - 2026-01-25
+
+### Added
+- BIP39 passphrase support (25th word) for enhanced wallet security
+- Auto-clear clipboard after 12 seconds for sensitive data
+- Soft delete wipes data instead of overwriting
+- Feature flags system for controlled feature rollouts
+- Base mainnet and Tron token icons (USDC, USDT)
+- Framer Motion spring transitions for UI animations
+
+### Changed
+- Import private key to existing watch-only wallets
+- Replaced bottom dock with streamlined menu navigation
+- Mnemonic phrases now obscured by default on screen
+- Improved gas estimate layout and display
+- Enhanced offline mode reliability
+- Preloaded image assets for faster rendering
+
+### Fixed
+- Portfolio total USD amount calculation
+
 ## [0.0.1] - 2026-01-24
 
 ### Added

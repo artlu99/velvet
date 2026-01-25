@@ -11,5 +11,5 @@ pre-commit:
       stage_fixed: true
     biome:
       glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}"
-      run: bun biome check --write {staged_files}
+      run: bun biome check --write --no-errors-on-unmatched {staged_files}
       stage_fixed: true
