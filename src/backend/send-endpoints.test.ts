@@ -1,4 +1,4 @@
-import { describe, expect, test, mock } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import type {
 	BroadcastTransactionResult,
 	GasEstimateResult,
@@ -32,7 +32,9 @@ import app from "./index";
 describe("Send-related API endpoints", () => {
 	describe("GET /api/transaction-count/:address", () => {
 		test("returns 400 for invalid address", async () => {
-			const res = await app.request("/api/transaction-count/not-an-address?chainId=1");
+			const res = await app.request(
+				"/api/transaction-count/not-an-address?chainId=1",
+			);
 			expect(res.status).toBe(400);
 			const json = await res.json<TransactionCountResult>();
 			expect(json.ok).toBe(false);
@@ -63,7 +65,9 @@ describe("Send-related API endpoints", () => {
 		test("returns 400 for invalid from address", async () => {
 			const res = await app.request("/api/estimate-gas", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: {
+					"Content-Type": "application/json",
+				},
 				body: JSON.stringify({
 					from: "nope",
 					to: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
@@ -80,7 +84,9 @@ describe("Send-related API endpoints", () => {
 		test("returns 400 for invalid to address", async () => {
 			const res = await app.request("/api/estimate-gas", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: {
+					"Content-Type": "application/json",
+				},
 				body: JSON.stringify({
 					from: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
 					to: "nope",
@@ -97,7 +103,9 @@ describe("Send-related API endpoints", () => {
 		test("returns 400 for unsupported chainId", async () => {
 			const res = await app.request("/api/estimate-gas", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: {
+					"Content-Type": "application/json",
+				},
 				body: JSON.stringify({
 					from: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
 					to: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
@@ -108,13 +116,15 @@ describe("Send-related API endpoints", () => {
 			expect(res.status).toBe(400);
 			const json = await res.json<GasEstimateResult>();
 			expect(json.ok).toBe(false);
-			if (!json.ok) expect(json.code).toBe("INVALID_CHAIN" as any);
+			if (!json.ok) expect(json.code).toBe("INVALID_CHAIN" as never);
 		});
 
 		test("returns 400 for invalid value format", async () => {
 			const res = await app.request("/api/estimate-gas", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: {
+					"Content-Type": "application/json",
+				},
 				body: JSON.stringify({
 					from: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
 					to: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
@@ -131,7 +141,9 @@ describe("Send-related API endpoints", () => {
 		test("returns 400 for negative value", async () => {
 			const res = await app.request("/api/estimate-gas", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: {
+					"Content-Type": "application/json",
+				},
 				body: JSON.stringify({
 					from: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
 					to: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
@@ -148,7 +160,9 @@ describe("Send-related API endpoints", () => {
 		test("returns 200 + fee fields for valid request", async () => {
 			const res = await app.request("/api/estimate-gas", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: {
+					"Content-Type": "application/json",
+				},
 				body: JSON.stringify({
 					from: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
 					to: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
@@ -175,7 +189,9 @@ describe("Send-related API endpoints", () => {
 		test("returns 400 for invalid signed transaction format", async () => {
 			const res = await app.request("/api/broadcast-transaction", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: {
+					"Content-Type": "application/json",
+				},
 				body: JSON.stringify({
 					signedTransaction: "nope",
 					chainId: 1,
@@ -190,7 +206,9 @@ describe("Send-related API endpoints", () => {
 		test("returns 400 for unsupported chainId", async () => {
 			const res = await app.request("/api/broadcast-transaction", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: {
+					"Content-Type": "application/json",
+				},
 				body: JSON.stringify({
 					signedTransaction: "0x1234567890",
 					chainId: 137,
@@ -205,7 +223,9 @@ describe("Send-related API endpoints", () => {
 		test("returns 200 + txHash for valid request", async () => {
 			const res = await app.request("/api/broadcast-transaction", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: {
+					"Content-Type": "application/json",
+				},
 				body: JSON.stringify({
 					signedTransaction: "0x1234567890",
 					chainId: 1,
@@ -221,4 +241,3 @@ describe("Send-related API endpoints", () => {
 		});
 	});
 });
-

@@ -19,7 +19,6 @@ import {
 export interface AddressValidationResult {
 	ok: true;
 	address: string;
-	normalized: string;
 }
 
 export interface AddressValidationError {
@@ -77,12 +76,7 @@ export function validateAddress(
 		return { ok: false, error: invalidAddressError(errorType) };
 	}
 
-	// For ens endpoint, we return checksummed address
-	// For balance/txCount/gasEstimate, we return lowercase
-	const normalized =
-		errorType === "ens" ? getAddress(address) : address.toLowerCase();
-
-	return { ok: true, address, normalized };
+	return { ok: true, address: getAddress(address) };
 }
 
 /**

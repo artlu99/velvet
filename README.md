@@ -10,7 +10,7 @@ FOSS, modular, and self-hostable at *de minimis* cost.
 - HD wallet derivation (BIP32/44/60/84)
 - ERC20/TRC20 token balances with USD values
 - Gas estimation & transaction broadcasting
-- ENS name resolution
+- ENS and Basename name resolution (client-side)
 - Local-first encrypted sync via Evolu
 
 ## Tech Stack
@@ -61,6 +61,9 @@ Weakens privacy by linking your wallet history:
 - You can already do this manually (send from address A to address B)
 
 **If you need this**: Copy-paste between your own addresses. It's deliberate that this isn't a one-click feature. 
+
+### OAuth / passkeys
+Waiting for Evolu to solidify Owners API
 
 ## License
 

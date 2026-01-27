@@ -22,7 +22,6 @@ describe("GET /api/name", () => {
 		const res = await app.request("/api/name", {}, mockEnv);
 
 		expect(res.status).toBe(200);
-
 		const json = await res.json();
 		expect(json).toEqual({ name: "TestApp" });
 

@@ -1,6 +1,6 @@
-import { useEvolu, useQuery } from "@evolu/react";
+import { useQuery } from "@evolu/react";
 import type { KeyType, SupportedChainId } from "@shared/types";
-import { useEffect, useState } from "react";
+import { Suspense, use, useEffect, useMemo, useState } from "react";
 import invariant from "tiny-invariant";
 import { Link, useParams } from "wouter";
 import { SendForm } from "~/components/SendForm";
@@ -9,26 +9,35 @@ import { useBalanceQuery } from "~/hooks/queries/useBalanceQuery";
 import { useErc20BalanceQuery } from "~/hooks/queries/useErc20BalanceQuery";
 import { useTrc20BalanceQuery } from "~/hooks/queries/useTrc20BalanceQuery";
 import { useTronBalanceQuery } from "~/hooks/queries/useTronBalanceQuery";
-import { createAllEoasQuery } from "~/lib/queries/eoa";
+import { useEvolu } from "~/lib/evolu";
+import { allEoasQuery, normalizeAddressForQuery } from "~/lib/queries/eoa";
 import { getTokenAddress, isNativeToken } from "~/lib/tokenUtils";
+import { useSendStore } from "~/providers/store";
 import { useTokenStore } from "~/providers/tokenStore";
 
-export const Send = () => {
-	const evolu = useEvolu();
+const SendContent = () => {
 	const { address } = useParams<{ address?: string }>();
+	const evolu = useEvolu();
+
+	// Ensure Evolu is initialized before queries (canonical pattern)
+	use(evolu.appOwner);
 
 	// Local state for EVM network selection (only used for EVM wallets)
 	const [evmNetwork, setEvmNetwork] = useState<"ethereum" | "base">("base");
 
 	const getTokensByChain = useTokenStore((state) => state.getTokensByChain);
 
-	// Get all wallets
-	const allEoasQuery = createAllEoasQuery(evolu);
+	// Canonical Evolu pattern: useQuery with module-level query
 	const allWallets = useQuery(allEoasQuery);
 
 	// Determine which wallet to use
 	const selectedWallet = address
-		? allWallets.find((w) => w.address.toLowerCase() === address.toLowerCase())
+		? allWallets.find(
+				(w) =>
+					w.address &&
+					normalizeAddressForQuery(w.address) ===
+						normalizeAddressForQuery(address),
+			)
 		: (allWallets.find((w) => w.isSelected === 1) ?? allWallets[0]);
 
 	// Get the wallet's keyType and derive network
@@ -49,16 +58,39 @@ export const Send = () => {
 	// Get available tokens for the selected chain
 	const tokens = getTokensByChain(chainId);
 
-	// Default to first token (usually ETH)
-	const [selectedToken, setSelectedToken] = useState(() => tokens[0]);
+	// Get selected token from Zustand store (persisted in sessionStorage)
+	// Subscribe to the specific chainId's token ID to trigger re-renders when it changes
+	const storedTokenId = useSendStore(
+		(state) => state.selectedTokenIds[String(chainId)],
+	);
+	const setSelectedTokenId = useSendStore((state) => state.setSelectedTokenId);
 
-	// Update selected token when chainId changes (for EVM wallets switching networks)
-	useEffect(() => {
-		const newTokens = getTokensByChain(chainId);
-		if (newTokens.length > 0) {
-			setSelectedToken(newTokens[0]);
+	// Find the selected token from store, or default to first token
+	const selectedToken = useMemo(() => {
+		if (storedTokenId) {
+			const token = tokens.find((t) => t.id === storedTokenId);
+			if (token) {
+				return token;
+			}
 		}
-	}, [chainId, getTokensByChain]);
+		// Fall back to first token if stored token not found or not available
+		return tokens[0];
+	}, [tokens, storedTokenId]);
+
+	// Update stored token ID when selection changes
+	const handleTokenSelect = (token: (typeof tokens)[0]) => {
+		setSelectedTokenId(chainId, token.id);
+	};
+
+	// Ensure stored token ID is valid when tokens change
+	useEffect(() => {
+		if (tokens.length > 0 && selectedToken) {
+			// If stored token is not in available tokens, update to first token
+			if (storedTokenId && !tokens.find((t) => t.id === storedTokenId)) {
+				setSelectedTokenId(chainId, tokens[0].id);
+			}
+		}
+	}, [tokens, chainId, selectedToken, storedTokenId, setSelectedTokenId]);
 
 	// Get balance based on token type
 	const isNative = selectedToken && isNativeToken(selectedToken, chainId);
@@ -163,9 +195,9 @@ export const Send = () => {
 						<div className="mt-4">
 							<div className="stat bg-base-200 rounded-lg">
 								<div className="stat-title font-mono text-sm">
-									{selectedWallet.address.slice(0, 6)}
-									...
-									{selectedWallet.address.slice(-4)}
+									{selectedWallet.address
+										? `${selectedWallet.address.slice(0, 6)}...${selectedWallet.address.slice(-4)}`
+										: ""}
 								</div>
 								<div className="stat-desc">Balance: {balance}</div>
 							</div>
@@ -220,7 +252,7 @@ export const Send = () => {
 							<TokenSelector
 								tokens={tokens}
 								selectedToken={selectedToken}
-								onSelect={setSelectedToken}
+								onSelect={handleTokenSelect}
 							/>
 						</div>
 						<SendForm
@@ -234,5 +266,19 @@ export const Send = () => {
 				)
 			)}
 		</div>
+	);
+};
+
+export const Send = () => {
+	return (
+		<Suspense
+			fallback={
+				<div className="max-w-md mx-auto p-4">
+					<div className="loading loading-spinner mx-auto" />
+				</div>
+			}
+		>
+			<SendContent />
+		</Suspense>
 	);
 };

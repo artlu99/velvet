@@ -1,4 +1,3 @@
-import { useEvolu } from "@evolu/react";
 import type {
 	BroadcastTransactionResult,
 	GasEstimateResult,
@@ -7,7 +6,7 @@ import type {
 	TronGasEstimateResult,
 } from "@shared/types";
 import { useQueryClient } from "@tanstack/react-query";
-import { type FC, useState } from "react";
+import { type FC, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { isAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -26,6 +25,7 @@ import {
 	usePricesQuery,
 } from "~/hooks/queries/usePricesQuery";
 import { useTransactionCountQuery } from "~/hooks/queries/useTransactionCountQuery";
+import { useDebouncedNameResolution } from "~/hooks/useDebouncedNameResolution";
 import {
 	buildAndSignTrc20Transfer,
 	buildAndSignTrxTransfer,
@@ -33,6 +33,7 @@ import {
 	isValidTronAddress,
 	validateQRScannedData,
 } from "~/lib/crypto";
+import { useEvolu } from "~/lib/evolu";
 import { calculateTokenUsd } from "~/lib/portfolioValue";
 import { refreshAddressQueries } from "~/lib/refreshQueries";
 import {
@@ -47,7 +48,6 @@ import {
 	ethToWei,
 	formatGwei,
 	rawToAmount,
-	truncateAddress,
 	weiToEth,
 } from "~/lib/transaction";
 import type { CoinGeckoToken } from "~/providers/tokenStore";
@@ -110,8 +110,33 @@ export const SendForm: FC<SendFormProps> = ({
 	const decimals = getTokenDecimals(token, chainId);
 	const isNative = isNativeToken(token, chainId);
 
-	const [recipient, setRecipient] = useState("");
+	const [recipientNameInput, setRecipientNameInput] = useState("");
+	const [recipientAddressInput, setRecipientAddressInput] = useState("");
+	const [resolvedAddress, setResolvedAddress] = useState("");
 	const [amount, setAmount] = useState("");
+
+	// Debounced name resolution for recipient name field
+	const recipientNameResolution =
+		useDebouncedNameResolution(recipientNameInput);
+
+	// Auto-fill address field when name resolves
+	useEffect(() => {
+		if (recipientNameResolution.address && !recipientAddressInput) {
+			setRecipientAddressInput(recipientNameResolution.address);
+			setResolvedAddress(recipientNameResolution.address);
+		} else if (!recipientNameInput) {
+			// Clear resolved address when name field is cleared
+			setResolvedAddress("");
+		}
+	}, [
+		recipientNameResolution.address,
+		recipientNameInput,
+		recipientAddressInput,
+	]);
+
+	// Use resolved address if available, otherwise use raw address input
+	const recipient = resolvedAddress || recipientAddressInput;
+
 	const [gasEstimate, setGasEstimate] = useState<
 		GasEstimateResult | TronGasEstimateResult | null
 	>(null);
@@ -127,13 +152,16 @@ export const SendForm: FC<SendFormProps> = ({
 			return;
 		}
 
-		setRecipient(result.data);
-		if (result.type === "evm") {
-			toast.success("EVM address scanned successfully!");
-		} else if (result.type === "ens") {
-			toast.success("ENS name scanned!");
-		} else if (result.type === "tron") {
-			toast.success("Tron address scanned successfully!");
+		if (result.type === "ens" || result.type === "basename") {
+			setRecipientNameInput(result.data);
+			toast.success("Name scanned!");
+		} else {
+			setRecipientAddressInput(result.data);
+			if (result.type === "evm") {
+				toast.success("EVM address scanned successfully!");
+			} else if (result.type === "tron") {
+				toast.success("Tron address scanned successfully!");
+			}
 		}
 	};
 
@@ -372,6 +400,13 @@ export const SendForm: FC<SendFormProps> = ({
 		? weiToEth(balance)
 		: rawToAmount(balance, decimals);
 
+	// Validate amount against balance
+	const amountExceedsBalance =
+		amount !== "" &&
+		amount !== "0" &&
+		!Number.isNaN(Number.parseFloat(amount)) &&
+		Number.parseFloat(amount) > Number.parseFloat(balanceFormatted);
+
 	// Calculate USD values
 	const tokenPrice =
 		pricesData?.ok && pricesData.prices[token.id]
@@ -530,21 +565,27 @@ export const SendForm: FC<SendFormProps> = ({
 				)}
 			</SpringTransition>
 
-			{/* To */}
+			{/* To - ENS/Basename Field */}
 			<div className="form-control mb-4">
-				<label className="label" htmlFor="send-recipient">
-					<span className="label-text">Recipient Address</span>
+				<label className="label" htmlFor="send-recipient-name">
+					<span className="label-text">
+						ENS (.eth) or Basename (.base.eth) - Optional
+					</span>
 				</label>
-				<div className="join w-full">
+				<div className="join w-full mb-2">
 					<input
-						id="send-recipient"
+						id="send-recipient-name"
 						type="text"
-						className="input input-bordered join-item grow font-mono"
-						placeholder="0x... or scan QR"
-						value={recipient}
-						onChange={(e) => setRecipient(e.target.value)}
+						className={`input input-bordered join-item grow ${recipientNameResolution.error ? "input-error" : ""}`}
+						placeholder="yourname.eth or yourname.base.eth"
+						value={recipientNameInput}
+						onChange={(e) => setRecipientNameInput(e.target.value)}
 						disabled={isSending}
+						autoComplete="off"
 					/>
+					{recipientNameResolution.isLoading && (
+						<span className="loading loading-spinner loading-sm join-item" />
+					)}
 					<button
 						type="button"
 						className="btn btn-primary join-item btn-square"
@@ -555,6 +596,55 @@ export const SendForm: FC<SendFormProps> = ({
 						<i className="fa-solid fa-qrcode" />
 					</button>
 				</div>
+
+				{/* Resolution status indicators */}
+				{recipientNameResolution.isLoading && (
+					<div className="text-sm opacity-70 mb-2">
+						Resolving {recipientNameInput}...
+					</div>
+				)}
+
+				{recipientNameResolution.address && !recipientNameResolution.error && (
+					<div className="text-sm text-success mb-2">
+						✓ Resolved to {recipientNameResolution.address}
+					</div>
+				)}
+
+				{recipientNameResolution.error && (
+					<div className="text-sm text-error mb-2">
+						{recipientNameResolution.error}
+					</div>
+				)}
+
+				<div className="text-xs opacity-60">
+					Optional: Enter ENS or Basename to auto-resolve address
+				</div>
+			</div>
+
+			{/* To - Address Field */}
+			<div className="form-control mb-4">
+				<label className="label" htmlFor="send-recipient-address">
+					<span className="label-text">Recipient Address</span>
+				</label>
+				<input
+					id="send-recipient-address"
+					type="text"
+					className="input input-bordered font-mono"
+					placeholder="0x... for EVM or T... for Tron"
+					value={recipientAddressInput}
+					onChange={(e) => {
+						setRecipientAddressInput(e.target.value);
+						// Clear resolved address if user manually edits the address field
+						if (e.target.value !== resolvedAddress) {
+							setResolvedAddress("");
+						}
+					}}
+					disabled={isSending}
+					autoComplete="off"
+				/>
+				<div className="text-xs opacity-60 mt-2">
+					Enter recipient address directly, or use ENS field above
+				</div>
 			</div>
 
 			{/* Amount */}
@@ -564,11 +654,23 @@ export const SendForm: FC<SendFormProps> = ({
 						<TokenLogo coinId={token.id} size="large" chainId={chainId} />
 						Amount ({token.symbol.toUpperCase()})
 					</span>
+					{!isNative && (
+						<span className="label-text-alt">
+							<button
+								type="button"
+								className="btn btn-xs btn-ghost"
+								onClick={() => setAmount(balanceFormatted)}
+								disabled={isSending}
+							>
+								Max
+							</button>
+						</span>
+					)}
 				</label>
 				<input
 					id="send-amount"
 					type="number"
-					className="input input-bordered"
+					className={`input input-bordered ${amountExceedsBalance ? "input-error" : ""}`}
 					placeholder="0.0"
 					value={amount}
 					onChange={(e) => setAmount(e.target.value)}
@@ -576,6 +678,12 @@ export const SendForm: FC<SendFormProps> = ({
 					step="0.001"
 					min="0"
 				/>
+				{amountExceedsBalance && (
+					<div className="text-sm text-error mt-2">
+						Amount exceeds balance of {balanceFormatted}{" "}
+						{token.symbol.toUpperCase()}
+					</div>
+				)}
 			</div>
 
 			{/* From */}
@@ -584,8 +692,8 @@ export const SendForm: FC<SendFormProps> = ({
 					<span className="label-text">From</span>
 				</div>
 				<div className="stat bg-base-200 rounded-lg">
-					<div className="stat-title font-mono text-sm">
-						{truncateAddress(address)}
+					<div className="stat-title">
+						<EnsOrAddress address={address} />
 					</div>
 					<div className="stat-desc">
 						Balance: {balanceFormatted} {token.symbol.toUpperCase()}
@@ -600,7 +708,9 @@ export const SendForm: FC<SendFormProps> = ({
 						type="button"
 						className="btn btn-secondary flex-1"
 						onClick={estimateGas}
-						disabled={!recipient || !amount || isEstimating}
+						disabled={
+							!recipient || !amount || amountExceedsBalance || isEstimating
+						}
 					>
 						{isEstimating ? (
 							<span className="loading loading-spinner" />

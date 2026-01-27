@@ -1,14 +1,13 @@
-import { useEvolu } from "@evolu/react";
 import { featureFlags } from "@shared/feature-flags";
-import { type FC, use, useEffect, useState } from "react";
+import { type FC, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { deriveKeyAt } from "~/lib/bip32";
+import { useEvolu } from "~/lib/evolu";
 import { getNextSuggestedIndex } from "~/lib/queries/derivation";
 import type { KeyType } from "~/lib/schema";
 
 export const DeriveWallet: FC = () => {
 	const evolu = useEvolu();
-	const appOwner = use(evolu.appOwner);
 
 	const [keyType, setKeyType] = useState<KeyType>("evm");
 	const [deriveIndex, setDeriveIndex] = useState(0);
@@ -28,34 +27,42 @@ export const DeriveWallet: FC = () => {
 	}, [evolu, keyType]);
 
 	const handleDerive = async () => {
-		if (!appOwner.mnemonic) {
-			toast.error("Mnemonic not available");
-			return;
-		}
-
 		setIsDeriving(true);
 
-		const result = await deriveKeyAt(
-			evolu,
-			appOwner.mnemonic,
-			appOwner.encryptionKey,
-			deriveIndex,
-			keyType,
-		);
-
-		if (result.success) {
-			if (result.alreadyExists) {
-				toast.success(`Wallet at index ${result.index} already exists`);
-			} else {
-				toast.success(`Derived wallet at index ${result.index}`);
-				// Suggest next index
-				setDeriveIndex(result.index + 1);
+		try {
+			const appOwner = await evolu.appOwner;
+			if (!appOwner.mnemonic) {
+				toast.error("Mnemonic not available");
+				setIsDeriving(false);
+				return;
 			}
-		} else {
-			toast.error(result.error);
-		}
 
-		setIsDeriving(false);
+			const result = await deriveKeyAt(
+				evolu,
+				appOwner.mnemonic,
+				appOwner.encryptionKey,
+				deriveIndex,
+				keyType,
+			);
+
+			if (result.success) {
+				if (result.alreadyExists) {
+					toast.success(`Wallet at index ${result.index} already exists`);
+				} else {
+					toast.success(`Derived wallet at index ${result.index}`);
+					// Suggest next index
+					setDeriveIndex(result.index + 1);
+				}
+			} else {
+				toast.error(result.error);
+			}
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Failed to derive wallet",
+			);
+		} finally {
+			setIsDeriving(false);
+		}
 	};
 
 	// Get derivation path info based on keyType

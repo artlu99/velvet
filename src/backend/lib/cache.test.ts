@@ -1,11 +1,6 @@
-import { describe, test, expect, beforeEach } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import type { Context } from "hono";
-import {
-	getCached,
-	setCached,
-	setCacheHeader,
-	withCache,
-} from "./cache";
+import { getCached, setCached, setCacheHeader, withCache } from "./cache";
 
 // Mock KV namespace
 class MockKV {
@@ -61,7 +56,10 @@ class MockKV {
 			}
 			const uint8Array = new Uint8Array(
 				chunks.length > 0
-					? (chunks.reduce((acc, arr) => [...acc, ...arr], [] as number[]) as any)
+					? (chunks.reduce(
+							(acc, arr) => [...acc, ...arr],
+							[] as number[],
+						) as any)
 					: [],
 			);
 			stringValue = new TextDecoder().decode(uint8Array);
@@ -199,7 +197,9 @@ describe("cache", () => {
 			let headerValue: string | null = null;
 			const c = {
 				env: { BALANCE_CACHE: mockCache },
-				header: (_name: string, value: string) => { headerValue = value; },
+				header: (_name: string, value: string) => {
+					headerValue = value;
+				},
 			} as unknown as Context<{ Bindings: Cloudflare.Env }>;
 
 			const result = await withCache(c as any, {
@@ -221,7 +221,9 @@ describe("cache", () => {
 			let headerValue: string | null = null;
 			const c = {
 				env: { BALANCE_CACHE: mockCache },
-				header: (_name: string, value: string) => { headerValue = value; },
+				header: (_name: string, value: string) => {
+					headerValue = value;
+				},
 			} as unknown as Context<{ Bindings: Cloudflare.Env }>;
 
 			const result = await withCache(c as any, {
@@ -250,7 +252,9 @@ describe("cache", () => {
 			let headerValue: string | null = null;
 			const c = {
 				env: { BALANCE_CACHE: mockCache },
-				header: (_name: string, value: string) => { headerValue = value; },
+				header: (_name: string, value: string) => {
+					headerValue = value;
+				},
 			} as unknown as Context<{ Bindings: Cloudflare.Env }>;
 
 			const result = await withCache(c as any, {

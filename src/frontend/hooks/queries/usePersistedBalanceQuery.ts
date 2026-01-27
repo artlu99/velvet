@@ -1,9 +1,10 @@
-import { useEvolu, useQuery as useEvoluQuery } from "@evolu/react";
+import { useQuery } from "@evolu/react";
 import { type ApiResponses, apiEndpoints, buildUrl } from "@shared/api";
 import type { SupportedChainId } from "@shared/types";
 import { useQuery as useTanstackQuery } from "@tanstack/react-query";
 import { fetcher } from "itty-fetcher";
 import { useEffect, useMemo } from "react";
+import { useEvolu } from "~/lib/evolu";
 import {
 	createBalanceCacheQuery,
 	isCacheStale,
@@ -37,13 +38,18 @@ export const usePersistedBalanceQuery = ({
 	const evolu = useEvolu();
 	const chainIdStr = String(chainId);
 
-	// 1. Get cached balance from Evolu (immediate, may be stale)
+	// 1. Get cached balance from Evolu
 	const cacheQuery = useMemo(
 		() => createBalanceCacheQuery(evolu, address, chainIdStr),
 		[evolu, address, chainIdStr],
 	);
-	const cachedRows = useEvoluQuery(cacheQuery);
-	const cached = cachedRows[0];
+	const cachedRows = useQuery(cacheQuery);
+	const cached = cachedRows[0] as
+		| {
+				balanceRaw: string;
+				updatedAt: string | null;
+		  }
+		| undefined;
 
 	// 2. Fetch fresh balance from API
 	const apiQuery = useTanstackQuery({

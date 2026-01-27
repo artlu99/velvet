@@ -1,22 +1,54 @@
-import { useEvolu, useQuery } from "@evolu/react";
+import { useQuery } from "@evolu/react";
+import { Suspense, useMemo, useState } from "react";
 import { Link } from "wouter";
+import { usePersistedPricesQuery } from "~/hooks/queries/usePersistedPricesQuery";
+import { DEFAULT_COIN_IDS } from "~/hooks/queries/usePricesQuery";
 import { useGlobalPortfolioTotal } from "~/hooks/useGlobalPortfolioTotal";
-import { formatUsd } from "~/lib/helpers";
-import { createAllEoasQuery } from "~/lib/queries/eoa";
+import { documentationLinks } from "~/lib/documentation-links";
+import { formatPriceAge, formatUsd } from "~/lib/helpers";
+import { allEoasQuery } from "~/lib/queries/eoa";
 
-export const NavBar = () => {
-	const evolu = useEvolu();
-	const allEoasQuery = createAllEoasQuery(evolu);
+const NavBarContent = () => {
+	// Canonical Evolu pattern: useQuery with module-level query
 	const wallets = useQuery(allEoasQuery);
 
-	// Exclude watch-only wallets from portfolio total
-	const addresses = wallets
-		.filter((w) => w.origin !== "watchOnly")
-		.map((w) => w.address);
-	const globalTotalUsd = useGlobalPortfolioTotal({ addresses });
+	// Toggle for including WatchOnly wallets in portfolio total
+	const [includeWatchOnly, setIncludeWatchOnly] = useState(true);
+
+	// Identify WatchOnly wallets and extract addresses
+	const { watchOnlyWallets, filteredAddresses } = useMemo(() => {
+		const watchOnly: string[] = [];
+		const result: string[] = [];
+
+		for (const wallet of wallets) {
+			const addr = wallet.address;
+			if (addr && typeof addr === "string") {
+				const address = String(addr);
+				if (wallet.origin === "watchOnly") {
+					watchOnly.push(address);
+				}
+				// Include address if: not watch-only OR (watch-only and toggle is on)
+				if (wallet.origin !== "watchOnly" || includeWatchOnly) {
+					result.push(address);
+				}
+			}
+		}
+
+		return { watchOnlyWallets: watchOnly, filteredAddresses: result };
+	}, [wallets, includeWatchOnly]);
+
+	// global portfolio total
+	const globalTotalUsd = useGlobalPortfolioTotal({
+		addresses: filteredAddresses,
+	});
+
+	// Fetch prices for timestamp display
+	const { data: pricesData, cached: cachedPrices } = usePersistedPricesQuery({
+		coinIds: DEFAULT_COIN_IDS,
+	});
 
 	const renderPortfolioTotal = () => {
-		if (addresses.length === 0) {
+		if (wallets.length === 0) {
 			return (
 				<Link
 					href="/"
@@ -27,33 +59,87 @@ export const NavBar = () => {
 			);
 		}
 
-		if (globalTotalUsd === null) {
-			return (
-				<Link href="/">
-					<div className="skeleton h-7 w-28 rounded" />
-				</Link>
-			);
-		}
+		const isLoading = globalTotalUsd === null;
+		const hasPriceTimestamp =
+			(pricesData?.ok && pricesData.timestamp) || cachedPrices?.updatedAt;
+		const hasWatchOnlyWallets = watchOnlyWallets.length > 0;
 
 		return (
-			<Link
-				href="/"
-				className="text-xl font-bold tabular-nums hover:text-primary transition-colors"
-			>
-				${formatUsd.format(globalTotalUsd)}
-			</Link>
+			<div className="flex items-center gap-2">
+				{hasWatchOnlyWallets && (
+					<button
+						type="button"
+						onClick={() => setIncludeWatchOnly(!includeWatchOnly)}
+						className="btn btn-ghost btn-circle btn-sm"
+						aria-label={
+							includeWatchOnly
+								? "Exclude WatchOnly wallets"
+								: "Include WatchOnly wallets"
+						}
+						title={
+							includeWatchOnly
+								? "Exclude WatchOnly wallets"
+								: "Include WatchOnly wallets"
+						}
+					>
+						<i
+							className={`fa-solid fa-eye${includeWatchOnly ? "" : "-slash"} text-base-content/80`}
+						/>
+					</button>
+				)}
+				<Link href="/" className="hover:text-primary transition-colors">
+					{isLoading ? (
+						<div className="text-xl font-bold tabular-nums">
+							<span className="loading loading-spinner loading-sm" />
+						</div>
+					) : (
+						<div className="flex flex-col">
+							<span className="text-xl font-bold tabular-nums">
+								${formatUsd.format(globalTotalUsd)}
+							</span>
+							{hasPriceTimestamp && (
+								<span className="text-xs opacity-60">
+									{pricesData?.ok && pricesData.timestamp
+										? formatPriceAge(pricesData.timestamp)
+										: cachedPrices?.updatedAt
+											? formatPriceAge(
+													new Date(cachedPrices.updatedAt).getTime(),
+												)
+											: null}
+								</span>
+							)}
+						</div>
+					)}
+				</Link>
+			</div>
 		);
 	};
 
 	return (
 		<div className="navbar px-4 pt-[env(safe-area-inset-top)]">
 			<div className="navbar-start">{renderPortfolioTotal()}</div>
-			<div className="navbar-end">
-				<details className="dropdown dropdown-end">
-					<summary className="btn btn-ghost btn-circle" aria-label="Menu">
-						<i className="fa-solid fa-bars text-lg" />
-					</summary>
-					<ul className="dropdown-content menu bg-base-200 rounded-box shadow-lg z-50 w-52 p-2 mt-2">
+			<div className="navbar-end flex items-center gap-2">
+				<button
+					type="button"
+					className="btn btn-ghost btn-circle"
+					aria-label="Menu"
+					popoverTarget="navbar-menu"
+					style={{ anchorName: "--navbar-menu-anchor" } as React.CSSProperties}
+				>
+					<i className="fa-solid fa-bars text-lg" />
+				</button>
+				<ul className="menu menu-vertical gap-1">
+					<ul
+						className="dropdown menu bg-neutral text-neutral-content rounded-sm w-52 p-2"
+						popover="auto"
+						id="navbar-menu"
+						style={
+							{
+								positionAnchor: "--navbar-menu-anchor",
+								positionArea: "bottom span-left",
+							} as React.CSSProperties
+						}
+					>
 						<li>
 							<Link href="/" className="flex items-center gap-3">
 								<i className="fa-solid fa-wallet" />
@@ -67,6 +153,19 @@ export const NavBar = () => {
 							</Link>
 						</li>
 						<div className="divider my-1" />
+						{documentationLinks.map((link) => (
+							<li key={link.href}>
+								<a
+									href={link.href}
+									target="_blank"
+									rel="noopener noreferrer"
+									className="flex items-center gap-3"
+								>
+									<i className={link.icon} />
+									{link.label}
+								</a>
+							</li>
+						))}
 						<li>
 							<Link
 								href="/landing"
@@ -77,42 +176,23 @@ export const NavBar = () => {
 								Velvet
 							</Link>
 						</li>
-						<li>
-							<a
-								href="https://github.com/artlu99/velvet/blob/main/SECURITY.md"
-								target="_blank"
-								rel="noopener noreferrer"
-								className="flex items-center gap-3"
-							>
-								<i className="fa-solid fa-building-shield" />
-								Security
-							</a>
-						</li>
-						<li>
-							<a
-								href="https://github.com/artlu99/velvet/blob/main/artifacts/MANIFESTO.md"
-								target="_blank"
-								rel="noopener noreferrer"
-								className="flex items-center gap-3"
-							>
-								<i className="fa-solid fa-explosion" />
-								Manifesto
-							</a>
-						</li>
-						<li>
-							<a
-								href="https://github.com/artlu99/velvet"
-								target="_blank"
-								rel="noopener noreferrer"
-								className="flex items-center gap-3"
-							>
-								<i className="fa-brands fa-github" />
-								GitHub
-							</a>
-						</li>
 					</ul>
-				</details>
+				</ul>
 			</div>
 		</div>
+	);
+};
+
+export const NavBar = () => {
+	return (
+		<Suspense
+			fallback={
+				<div className="navbar px-4 pt-[env(safe-area-inset-top)]">
+					<div className="loading loading-spinner" />
+				</div>
+			}
+		>
+			<NavBarContent />
+		</Suspense>
 	);
 };

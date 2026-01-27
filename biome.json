@@ -1,11 +1,6 @@
 {
 	"files": {
 		"ignoreUnknown": false,
-		"includes": [
-			"src/**/*.ts",
-			"src/**/*.tsx",
-			"!src/**/*.d.ts",
-			"!src/**/*.test.ts"
-		]
+		"includes": ["**/*.ts", "src/**/*.tsx", "!**/*.d.ts", "!src/**/*.test.ts"]
 	}
 }

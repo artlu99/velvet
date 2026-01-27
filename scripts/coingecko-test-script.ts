@@ -15,14 +15,19 @@ console.log(`API Key: Demo key (${apiKey.substring(0, 8)}...)`);
 console.log("");
 
 try {
-	const prices = await fetchPrices({ env: { COINGECKO_API_KEY: apiKey }, coinIds });
+	const prices = await fetchPrices({
+		env: { COINGECKO_API_KEY: apiKey },
+		coinIds,
+	});
 
 	console.log("✅ Success! Prices received:");
 	console.log("");
 	for (const coinId of Object.keys(prices)) {
 		const priceData = prices[coinId];
 		const usdPrice = priceData.usd;
-		console.log(`  ${coinId}: $${usdPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`);
+		console.log(
+			`  ${coinId}: $${usdPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`,
+		);
 	}
 } catch (error) {
 	console.error("❌ Error fetching prices:");

@@ -1,7 +1,9 @@
-import type { Evolu } from "@evolu/common";
 import { sqliteTrue } from "@evolu/common";
 import { getAddress, isAddress } from "viem";
+import type { EvoluInstance } from "../evolu";
+import { evoluInstance } from "../evolu";
 import type { EoaId } from "../schema";
+import { asNonEmptyString1000 } from "./brandedTypes";
 
 /**
  * Normalizes an EVM address to checksummed format.
@@ -17,20 +19,23 @@ export function normalizeAddressForQuery(address: string): string {
 	return address;
 }
 
-export const createAllEoasQuery = (evolu: Evolu) =>
-	evolu.createQuery((db) =>
-		db
-			.selectFrom("eoa")
-			.selectAll()
-			.where("isDeleted", "is not", sqliteTrue)
-			.orderBy("createdAt", "desc"),
-	);
+/**
+ * Query for all non-deleted EOAs.
+ * Sorting is done in JavaScript to avoid SQLite null handling issues with orderIndex.
+ * Created once at module level per Evolu best practices.
+ */
+export const allEoasQuery = evoluInstance.createQuery((db) =>
+	db.selectFrom("eoa").selectAll().where("isDeleted", "is not", sqliteTrue),
+);
+
+// @deprecated Use allEoasQuery directly instead
+export const createAllEoasQuery = (_evolu: EvoluInstance) => allEoasQuery;
 
 /**
  * Query for getting the currently selected wallet.
  * Returns the wallet with isSelected=1, or null if none selected.
  */
-export const createSelectedEoaQuery = (evolu: Evolu) =>
+export const createSelectedEoaQuery = (evolu: EvoluInstance) =>
 	evolu.createQuery((db) =>
 		db
 			.selectFrom("eoa")
@@ -43,7 +48,7 @@ export const createSelectedEoaQuery = (evolu: Evolu) =>
 /**
  * Query for getting a specific wallet by ID.
  */
-export const createEoaByIdQuery = (evolu: Evolu, id: EoaId) =>
+export const createEoaByIdQuery = (evolu: EvoluInstance, id: EoaId) =>
 	evolu.createQuery((db) =>
 		db
 			.selectFrom("eoa")
@@ -57,13 +62,16 @@ export const createEoaByIdQuery = (evolu: Evolu, id: EoaId) =>
  * Query for getting a specific wallet by address.
  * Address is treated as unique (enforced by duplicate check on insert).
  */
-export const createEoaByAddressQuery = (evolu: Evolu, address: string) =>
+export const createEoaByAddressQuery = (
+	evolu: EvoluInstance,
+	address: string,
+) =>
 	evolu.createQuery((db) =>
 		db
 			.selectFrom("eoa")
 			.selectAll()
 			.where("isDeleted", "is not", sqliteTrue)
-			.where("address", "=", address)
+			.where("address", "=", asNonEmptyString1000(address))
 			.limit(1),
 	);
 
@@ -71,9 +79,16 @@ export const createEoaByAddressQuery = (evolu: Evolu, address: string) =>
  * Query for getting a wallet by address without filtering by isDeleted.
  * Used for update-or-insert operations to find existing records even if deleted.
  */
-export const createEoaByAddressAnyQuery = (evolu: Evolu, address: string) =>
+export const createEoaByAddressAnyQuery = (
+	evolu: EvoluInstance,
+	address: string,
+) =>
 	evolu.createQuery((db) =>
-		db.selectFrom("eoa").selectAll().where("address", "=", address).limit(1),
+		db
+			.selectFrom("eoa")
+			.selectAll()
+			.where("address", "=", asNonEmptyString1000(address))
+			.limit(1),
 	);
 
 /**
@@ -88,6 +103,7 @@ export type ExistingEoaRecord = {
 	isDeleted: unknown; // SqliteBoolean from Evolu - check with sqliteTrue
 	keyType: string | null;
 	derivationIndex: number | null;
+	orderIndex: number | null;
 };
 
 /**
@@ -100,7 +116,7 @@ export type ExistingEoaRecord = {
  * @returns Promise resolving to the existing record or null
  */
 export async function findEoaByAddressCaseInsensitive(
-	evolu: Evolu,
+	evolu: EvoluInstance,
 	address: string,
 ): Promise<ExistingEoaRecord | null> {
 	const normalizedAddress = normalizeAddressForQuery(address);
@@ -111,16 +127,28 @@ export async function findEoaByAddressCaseInsensitive(
 
 	if (normalizedResult.length > 0) {
 		const row = normalizedResult[0];
-		return {
+		const address =
+			row.address && typeof row.address === "string" ? row.address : null;
+		if (!address) {
+			return null;
+		}
+		const narrowed: ExistingEoaRecord = {
 			id: row.id,
-			address: row.address,
-			origin: row.origin,
-			encryptedPrivateKey: row.encryptedPrivateKey,
+			address,
+			origin: row.origin && typeof row.origin === "string" ? row.origin : null,
+			encryptedPrivateKey:
+				row.encryptedPrivateKey && typeof row.encryptedPrivateKey === "string"
+					? row.encryptedPrivateKey
+					: null,
 			isSelected: row.isSelected,
 			isDeleted: row.isDeleted,
-			keyType: row.keyType,
-			derivationIndex: row.derivationIndex,
+			keyType:
+				row.keyType && typeof row.keyType === "string" ? row.keyType : null,
+			derivationIndex:
+				typeof row.derivationIndex === "number" ? row.derivationIndex : null,
+			orderIndex: typeof row.orderIndex === "number" ? row.orderIndex : null,
 		};
+		return narrowed;
 	}
 
 	// For EVM addresses, also check lowercase version (legacy data compatibility)
@@ -135,16 +163,33 @@ export async function findEoaByAddressCaseInsensitive(
 
 			if (lowercaseResult.length > 0) {
 				const row = lowercaseResult[0];
-				return {
+				const address =
+					row.address && typeof row.address === "string" ? row.address : null;
+				if (!address) {
+					return null;
+				}
+				const narrowed: ExistingEoaRecord = {
 					id: row.id,
-					address: row.address,
-					origin: row.origin,
-					encryptedPrivateKey: row.encryptedPrivateKey,
+					address,
+					origin:
+						row.origin && typeof row.origin === "string" ? row.origin : null,
+					encryptedPrivateKey:
+						row.encryptedPrivateKey &&
+						typeof row.encryptedPrivateKey === "string"
+							? row.encryptedPrivateKey
+							: null,
 					isSelected: row.isSelected,
 					isDeleted: row.isDeleted,
-					keyType: row.keyType,
-					derivationIndex: row.derivationIndex,
+					keyType:
+						row.keyType && typeof row.keyType === "string" ? row.keyType : null,
+					derivationIndex:
+						typeof row.derivationIndex === "number"
+							? row.derivationIndex
+							: null,
+					orderIndex:
+						typeof row.orderIndex === "number" ? row.orderIndex : null,
 				};
+				return narrowed;
 			}
 		}
 	}

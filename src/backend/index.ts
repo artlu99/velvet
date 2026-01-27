@@ -18,7 +18,6 @@ import {
 	fetchPrices,
 	fetchTokenMetadata,
 } from "./lib/coingecko";
-import { fetchEnsName } from "./lib/ens";
 import { estimateErc20Transfer, fetchErc20Balance } from "./lib/erc20";
 import { wrapError } from "./lib/errors";
 import {
@@ -41,10 +40,9 @@ import {
 	validateChainId,
 } from "./lib/validation";
 
-const app = new Hono<{ Bindings: Cloudflare.Env }>().basePath("/api");
+const app = new Hono<{ Bindings: Env }>().basePath("/api");
 
 const BALANCE_CACHE_TTL_SECONDS = 60; // 1 minute
-const ENS_CACHE_TTL_SECONDS = 60 * 30; // 30 minutes
 
 app
 	.use(cors())
@@ -207,7 +205,7 @@ app
 			if (!chainIdValidation.ok) return c.json(chainIdValidation.error, 400);
 
 			const result = await withCache(c, {
-				cacheKey: `balance:${chainIdValidation.chainId}:${addressValidation.normalized}`,
+				cacheKey: `balance:${chainIdValidation.chainId}:${addressValidation.address}`,
 				cacheBust: c.req.query("cacheBust"),
 				headerName: "x-balance-cache",
 				ttl: BALANCE_CACHE_TTL_SECONDS,
@@ -222,6 +220,9 @@ app
 			});
 
 			if (!result.ok) {
+				console.error(
+					`error getting balance:${chainIdValidation.chainId}:${addressValidation.address}`,
+				);
 				const status = result.code === "RATE_LIMITED" ? 429 : 502;
 				return c.json(result, status);
 			}
@@ -268,7 +269,7 @@ app
 			}
 
 			const result = await withCache(c, {
-				cacheKey: `erc20Balance:${chainIdValidation.chainId}:${addressValidation.normalized}:${contractValidation.normalized}`,
+				cacheKey: `erc20Balance:${chainIdValidation.chainId}:${addressValidation.address}:${contractValidation.address}`,
 				cacheBust: c.req.query("cacheBust"),
 				headerName: "x-balance-cache",
 				ttl: BALANCE_CACHE_TTL_SECONDS,
@@ -332,35 +333,6 @@ app
 					result.code === "INVALID_CONTRACT"
 						? 400
 						: 502;
-				return c.json(result, status);
-			}
-
-			return c.json(result);
-		} catch (error) {
-			const errorResult = wrapError(error);
-			const status = errorResult.code === "RATE_LIMITED" ? 429 : 502;
-			return c.json(errorResult, status);
-		}
-	})
-	// Address Utilities
-	.get("/ens/:address", async (c) => {
-		try {
-			const address = c.req.param("address");
-
-			// Validate and normalize address
-			const addressValidation = validateAddress(address, "ens");
-			if (!addressValidation.ok) return c.json(addressValidation.error, 400);
-
-			const result = await withCache(c, {
-				cacheKey: `ens:${addressValidation.normalized.toLowerCase()}`,
-				cacheBust: c.req.query("cacheBust"),
-				headerName: "x-ens-cache",
-				ttl: ENS_CACHE_TTL_SECONDS,
-				fetcher: () => fetchEnsName(c.env, addressValidation.normalized),
-			});
-
-			if (!result.ok) {
-				const status = result.code === "INVALID_ADDRESS" ? 400 : 502;
 				return c.json(result, status);
 			}
 

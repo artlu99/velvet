@@ -1,26 +1,35 @@
-import { useEvolu, useQuery } from "@evolu/react";
+import { useQuery } from "@evolu/react";
 import type { KeyType } from "@shared/types";
-import { useState } from "react";
+import type React from "react";
+import { Suspense, use, useState } from "react";
 import invariant from "tiny-invariant";
 import { Link, useParams } from "wouter";
 import { QRCodeDisplay } from "~/components/QRCodeDisplay";
-import { createAllEoasQuery } from "~/lib/queries/eoa";
+import { useEvolu } from "~/lib/evolu";
+import { allEoasQuery, normalizeAddressForQuery } from "~/lib/queries/eoa";
 
-export const Receive = () => {
-	const evolu = useEvolu();
+const ReceiveContent = () => {
 	const { address } = useParams<{ address?: string }>();
+	const evolu = useEvolu();
+
+	// Ensure Evolu is initialized before queries (canonical pattern)
+	use(evolu.appOwner);
 
 	// Local state for EVM network selection (only used for EVM wallets)
 	const [evmNetwork, setEvmNetwork] = useState<"ethereum" | "base">("base");
 
-	// Get all wallets for selection dropdown
-	const allEoasQuery = createAllEoasQuery(evolu);
+	// Canonical Evolu pattern: useQuery with module-level query
 	const allWallets = useQuery(allEoasQuery);
 
 	// Determine which wallet to display
 	// Priority: 1) address from URL  2) selected wallet  3) first wallet
 	let selectedWallet = address
-		? allWallets.find((w) => w.address.toLowerCase() === address.toLowerCase())
+		? allWallets.find(
+				(w) =>
+					w.address &&
+					normalizeAddressForQuery(w.address) ===
+						normalizeAddressForQuery(address),
+			)
 		: null;
 
 	if (!selectedWallet) {
@@ -117,43 +126,65 @@ export const Receive = () => {
 					<div className="label">
 						<span className="label-text">Select Wallet</span>
 					</div>
-					<div className="dropdown dropdown-top w-full">
-						<button
-							type="button"
-							className="btn btn-bordered w-full justify-between"
-							tabIndex={0}
-							role="combobox"
-							aria-expanded="false"
-							aria-controls="wallet-dropdown"
-						>
-							<span className="font-mono text-sm">
-								{selectedWallet.address.slice(0, 6)}...
-								{selectedWallet.address.slice(-4)}
-							</span>
-							<i
-								className="fa-solid fa-chevron-up text-xs"
-								aria-hidden="true"
-							/>
-						</button>
-						<ul
-							id="wallet-dropdown"
-							className="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-full"
-						>
-							{allWallets.map((wallet) => (
+					<button
+						type="button"
+						className="btn btn-bordered w-full justify-between"
+						role="combobox"
+						aria-expanded="false"
+						aria-controls="wallet-dropdown"
+						popoverTarget="wallet-dropdown"
+						style={
+							{ anchorName: "--wallet-dropdown-anchor" } as React.CSSProperties
+						}
+					>
+						<span className="font-mono text-sm">
+							{selectedWallet.address
+								? `${selectedWallet.address.slice(0, 6)}...${selectedWallet.address.slice(-4)}`
+								: ""}
+						</span>
+						<i className="fa-solid fa-chevron-up text-xs" aria-hidden="true" />
+					</button>
+					<ul
+						id="wallet-dropdown"
+						className="dropdown menu p-2 bg-neutral text-neutral-content rounded-sm w-full"
+						popover="auto"
+						style={
+							{
+								positionAnchor: "--wallet-dropdown-anchor",
+							} as React.CSSProperties
+						}
+					>
+						{allWallets
+							.filter((wallet) => wallet.address)
+							.map((wallet) => (
 								<li key={wallet.id}>
 									<Link
-										href={`/receive/${wallet.address}`}
+										href={`/receive/${wallet.address ?? ""}`}
 										className="font-mono text-sm"
 									>
-										{wallet.address.slice(0, 6)}...
-										{wallet.address.slice(-4)}
+										{wallet.address
+											? `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`
+											: ""}
 									</Link>
 								</li>
 							))}
-						</ul>
-					</div>
+					</ul>
 				</div>
 			)}
 		</div>
+	);
+};
+
+export const Receive = () => {
+	return (
+		<Suspense
+			fallback={
+				<div className="max-w-md mx-auto p-4">
+					<div className="loading loading-spinner mx-auto" />
+				</div>
+			}
+		>
+			<ReceiveContent />
+		</Suspense>
 	);
 };

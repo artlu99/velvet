@@ -1,20 +1,17 @@
-import { describe, test, expect } from "bun:test";
-import { validateAddress, validateChainId, parseBigInt } from "./validation";
+import { describe, expect, test } from "bun:test";
+import { parseBigInt, validateAddress, validateChainId } from "./validation";
 
 describe("validation", () => {
 	describe("validateAddress", () => {
 		test("validates and normalizes address for balance endpoint", () => {
 			const result = validateAddress(
-				"0x89205A3A3b2A69De6Dbf7f01ED13B2108B2c43e7",
+				"0x89205a3a3b2a69de6dbf7f01ed13b2108b2c43e7",
 				"balance",
 			);
 			expect(result.ok).toBe(true);
 			if (result.ok) {
 				expect(result.address).toBe(
 					"0x89205A3A3b2A69De6Dbf7f01ED13B2108B2c43e7",
-				);
-				expect(result.normalized).toBe(
-					"0x89205a3a3b2a69de6dbf7f01ed13b2108b2c43e7",
 				);
 			}
 		});
@@ -27,9 +24,6 @@ describe("validation", () => {
 			expect(result.ok).toBe(true);
 			if (result.ok) {
 				expect(result.address).toBe(
-					"0x89205a3a3b2a69de6dbf7f01ed13b2108b2c43e7",
-				);
-				expect(result.normalized).toBe(
 					"0x89205A3A3b2A69De6Dbf7f01ED13B2108B2c43e7",
 				);
 			}
@@ -118,7 +112,6 @@ describe("validation", () => {
 			const result = validateChainId("8453", "gasEstimate");
 			expect(result.ok).toBe(true);
 		});
-
 	});
 
 	describe("parseBigInt", () => {

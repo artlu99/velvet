@@ -76,17 +76,17 @@ Transaction signing is handled differently for EVM chains and Tron:
 
 ### EVM Chains (Ethereum, Base)
 
-- **Signing**: Uses `viem`'s `privateKeyToAccount().signTransaction()` which implements EIP-1559 transaction signing correctly. Transactions include `chainId` (line 310 in `SendForm.tsx`), which prevents cross-chain replay attacks.
-- **Nonce management**: Nonces are fetched from the blockchain via `getTransactionCount()` before signing (lines 284-291 in `SendForm.tsx`). The nonce is fetched fresh for each transaction, preventing reuse.
-- **Gas validation**: Gas estimates are fetched from the backend API (`/estimate-gas` endpoint) and validated. The transaction includes `gas`, `maxFeePerGas`, and `maxPriorityFeePerGas` from the estimate (lines 307-309 in `SendForm.tsx`). However, there's no explicit validation that gas estimates are reasonable (e.g., checking against maximum acceptable values).
+- **Signing**: Uses `viem`'s `privateKeyToAccount()` (SendForm.tsx) which implements EIP-1559 transaction signing correctly. Transactions include `chainId` (SendForm.tsx), which prevents cross-chain replay attacks.
+- **Nonce management**: Nonces are fetched from the blockchain via `getTransactionCount()` before signing in `SendForm.tsx`. The nonce is fetched fresh for each transaction, preventing reuse.
+- **Gas validation**: Gas estimates are fetched from the backend API (`/estimate-gas` endpoint) and validated. The transaction includes `gas`, `maxFeePerGas`, and `maxPriorityFeePerGas` from the estimate in `SendForm.tsx`. However, there's no explicit validation that gas estimates are reasonable (e.g., checking against maximum acceptable values).
 - **Replay protection**: EIP-1559 transactions include `chainId`, preventing replay across different chains. The `chainId` is validated on the backend via `validateChainId()` in `src/backend/lib/validation.ts`.
 
 ### Tron
 
 - **Signing**: Uses `TronWeb` library's `trx.sign()` method for transaction signing. Tron transactions are signed using ECDSA (same as Ethereum).
-- **Transaction building**: 
-  - Native TRX transfers use `tronWeb.transactionBuilder.sendTrx()` (lines 109-113 in `src/frontend/lib/tron.ts`)
-  - TRC20 transfers use `tronWeb.transactionBuilder.triggerSmartContract()` (lines 173-180 in `src/frontend/lib/tron.ts`)
+- **Transaction building**:
+  - Native TRX transfers use `tronWeb.transactionBuilder.sendTrx()` (src/frontend/lib/tron.ts)
+  - TRC20 transfers use `tronWeb.transactionBuilder.triggerSmartContract()` (src/frontend/lib/tron.ts)
 - **Nonce management**: Tron uses a different model - transactions include a reference block and expiration time rather than explicit nonces. The TronWeb library handles this automatically.
 - **Fee model**: Tron uses bandwidth/energy model rather than gas fees. Gas estimates come from the backend API (`/estimate-gas/tron` endpoint) and include total cost in TRX.
 - **Replay protection**: Tron transactions include reference block and expiration time, which provide replay protection within the Tron network. However, Tron transactions don't include chain IDs (Tron is a single network).
@@ -108,22 +108,22 @@ Transaction signing is handled differently for EVM chains and Tron:
 
 Input validation is implemented using `valibot` schemas and custom validation functions:
 
-- **EVM Address validation**: 
-  - Frontend: `EvmAddressSchema` in `src/frontend/lib/crypto.ts` (lines 76-84) uses regex `/^0x[0-9a-fA-F]{40}$/` and checksum validation via `viem`'s `isAddress()`
-  - Backend: `validateAddress()` in `src/backend/lib/validation.ts` (lines 72-86) uses `viem`'s `isAddress()` and normalizes addresses
+- **EVM Address validation**:
+  - Frontend: `EvmAddressSchema` in `src/frontend/lib/crypto.ts` uses regex `/^0x[0-9a-fA-F]{40}$/` and checksum validation via `viem`'s `isAddress()`
+  - Backend: `validateAddress()` in `src/backend/lib/validation.ts` uses `viem`'s `isAddress()` and normalizes addresses
   - Additional checksum validation ensures addresses are valid EIP-55 checksummed addresses
 - **Tron Address validation**:
-  - Frontend: `isTronAddress()` in `src/frontend/lib/crypto.ts` (lines 47-50) validates base58check format `/^T[a-zA-Z0-9]{33}$/` and checksum via TronWeb
+  - Frontend: `isTronAddress()` in `src/frontend/lib/crypto.ts` validates base58check format `/^T[a-zA-Z0-9]{33}$/` and checksum via TronWeb
   - Backend: Tron addresses are validated in Tron-specific endpoints
-- **Private key validation**: 
-  - EVM: `EvmPrivateKeySchema` validates format `/^0x[0-9a-fA-F]{64}$/` and normalizes to lowercase (lines 69-73 in `crypto.ts`)
-  - Tron: Tron private keys are validated as 64 hex characters (with or without 0x prefix) in `validateImportInput()` (lines 182-199 in `crypto.ts`)
-- **Unified import validation**: `validateImportInput()` in `crypto.ts` (lines 132-208) auto-detects input type with waterfall: EVM private key → EVM address → Tron address → Tron private key
+- **Private key validation**:
+  - EVM: `EvmPrivateKeySchema` in `src/frontend/lib/crypto.ts` validates format `/^0x[0-9a-fA-F]{64}$/` and normalizes to lowercase
+  - Tron: Tron private keys are validated as 64 hex characters (with or without 0x prefix) in `validateImportInput()`
+- **Unified import validation**: `validateImportInput()` in `src/frontend/lib/crypto.ts` auto-detects input type with waterfall: EVM private key → EVM address → Tron address → Tron private key
 - **Amount validation**: 
   - EVM amounts are validated through `viem`'s `parseEther()` which throws on invalid input
   - Tron amounts are validated as strings and converted to SUN (smallest unit)
   - Both use BigInt for large number handling
-- **Transaction data**: 
+- **Transaction data**:
   - Recipient addresses are validated before gas estimation
   - Transaction parameters are validated on the backend via `validateAddress()`, `validateChainId()`, and `parseBigInt()` in `src/backend/lib/validation.ts`
   - Backend validation is centralized and consistent across endpoints
@@ -176,7 +176,7 @@ Sync is handled by Evolu:
 - **Encryption**: Data is encrypted during transport using the owner's encryption key (derived from the Evolu mnemonic). The encryption happens at the Evolu layer, not in application code.
 - **Encryption algorithm**: Evolu uses `XChaCha20-Poly1305` for encryption (same as private key encryption).
 - **Key derivation**: The encryption key is derived from the Evolu mnemonic. The exact derivation is handled by Evolu's internal implementation.
-- **Sync endpoints**: Sync happens via WebSocket to `wss://evolu-relay-1.artlu.xyz` (configured in `src/frontend/lib/evolu.ts`).
+- **Sync endpoints**: Sync endpoints are configured in `src/frontend/lib/evolu.ts` (currently `wss://evolu-relay-2.artlu.xyz` and `wss://evolu-relay-2.artlu.xyz`).
 - **Data at rest**: Private keys are encrypted before being stored in the local SQLite database (using `XChaCha20-Poly1305`). However, the SQLite database file itself is not encrypted at the file system level. If someone gains access to the database file, *e.g.*, by downloading their own data, they would see encrypted private keys (base64-encoded ciphertext), not plaintext keys.
 
 **Risks**:
@@ -230,7 +230,7 @@ Error handling is generally secure:
 
 - **User-facing errors**: Error messages are user-friendly and don't expose internal details (e.g., "Failed to decrypt private key" rather than showing the actual error).
 - **Backend errors**: Backend returns structured error objects with codes (e.g., `INVALID_ADDRESS`, `RATE_LIMITED`) rather than stack traces.
-- **Console logging**: Some errors are logged to console (e.g., line 182 in `SendForm.tsx`), which could expose information in browser dev tools, but this is standard practice.
+- **Console logging**: Some errors are logged to console, which could expose information in browser dev tools, but this is standard practice.
 - **Exception handling**: Try-catch blocks prevent unhandled exceptions from exposing stack traces to users.
 
 **Potential issues**:
@@ -245,7 +245,7 @@ Error handling is generally secure:
 
 Dependencies use well-maintained libraries:
 
-- **Cryptographic libraries**: 
+- **Cryptographic libraries**:
   - `@evolu/common` for encryption (`XChaCha20-Poly1305`)
   - `@scure/bip32` for BIP32 HD key derivation (well-audited, secure alternative to bip32)
   - `@scure/bip39` for BIP39 mnemonic validation and seed generation (well-audited, secure alternative to bip39)
@@ -253,6 +253,9 @@ Dependencies use well-maintained libraries:
   - `valibot` for validation (lightweight, type-safe)
 - **Blockchain libraries**:
   - `tronweb` for Tron blockchain operations (official Tron library)
+- **UI libraries**:
+  - `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` for drag-and-drop functionality
+  - `embla-carousel-react` for carousel/swipe functionality
 - **Key dependencies**: React, TypeScript, Hono, TanStack Query - all well-maintained
 - **No known issues**: No obviously vulnerable dependencies in the current list
 
@@ -273,7 +276,7 @@ Dependencies use well-maintained libraries:
 
 Backup and recovery mechanisms:
 
-- **Database export**: Users can export the database via `evolu.exportDatabase()` which returns the SQLite database as an array (line 37 in `OwnerActions.tsx`). This is downloaded as `velvet.db3`.
+- **Database export**: Users can export the database via `evolu.exportDatabase()` (src/frontend/routes/DataActions.tsx) which  downloads the SQLite database as `velvet.db3`.
 - **Mnemonic**: The Evolu mnemonic is shown to users and can be used to restore the app owner (and thus access to encrypted keys). The mnemonic generation is handled by Evolu.
 - **No backup validation**: There's no validation that exported backups are complete or untampered.
 - **Mnemonic security**: Evolu's mnemonic generation should be cryptographically secure (uses `createRandomBytes`), but this depends on Evolu's implementation.
@@ -296,15 +299,15 @@ Network security implementation:
 
 - **Backend API**: Uses Hono with CORS, CSRF protection, and secure headers (in `backend/index.ts`).
 - **No authentication**: The backend API doesn't require authentication - it's a public API. This is by design (anyone can query balances, etc.).
-- **API keys**: Etherscan API key is stored in Cloudflare Workers environment variables (not exposed to frontend).
-- **Rate limiting**: 
+- **API keys**: Etherscan API key and CoinGecko API key are stored in Cloudflare Workers environment variables (not exposed to frontend).
+- **Rate limiting**:
   - Etherscan API has rate limits, and the backend handles `RATE_LIMITED` errors
   - TronGrid API has rate limits, and the backend handles rate limit errors
   - However, there's no client-side rate limiting or backend-level rate limiting
 - **CSRF protection**: CSRF middleware is enabled, but since the API is public and doesn't modify user state on the server, this may be less critical.
 
 **Risks**:
-- No authentication means anyone can use the API (by design, but could be abused)
+- Public API means anyone can query balances/gas (by design, but could be abused)
 - No rate limiting on the backend could allow abuse
 - API keys in environment variables are secure, but if Workers are compromised, keys are exposed
 
@@ -341,7 +344,7 @@ Replay attack protection varies by blockchain:
 
 ### EVM Chains (Ethereum, Base)
 
-- **Chain ID in transactions**: All EVM transactions include `chainId` (in `SendForm.tsx`), which prevents replay across different chains (EIP-155 protection).
+- **Chain ID in transactions**: All EVM transactions include `chainId` (SendForm.tsx), which prevents replay across different chains (EIP-155 protection).
 - **Chain ID validation**: Chain ID is validated on the backend via `validateChainId()` in `src/backend/lib/validation.ts` to ensure only supported chains (1 for Ethereum, 8453 for Base) are accepted.
 - **EIP-1559**: Transactions use EIP-1559 format which includes chain ID in the signature, preventing replay across different EVM chains.
 
@@ -385,7 +388,7 @@ Gas estimation security varies by blockchain:
 - **Fee model**: Tron uses bandwidth/energy model rather than gas:
   - Native TRX transfers consume bandwidth (free if account has bandwidth)
   - TRC20 transfers consume energy (free if account has energy) or burn TRX
-- **Total cost**: Tron gas estimates include `totalCostTrx` which represents the total cost in TRX (line 365 in `SendForm.tsx`).
+- **Total cost**: Tron gas estimates include `totalCostTrx` which represents the total cost in TRX (in `SendForm.tsx`).
 - **No client-side validation**: There's no explicit validation that Tron fee estimates are reasonable.
 
 **Risks**:

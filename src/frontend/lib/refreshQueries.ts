@@ -5,6 +5,7 @@
 import { apiEndpoints, buildUrl } from "@shared/api";
 import type { QueryClient } from "@tanstack/react-query";
 import { fetcher } from "itty-fetcher";
+import { normalizeAddressForQuery } from "~/lib/queries/eoa";
 
 const api = fetcher({ base: `${window.location.origin}/api` });
 
@@ -17,7 +18,7 @@ export async function refreshAddressQueries(
 	address: string,
 ): Promise<void> {
 	const cache = queryClient.getQueryCache();
-	const normalizedAddress = address.toLowerCase();
+	const normalizedAddress = normalizeAddressForQuery(address);
 
 	// Find all queries related to this address
 	const addressQueries = cache.getAll().filter((q) => {
@@ -26,12 +27,12 @@ export async function refreshAddressQueries(
 
 		// Match balance queries: ["balance", address, chainId, ...]
 		if (key[0] === "balance" && typeof key[1] === "string") {
-			return key[1].toLowerCase() === normalizedAddress;
+			return normalizeAddressForQuery(key[1]) === normalizedAddress;
 		}
 
 		// Match transaction-count queries: ["transaction-count", address, chainId]
 		if (key[0] === "transaction-count" && typeof key[1] === "string") {
-			return key[1].toLowerCase() === normalizedAddress;
+			return normalizeAddressForQuery(key[1]) === normalizedAddress;
 		}
 
 		return false;

@@ -1,30 +1,51 @@
 import { Mnemonic } from "@evolu/common";
-import { useEvolu } from "@evolu/react";
 import { featureFlags } from "@shared/feature-flags";
-import { use } from "react";
+import { Suspense, use, useState } from "react";
 import { useClipboardWithTimeout } from "~/hooks/useClipboardWithTimeout";
-import { formatTypeError } from "~/lib/evolu";
+import { formatTypeError, useEvolu } from "~/lib/evolu";
 import { CLIPBOARD_TIMEOUT_MS } from "~/lib/helpers";
 
-export const DataActions = () => {
+const DataActionsContent = () => {
 	const evolu = useEvolu();
 	const appOwner = use(evolu.appOwner);
 
 	const { isCopied, timeLeft, copyToClipboard } =
 		useClipboardWithTimeout(CLIPBOARD_TIMEOUT_MS);
 
+	const [showRestoreModal, setShowRestoreModal] = useState(false);
+	const [mnemonicInput, setMnemonicInput] = useState("");
+	const [restoreError, setRestoreError] = useState<string | null>(null);
+
 	// Restore owner from mnemonic to sync data across devices.
 	const handleRestoreAppOwnerClick = () => {
-		const mnemonic = window.prompt("Enter your mnemonic to restore your data:");
-		if (mnemonic == null) return;
+		setShowRestoreModal(true);
+		setMnemonicInput("");
+		setRestoreError(null);
+	};
 
-		const result = Mnemonic.from(mnemonic.trim());
-		if (!result.ok) {
-			alert(formatTypeError(result.error));
+	const handleRestoreSubmit = () => {
+		const trimmed = mnemonicInput.trim();
+		if (!trimmed) {
+			setRestoreError("Mnemonic is required");
 			return;
 		}
 
+		const result = Mnemonic.from(trimmed);
+		if (!result.ok) {
+			setRestoreError(formatTypeError(result.error));
+			return;
+		}
+
+		setRestoreError(null);
+		setShowRestoreModal(false);
+		setMnemonicInput("");
 		void evolu.restoreAppOwner(result.value);
+	};
+
+	const handleRestoreCancel = () => {
+		setShowRestoreModal(false);
+		setMnemonicInput("");
+		setRestoreError(null);
 	};
 
 	const handleResetAppOwnerClick = () => {
@@ -154,6 +175,79 @@ export const DataActions = () => {
 								Reset All
 							</button>
 						</div>
+
+						{/* Restore Modal */}
+						{showRestoreModal && (
+							<div className="modal modal-open">
+								<div className="modal-box">
+									<h3 className="font-bold text-lg mb-4">
+										Restore from Mnemonic
+									</h3>
+									<p className="text-sm opacity-70 mb-4">
+										Enter your mnemonic phrase to restore your data across
+										devices.
+									</p>
+									<div className="form-control">
+										<label className="label" htmlFor="restore-mnemonic">
+											<span className="label-text">Mnemonic Phrase</span>
+										</label>
+										<input
+											id="restore-mnemonic"
+											type="password"
+											className={`input input-bordered font-mono ${
+												restoreError ? "input-error" : ""
+											}`}
+											placeholder="Enter your 12 or 24 word mnemonic phrase"
+											value={mnemonicInput}
+											onChange={(e) => {
+												setMnemonicInput(e.target.value);
+												setRestoreError(null);
+											}}
+											autoComplete="new-password"
+											data-1p-ignore
+											data-lpignore="true"
+											data-form-type="other"
+											onKeyDown={(e) => {
+												if (e.key === "Enter") {
+													handleRestoreSubmit();
+												} else if (e.key === "Escape") {
+													handleRestoreCancel();
+												}
+											}}
+										/>
+										{restoreError && (
+											<div className="label">
+												<span className="label-text-alt text-error">
+													{restoreError}
+												</span>
+											</div>
+										)}
+									</div>
+									<div className="modal-action">
+										<button
+											type="button"
+											className="btn btn-ghost"
+											onClick={handleRestoreCancel}
+										>
+											Cancel
+										</button>
+										<button
+											type="button"
+											className="btn btn-primary"
+											onClick={handleRestoreSubmit}
+										>
+											Restore
+										</button>
+									</div>
+								</div>
+								<button
+									type="button"
+									className="modal-backdrop"
+									onClick={handleRestoreCancel}
+									aria-label="Close modal"
+								/>
+							</div>
+						)}
 					</div>
 				</div>
 			</div>
@@ -175,5 +269,19 @@ export const DataActions = () => {
 				</div>
 			)}
 		</div>
+	);
+};
+
+export const DataActions = () => {
+	return (
+		<Suspense
+			fallback={
+				<div className="container mx-auto px-4 py-8 max-w-4xl">
+					<div className="loading loading-spinner mx-auto" />
+				</div>
+			}
+		>
+			<DataActionsContent />
+		</Suspense>
 	);
 };

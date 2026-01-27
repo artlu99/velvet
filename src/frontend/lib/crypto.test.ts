@@ -1,16 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import {
-	validateAndDeriveAddress,
-	EvmPrivateKeySchema,
-	EvmAddressSchema,
-	secureWipe,
-	validateImportInput,
-	encryptPrivateKey,
-	decryptPrivateKey,
-	normalizeEvmAddress,
-} from "./crypto";
-import * as v from "valibot";
 import type { OwnerEncryptionKey } from "@evolu/common";
+import * as v from "valibot";
+import {
+	decryptPrivateKey,
+	EvmAddressSchema,
+	EvmPrivateKeySchema,
+	encryptPrivateKey,
+	normalizeEvmAddress,
+	secureWipe,
+	validateAndDeriveAddress,
+	validateImportInput,
+} from "./crypto";
 
 describe("Crypto Utilities", () => {
 	describe("EvmPrivateKeySchema", () => {
@@ -86,7 +86,7 @@ describe("Crypto Utilities", () => {
 			if (result.ok) {
 				// viem returns checksummed address (mixed case)
 				expect(result.address).toBe(
-					"0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf"
+					"0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf",
 				);
 			}
 		});

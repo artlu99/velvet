@@ -88,11 +88,7 @@ describe("transaction utilities", () => {
 		});
 
 		test("handles zero value", () => {
-			const result = calculateTotalCost(
-				"0",
-				"21000",
-				"50000000000",
-			);
+			const result = calculateTotalCost("0", "21000", "50000000000");
 			expect(result).toBe("1050000000000000");
 		});
 
@@ -111,7 +107,9 @@ describe("transaction utilities", () => {
 
 	describe("truncateAddress", () => {
 		test("truncates standard address", () => {
-			const result = truncateAddress("0x742d35cc6634c0532925a3b844bc9e7595f0beb9");
+			const result = truncateAddress(
+				"0x742d35cc6634c0532925a3b844bc9e7595f0beb9",
+			);
 			expect(result).toBe("0x742d...beb9");
 		});
 
@@ -253,7 +251,9 @@ describe("transaction utilities", () => {
 	});
 
 	describe("encodeErc20Transfer", () => {
-		const testAddress = checksumAddress("0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb9" as `0x${string}`);
+		const testAddress = checksumAddress(
+			"0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb9" as `0x${string}`,
+		);
 
 		test("encodes ERC20 transfer function call", () => {
 			const result = encodeErc20Transfer(testAddress, "1000000");
@@ -268,7 +268,10 @@ describe("transaction utilities", () => {
 		});
 
 		test("encodes large amount transfer", () => {
-			const result = encodeErc20Transfer(testAddress, "1000000000000000000000000");
+			const result = encodeErc20Transfer(
+				testAddress,
+				"1000000000000000000000000",
+			);
 			expect(result).toMatchSnapshot();
 		});
 

@@ -239,6 +239,42 @@ export interface EnsNameError {
 
 export type EnsNameResult = EnsNameSuccess | EnsNameError;
 
+// ENS Address Resolution types (forward lookup: name -> address)
+export interface EnsAddressSuccess {
+	ok: true;
+	name: string;
+	address: string;
+	timestamp: number;
+}
+
+export interface EnsAddressError {
+	ok: false;
+	error: string;
+	code: "INVALID_NAME" | "NAME_NOT_FOUND" | "NETWORK_ERROR";
+}
+
+export type EnsAddressResult = EnsAddressSuccess | EnsAddressError;
+
+// Basename types (reverse lookup: address -> basename on Base L2)
+export interface BasenameSuccess {
+	ok: true;
+	address: string;
+	basename: string | null;
+	timestamp: number;
+}
+
+export type BasenameResult = BasenameSuccess | EnsNameError;
+
+// Basename Address Resolution types (forward lookup: name -> address)
+export interface BasenameAddressSuccess {
+	ok: true;
+	name: string;
+	address: string;
+	timestamp: number;
+}
+
+export type BasenameAddressResult = BasenameAddressSuccess | EnsAddressError;
+
 // Tron Balance types
 export interface TronBalanceRequest {
 	address: string;

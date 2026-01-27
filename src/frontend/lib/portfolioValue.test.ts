@@ -134,7 +134,9 @@ describe("calculateGlobalTotal", () => {
 	test("handles empty wallet list", async () => {
 		const { calculateGlobalTotal } = await import("./portfolioValue");
 
-		const wallets: Array<{ tokens: Array<{ coinId: string; balance: string }> }> = [];
+		const wallets: Array<{
+			tokens: Array<{ coinId: string; balance: string }>;
+		}> = [];
 		const prices: CoinGeckoPriceMap = {};
 
 		const result = calculateGlobalTotal(wallets, prices);
@@ -144,10 +146,7 @@ describe("calculateGlobalTotal", () => {
 	test("handles wallets with no tokens", async () => {
 		const { calculateGlobalTotal } = await import("./portfolioValue");
 
-		const wallets = [
-			{ tokens: [] },
-			{ tokens: [] },
-		];
+		const wallets = [{ tokens: [] }, { tokens: [] }];
 
 		const prices: CoinGeckoPriceMap = {};
 

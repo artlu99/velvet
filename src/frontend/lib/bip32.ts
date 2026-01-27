@@ -1,10 +1,11 @@
-import type { Evolu, OwnerEncryptionKey } from "@evolu/common";
+import type { OwnerEncryptionKey } from "@evolu/common";
 import { HDKey } from "@scure/bip32";
 import * as bip39 from "@scure/bip39";
 import { mnemonicToSeedSync } from "@scure/bip39";
 import { wordlist } from "@scure/bip39/wordlists/english.js";
 import { type Address, privateKeyToAccount } from "viem/accounts";
 import { featureFlags } from "../../shared/feature-flags";
+import type { EvoluInstance } from "../lib/evolu";
 import {
 	deriveTronAddress as deriveTronAddressFromCrypto,
 	encryptPrivateKey,
@@ -146,7 +147,7 @@ export const deriveTronAddress = deriveTronAddressFromCrypto;
  * @returns Result with success status, index, address, and alreadyExists flag
  */
 export async function deriveKeyAt(
-	evolu: Evolu,
+	evolu: EvoluInstance,
 	mnemonic: string,
 	encryptionKey: OwnerEncryptionKey,
 	index: number,

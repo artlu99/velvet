@@ -1,6 +1,6 @@
 import type { BalanceResult, SupportedChainId } from "@shared/types";
 import { sleep } from "radash";
-import { formatEther } from "viem";
+import { formatEther, getAddress } from "viem";
 
 // Etherscan API V2 - unified endpoint for all chains
 const ETHERSCAN_API_V2_URL = "https://api.etherscan.io/v2/api";
@@ -65,7 +65,8 @@ export async function fetchBalance(
 	chainId: SupportedChainId,
 	apiKey: string,
 ): Promise<BalanceResult> {
-	const url = buildBalanceUrl(address, chainId, apiKey);
+	const normalizedAddress = getAddress(address);
+	const url = buildBalanceUrl(normalizedAddress, chainId, apiKey);
 
 	const response = await rateLimitedFetch(url);
 

@@ -1,8 +1,9 @@
-import { useEvolu, useQuery as useEvoluQuery } from "@evolu/react";
+import { useQuery } from "@evolu/react";
 import { type ApiResponses, apiEndpoints, buildUrl } from "@shared/api";
 import { useQuery as useTanstackQuery } from "@tanstack/react-query";
 import { fetcher } from "itty-fetcher";
 import { useEffect, useMemo } from "react";
+import { useEvolu } from "~/lib/evolu";
 import {
 	createAllPricesCacheQuery,
 	isCacheStale,
@@ -42,7 +43,7 @@ export const usePersistedPricesQuery = ({
 
 	// 1. Get all cached prices from Evolu
 	const cacheQuery = useMemo(() => createAllPricesCacheQuery(evolu), [evolu]);
-	const cachedRows = useEvoluQuery(cacheQuery);
+	const cachedRows = useQuery(cacheQuery);
 
 	// Transform cached rows into the expected format
 	const cachedPrices = useMemo(() => {
@@ -52,14 +53,33 @@ export const usePersistedPricesQuery = ({
 		let oldestUpdatedAt: string | null = null;
 
 		for (const row of cachedRows) {
-			if (row.coinId && row.priceUsd !== null) {
-				prices[row.coinId] = { usd: row.priceUsd };
+			const coinId =
+				row.coinId && typeof row.coinId === "string" ? row.coinId : null;
+			const priceUsd = typeof row.priceUsd === "number" ? row.priceUsd : null;
+			const updatedAt =
+				row.updatedAt && typeof row.updatedAt === "string"
+					? row.updatedAt
+					: null;
+
+			if (coinId && priceUsd !== null) {
+				// Narrowed interface ensures priceUsd is non-null
+				interface NarrowedPriceCacheRow {
+					coinId: string;
+					priceUsd: number;
+					updatedAt: string | null;
+				}
+				const narrowed: NarrowedPriceCacheRow = {
+					coinId,
+					priceUsd,
+					updatedAt,
+				};
+				prices[narrowed.coinId] = { usd: narrowed.priceUsd };
 				// Track oldest update time for staleness calculation
 				if (
-					!oldestUpdatedAt ||
-					(row.updatedAt && row.updatedAt < oldestUpdatedAt)
+					narrowed.updatedAt &&
+					(!oldestUpdatedAt || narrowed.updatedAt < oldestUpdatedAt)
 				) {
-					oldestUpdatedAt = row.updatedAt ?? null;
+					oldestUpdatedAt = narrowed.updatedAt;
 				}
 			}
 		}

@@ -1,12 +1,15 @@
 import { sqliteFalse, sqliteTrue } from "@evolu/common";
-import { useEvolu } from "@evolu/react";
-import { type FC, useState } from "react";
+import { type FC, useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { useDebouncedNameResolution } from "~/hooks/useDebouncedNameResolution";
 import { encryptPrivateKey, validateImportInput } from "~/lib/crypto";
+import { useEvolu } from "~/lib/evolu";
+import { ZERO_ADDRESS_EVM, ZERO_ADDRESS_TRON } from "~/lib/helpers";
 import {
 	findEoaByAddressCaseInsensitive,
 	normalizeAddressForQuery,
 } from "~/lib/queries/eoa";
+import { getNextOrderIndex } from "~/lib/queries/walletOrdering";
 import type { EoaInsert } from "~/lib/schema";
 
 export const ImportPrivateKey: FC = () => {
@@ -15,6 +18,18 @@ export const ImportPrivateKey: FC = () => {
 	const [showKey, setShowKey] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [nameInput, setNameInput] = useState("");
+
+	// Debounced name resolution
+	const nameResolution = useDebouncedNameResolution(nameInput);
+
+	// Auto-fill address field when name resolves
+	useEffect(() => {
+		if (nameResolution.address && !importInput) {
+			setImportInput(nameResolution.address);
+			toast.success(`Resolved ${nameInput} to ${nameResolution.address}`);
+		}
+	}, [nameResolution.address, nameInput, importInput]);
 
 	const handleImport = async () => {
 		setError(null);
@@ -37,6 +52,18 @@ export const ImportPrivateKey: FC = () => {
 
 		// Normalize address for consistent storage (checksummed for EVM)
 		const address = normalizeAddressForQuery(rawAddress);
+
+		// Guard: Prevent importing sentinel/burn addresses (defense-in-depth)
+		if (address === ZERO_ADDRESS_EVM) {
+			setError("Cannot import the zero address.");
+			setIsLoading(false);
+			return;
+		}
+		if (address === ZERO_ADDRESS_TRON) {
+			setError("Cannot import the Tron burn address.");
+			setIsLoading(false);
+			return;
+		}
 
 		// Check for existing record (including deleted ones) with case-insensitive matching
 		const existingRecord = await findEoaByAddressCaseInsensitive(
@@ -82,6 +109,8 @@ export const ImportPrivateKey: FC = () => {
 					owner.encryptionKey,
 				);
 
+				const nextOrderIndex = await getNextOrderIndex(evolu);
+
 				// Update existing record: add key, change origin, restore if deleted
 				evolu.update("eoa", {
 					id: existingRecord.id,
@@ -90,10 +119,12 @@ export const ImportPrivateKey: FC = () => {
 					keyType,
 					origin: "imported",
 					isDeleted: sqliteFalse, // Restore if was deleted
+					orderIndex: nextOrderIndex,
 					// Preserve isSelected state
 				});
 
 				setImportInput("");
+				setNameInput("");
 				setIsLoading(false);
 
 				if (isDeleted && isExistingWatchOnly) {
@@ -108,14 +139,16 @@ export const ImportPrivateKey: FC = () => {
 
 			// Scenario: Restore deleted watch-only as watch-only
 			if (isWatchOnly && isDeleted) {
+				const nextOrderIndex = await getNextOrderIndex(evolu);
 				evolu.update("eoa", {
 					id: existingRecord.id,
 					address, // Update to normalized format
 					isDeleted: sqliteFalse,
-					// Preserve other fields
+					orderIndex: nextOrderIndex,
 				});
 
 				setImportInput("");
+				setNameInput("");
 				setIsLoading(false);
 				toast.success("Watch-only wallet restored!");
 				return;
@@ -144,6 +177,8 @@ export const ImportPrivateKey: FC = () => {
 			);
 		}
 
+		const nextOrderIndex = await getNextOrderIndex(evolu);
+
 		const insertData: EoaInsert = {
 			address,
 			encryptedPrivateKey,
@@ -151,6 +186,7 @@ export const ImportPrivateKey: FC = () => {
 			origin: isWatchOnly ? "watchOnly" : "imported",
 			isSelected: sqliteFalse,
 			derivationIndex: null,
+			orderIndex: nextOrderIndex,
 		};
 
 		const result = evolu.insert("eoa", insertData);
@@ -164,6 +200,7 @@ export const ImportPrivateKey: FC = () => {
 
 		// Clear sensitive data
 		setImportInput("");
+		setNameInput("");
 		setIsLoading(false);
 		toast.success(
 			isWatchOnly
@@ -176,7 +213,6 @@ export const ImportPrivateKey: FC = () => {
 		<div className="card card-compact bg-base-200 shadow-xl">
 			<div className="card-body">
 				<h2 className="card-title">Import Private Key or Address</h2>
-
 				<div role="alert" className="alert alert-warning">
 					<i className="fa-solid fa-triangle-exclamation shrink-0" />
 					<div>
@@ -188,7 +224,49 @@ export const ImportPrivateKey: FC = () => {
 						</div>
 					</div>
 				</div>
+				{/* ENS Name Input Field */}
+				<fieldset className="fieldset">
+					<legend className="fieldset-legend">
+						ENS (.eth) or Basename (.base.eth)
+					</legend>
+					<div className="join w-full">
+						<input
+							type="text"
+							placeholder="yourname.eth or yourname.base.eth"
+							className={`input join-item grow ${nameResolution.error ? "input-error" : ""}`}
+							value={nameInput}
+							onChange={(e) => setNameInput(e.target.value)}
+							autoComplete="off"
+							disabled={isLoading}
+						/>
+						{nameResolution.isLoading && (
+							<span className="loading loading-spinner loading-sm join-item" />
+						)}
+					</div>
 
+					{/* Resolution status */}
+					{nameResolution.isLoading && (
+						<p className="fieldset-label text-sm opacity-70">
+							Resolving {nameInput}...
+						</p>
+					)}
+
+					{nameResolution.address && (
+						<p className="fieldset-label text-sm text-success">
+							✓ Resolved to {nameResolution.address}
+						</p>
+					)}
+
+					{nameResolution.error && (
+						<p className="fieldset-label text-sm text-error">
+							{nameResolution.error}
+						</p>
+					)}
+
+					<p className="fieldset-label text-sm opacity-70">
+						Optional: Enter ENS or Basename to auto-resolve address
+					</p>
+				</fieldset>
 				<fieldset className="fieldset">
 					<legend className="fieldset-legend">
 						Private Key or Address (EVM or Tron)
@@ -218,10 +296,9 @@ export const ImportPrivateKey: FC = () => {
 					</div>
 					{error && <p className="fieldset-label text-error">{error}</p>}
 					<p className="fieldset-label text-sm opacity-70">
-						Auto-detects: EVM (0x...), Tron (T...), or ENS (.eth)
+						Auto-detects: EVM (0x...), Tron (T...), or paste resolved address
 					</p>
 				</fieldset>
-
 				<div className="card-actions justify-end">
 					<button
 						type="button"

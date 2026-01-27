@@ -90,8 +90,8 @@ export function setCacheHeader(
  * NOTE: Uses BALANCE_CACHE KV namespace for all cached data (balances, prices, ENS)
  * despite the name - cache keys are namespaced (e.g., "balance:...", "prices:...")
  */
-export async function withCache<T>(
-	c: Context<{ Bindings: Cloudflare.Env }>,
+export async function withCache<T, E extends Cloudflare.Env = Cloudflare.Env>(
+	c: Context<{ Bindings: E }>,
 	options: WithCacheOptions<T>,
 ): Promise<T> {
 	const { cached, status } = await getCached<T>(

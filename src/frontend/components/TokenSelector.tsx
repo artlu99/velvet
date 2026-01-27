@@ -1,3 +1,4 @@
+import type React from "react";
 import type { FC } from "react";
 import { TokenLogo } from "~/components/TokenLogo";
 import type { CoinGeckoToken } from "~/providers/tokenStore";
@@ -14,13 +15,14 @@ export const TokenSelector: FC<TokenSelectorProps> = ({
 	onSelect,
 }) => {
 	return (
-		<div className="dropdown dropdown-end">
+		<>
 			<button
 				type="button"
 				className="btn btn-outline m-1"
-				tabIndex={0}
 				aria-expanded="false"
 				aria-controls="token-dropdown"
+				popoverTarget="token-dropdown"
+				style={{ anchorName: "--token-dropdown-anchor" } as React.CSSProperties}
 			>
 				<TokenLogo coinId={selectedToken.id} size="small" className="mr-2" />
 				{selectedToken.symbol.toUpperCase()}
@@ -28,7 +30,14 @@ export const TokenSelector: FC<TokenSelectorProps> = ({
 			</button>
 			<div
 				id="token-dropdown"
-				className="dropdown-content z-[1] card card-compact w-64 p-2 shadow bg-base-100 text-primary-content"
+				className="dropdown card card-compact w-64 p-2 bg-neutral text-neutral-content rounded-sm"
+				popover="auto"
+				style={
+					{
+						positionAnchor: "--token-dropdown-anchor",
+						positionArea: "bottom span-left",
+					} as React.CSSProperties
+				}
 			>
 				<div className="card-body">
 					<h3 className="card-title text-sm">Select Token</h3>
@@ -48,6 +57,6 @@ export const TokenSelector: FC<TokenSelectorProps> = ({
 					))}
 				</div>
 			</div>
-		</div>
+		</>
 	);
 };

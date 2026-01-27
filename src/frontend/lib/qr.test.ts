@@ -31,7 +31,10 @@ describe("buildReceiveQrValue", () => {
 	});
 
 	test("returns error for invalid address format - missing 0x prefix", () => {
-		const result = buildReceiveQrValue("1234567890123456789012345678901234567890", 1);
+		const result = buildReceiveQrValue(
+			"1234567890123456789012345678901234567890",
+			1,
+		);
 
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
@@ -49,7 +52,10 @@ describe("buildReceiveQrValue", () => {
 	});
 
 	test("returns error for invalid address format - invalid characters", () => {
-		const result = buildReceiveQrValue("0xGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG", 1);
+		const result = buildReceiveQrValue(
+			"0xGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG",
+			1,
+		);
 
 		expect(result.ok).toBe(false);
 		if (!result.ok) {

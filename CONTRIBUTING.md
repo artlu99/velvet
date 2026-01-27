@@ -18,6 +18,20 @@ cp .dev.vars.example .dev.vars
 bun dev
 ```
 
+## Deployment
+
+Deploy to Cloudflare Workers using Wrangler:
+
+```bash
+bun wrangler login
+bun wrangler kv:namespace create BALANCE_CACHE
+bun wrangler deploy
+```
+
+**Prerequisites:**
+- Cloudflare account with Workers enabled
+- Environment variables configured in Cloudflare dashboard or `.dev.vars`
+
 ## Development Workflow
 
 1. **Create a branch** from `main`
@@ -67,6 +81,8 @@ bun test              # Run all tests
 bun test --watch      # Watch mode
 bun test src/backend  # Run backend tests only
 ```
+
+---
 
 ## Questions?
 

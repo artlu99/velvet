@@ -31,8 +31,10 @@ GET  /api/balance/:address?chainId=1        # EVM native balance
 GET  /api/balance/erc20/:address/:contract?chainId=1  # ERC20 token balance
 GET  /api/balance/tron/:address             # Tron native balance
 GET  /api/balance/trc20/:address/:contract  # TRC20 token balance
-GET  /api/ens/:address                      # ENS reverse lookup
 GET  /api/transaction-count/:address?chainId=1  # EVM nonce
+GET  /api/tokens/metadata?ids=...           # Token metadata (logos)
+GET  /api/platforms/metadata                # Platform/chain metadata (logos)
+
 ```
 
 ### POST Routes
@@ -60,8 +62,14 @@ Error codes: `INVALID_ADDRESS`, `INVALID_CHAIN`, `RATE_LIMITED`, `API_ERROR`, `N
 
 **KV Store**: Cloudflare Workers KV
 - Balance queries: 60s TTL (`BALANCE_CACHE_TTL_SECONDS`)
-- ENS lookups: 30min TTL (`ENS_CACHE_TTL_SECONDS`)
 - Prices: 60s TTL
+
+**Synced Local Cache (Evolu)**: Client-side SQLite with encrypted sync
+- ENS (.eth) reverse lookups: 8-hour TTL with stale-while-revalidate
+- Basename (.base.eth) lookups: 8-hour TTL with stale-while-revalidate
+- ENS/Basename forward lookups: 8-hour TTL with stale-while-revalidate
+
+Note: ENS and Basename resolution is now **client-side** using viem, not backend.
 
 **withCache() helper**:
 ```typescript
@@ -89,14 +97,9 @@ const result = await withCache(c, {
 - ERC20 (EVM)
 - TRC20 (Tron)
 
-## Environment Variables
+## Configuration
 
-```
-NAME                  # App name
-ETHERSCAN_API_KEY     # Etherscan API key
-COINGECKO_API_KEY     # CoinGecko API key
-BALANCE_CACHE         # Cloudflare KV namespace
-```
+See `.dev.vars.example` for secret environment variables, and `wrangler.jsonc` for public environment variables.
 
 ## Out of Scope
 
@@ -104,7 +107,7 @@ See [artifacts/PLANNING.md](./artifacts/PLANNING.md) for roadmap.
 
 **Explicit WONTFIX**:
 - Bitcoin Lightning
-- Authentication (OAuth, passkeys) - opinionated security decision
+- Backend database for user data (stateless architecture with client-side Evolu)
 
 ## Git
 

@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import type { Evolu } from "@evolu/common";
 import { evoluInstance } from "../evolu";
 import {
-	createAllEoasQuery,	
+	createAllEoasQuery,
 	createEoaByAddressAnyQuery,
 	normalizeAddressForQuery,
 } from "./eoa";
@@ -14,11 +13,11 @@ const parseCompiledQuery = (q: string): CompiledQuery =>
 
 describe("EOA query factories", () => {
 	test("createAllEoasQuery compiles expected SQL", () => {
-		const q = createAllEoasQuery(evoluInstance as unknown as Evolu);
+		const q = createAllEoasQuery(evoluInstance);
 		const [sql, params] = parseCompiledQuery(q);
 
 		expect(sql).toBe(
-			'select * from "eoa" where "isDeleted" is not ? order by "createdAt" desc',
+			'select * from "eoa" where "isDeleted" is not ?',
 		);
 		// sqliteTrue (1) is encoded as a parameter
 		expect(params.length).toBe(1);
@@ -29,15 +28,13 @@ describe("EOA query factories", () => {
 		const address = "0xabc";
 
 		const q = createEoaByAddressAnyQuery(
-			evoluInstance as unknown as Evolu,
+			evoluInstance,
 			address,
 		);
 		const [sql, params] = parseCompiledQuery(q);
 
 		// This query does NOT filter by isDeleted (used for finding existing records including deleted ones)
-		expect(sql).toBe(
-			'select * from "eoa" where "address" = ? limit ?',
-		);
+		expect(sql).toBe('select * from "eoa" where "address" = ? limit ?');
 
 		// Evolu encodes params as tuples; first is address, second is limit
 		expect(params.length).toBe(2);
@@ -105,4 +102,3 @@ describe("Address case-insensitive matching", () => {
 		);
 	});
 });
-

@@ -1,25 +1,25 @@
 import useEmblaCarousel from "embla-carousel-react";
 import { useEffect } from "react";
 
-interface WalletCarouselProps<T extends { id: string }> {
-	readonly wallets: readonly T[];
+interface WalletCarouselProps {
+	readonly wallets: readonly EoaRow[];
 	readonly currentIndex: number;
 	readonly onIndexChange: (index: number) => void;
-	readonly renderWallet: (wallet: T, index: number) => React.ReactNode;
+	readonly renderWallet: (wallet: EoaRow) => React.ReactNode;
 }
+
+import type { EoaRow } from "~/lib/eoaValidation";
 
 /**
  * Mobile wallet carousel with horizontal swipe support.
  * Hidden on desktop via CSS (block sm:hidden).
- *
- * Generic type T allows flexibility in wallet data structure.
  */
-export const WalletCarousel = <T extends { id: string }>({
+export const WalletCarousel = ({
 	wallets,
 	currentIndex,
 	onIndexChange,
 	renderWallet,
-}: WalletCarouselProps<T>) => {
+}: WalletCarouselProps) => {
 	const [emblaRef, emblaApi] = useEmblaCarousel({
 		loop: false,
 		align: "center",
@@ -60,12 +60,10 @@ export const WalletCarousel = <T extends { id: string }>({
 		<div className="block sm:hidden">
 			<div className="overflow-hidden" ref={emblaRef}>
 				<div className="flex">
-					{wallets.map((wallet, index) => (
+					{wallets.map((wallet) => (
 						<div key={wallet.id} className="flex-shrink-0 w-full min-w-0">
 							<div className="flex items-center justify-center px-2 sm:px-4">
-								<div className="w-full max-w-lg">
-									{renderWallet(wallet, index)}
-								</div>
+								<div className="w-full max-w-lg">{renderWallet(wallet)}</div>
 							</div>
 						</div>
 					))}

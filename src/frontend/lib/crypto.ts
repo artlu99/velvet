@@ -9,6 +9,7 @@ import type { KeyType } from "@shared/types";
 import * as v from "valibot";
 import { getAddress, isAddress } from "viem";
 import { type Address, privateKeyToAccount } from "viem/accounts";
+import { normalize } from "viem/ens";
 import { featureFlags } from "../../shared/feature-flags";
 import {
 	isValidTronAddress as checkValidTronAddress,
@@ -351,12 +352,16 @@ export function decryptPrivateKey(
  * Result type for QR-scanned data validation
  */
 export type QRScannedDataResult =
-	| { ok: true; type: "evm" | "ens" | "tron"; data: string }
+	| {
+			ok: true;
+			type: "evm" | "ens" | "basename" | "tron";
+			data: string;
+	  }
 	| { ok: false; error: string };
 
 /**
  * Validates data from QR code scan.
- * Supports EVM addresses, Tron addresses, and ENS names.
+ * Supports EVM addresses, Tron addresses, ENS names, and Basenames.
  * @param data - The scanned data string
  * @returns Object with success status, type, and data
  */
@@ -381,18 +386,44 @@ export function validateQRScannedData(data: string): QRScannedDataResult {
 		};
 	}
 
+	// Normalize for type detection (ENSIP-15 canonical normalization)
+	let normalizedForType: string;
+	try {
+		normalizedForType = normalize(trimmed);
+	} catch {
+		// If normalization fails, fall back to lowercase for basic detection
+		normalizedForType = trimmed.toLowerCase();
+	}
+
+	// Check if it's a Basename (check before ENS since .base.eth also ends with .eth)
+	if (
+		normalizedForType.endsWith(".base.eth") &&
+		normalizedForType.length > 9 &&
+		normalizedForType.length < 55
+	) {
+		return {
+			ok: true,
+			type: "basename",
+			data: trimmed, // Return original data, not normalized
+		};
+	}
+
 	// Check if it's an ENS name (basic check: ends with .eth and reasonable length)
-	if (trimmed.endsWith(".eth") && trimmed.length > 4 && trimmed.length < 50) {
+	if (
+		normalizedForType.endsWith(".eth") &&
+		normalizedForType.length > 4 &&
+		normalizedForType.length < 50
+	) {
 		return {
 			ok: true,
 			type: "ens",
-			data: trimmed,
+			data: trimmed, // Return original data, not normalized
 		};
 	}
 
 	return {
 		ok: false,
 		error:
-			"Invalid QR code format. Please scan an EVM address, Tron address, or ENS name.",
+			"Invalid QR code format. Supported: EVM address, Tron address, ENS name, Basename.",
 	};
 }

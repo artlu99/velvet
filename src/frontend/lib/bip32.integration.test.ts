@@ -7,7 +7,6 @@ const MAX_DERIVATION_INDEX = 2 ** 31 - 1; // BIP32 hardened limit
 const testMnemonic =
 	"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
 
-
 describe("deriveNextKey", () => {
 	test("calculates correct BIP44 derivation path for index 0", () => {
 		const privateKey = deriveEvmKeyFromMnemonic(testMnemonic, 0);
@@ -87,9 +86,11 @@ describe("error handling", () => {
 
 		expect(privateKey).toMatch(/^0x[0-9a-f]{64}$/);
 	});
-	
+
 	test("handles index greater than MAX_DERIVATION_INDEX", () => {
-		const largeIndex =MAX_DERIVATION_INDEX + 1; // 2^31 is the first index that is greater than MAX_DERIVATION_INDEX
-		expect(() => deriveEvmKeyFromMnemonic(testMnemonic, largeIndex)).toThrow(`Index must be less than ${MAX_DERIVATION_INDEX}`);
+		const largeIndex = MAX_DERIVATION_INDEX + 1; // 2^31 is the first index that is greater than MAX_DERIVATION_INDEX
+		expect(() => deriveEvmKeyFromMnemonic(testMnemonic, largeIndex)).toThrow(
+			`Index must be less than ${MAX_DERIVATION_INDEX}`,
+		);
 	});
 });

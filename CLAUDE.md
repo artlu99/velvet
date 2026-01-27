@@ -8,17 +8,21 @@ For API routes and type system reference, see [AGENTS.md](./AGENTS.md).
 ## Dir Structure
 ```
 src/
-  backend/index.ts      # Hono API (CORS→CSRF→headers middleware)
+  backend/
+    index.ts           # Hono API (CORS→CSRF→headers middleware)
+    lib/               # Helpers (balance, cache, validation, rpc)
   frontend/
-    components/         # UI components
+    components/        # UI components
     hooks/             # Custom hooks (useXxxQuery pattern)
+    lib/
+      queries/         # Database queries (eoa, derivation, cache, walletOrdering)
+      schema.ts        # Evolu database schema
     providers/         # Context (theme)
     routes/            # Pages (Wouter)
     App.tsx            # Routes
     main.tsx           # Entry
     store.ts           # Zustand (localStorage)
     sessionStore.ts    # Zustand (sessionStorage)
-    constants.ts       # Type-safe constants
   shared/types.ts      # Frontend+Backend interfaces
 ```
 
@@ -107,7 +111,7 @@ bun lint       # Lint and format
 - `frontend/App.tsx` - Routes
 - `shared/types.ts` - Type contracts
 - `vite.config.ts` - Aliases, plugins
-- `wrangler.toml` - Deployment
+- `wrangler.jsonc` - Deployment
 - `tsconfig.json` - Project refs (app/node/worker)
 
 ## Gaps
@@ -153,6 +157,29 @@ For Markdown documentation during implementation:
 - Prefer DaisyUI v5 semantic styles over vanilla CSS or TailwindCSS v4
 - Use idiomatic DaisyUI form components and selectors instead of hand-rolled TailwindCSS
 - Prefer imported SVG icon families over inline SVG markup
+
+### Dropdowns
+Use **DaisyUI v5's Popover API** for iOS PWA compatibility (light dismiss, tap-to-open):
+
+```tsx
+<button
+  className="btn"
+  popoverTarget="dropdown-id"
+  style={{ anchorName: "--anchor" } as React.CSSProperties}
+>
+  Open
+</button>
+<ul
+  className="dropdown menu bg-neutral text-neutral-content rounded-sm w-52 p-2"
+  popover="auto"
+  id="dropdown-id"
+  style={{ positionAnchor: "--anchor" } as React.CSSProperties}
+>
+  <li><a>Item</a></li>
+</ul>
+```
+
+Avoid `<details>` (no click-outside-to-close) and CSS focus (Safari focus bug).
 
 ---
 

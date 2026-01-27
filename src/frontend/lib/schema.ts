@@ -36,18 +36,24 @@ export type TokenBalanceId = typeof TokenBalanceId.Type;
 const DerivationCounterId = id("DerivationCounter");
 export type DerivationCounterId = typeof DerivationCounterId.Type;
 
-// Local-only cache tables (prefixed with _ to prevent sync)
-const BalanceCacheId = id("_BalanceCache");
+// Cache tables - all synced across devices for faster initial load
+const BalanceCacheId = id("BalanceCache");
 export type BalanceCacheId = typeof BalanceCacheId.Type;
 
-const TokenBalanceCacheId = id("_TokenBalanceCache");
+const TokenBalanceCacheId = id("TokenBalanceCache");
 export type TokenBalanceCacheId = typeof TokenBalanceCacheId.Type;
 
-const PriceCacheId = id("_PriceCache");
+const PriceCacheId = id("PriceCache");
 export type PriceCacheId = typeof PriceCacheId.Type;
 
-const TokenMetadataCacheId = id("_TokenMetadataCache");
+const TokenMetadataCacheId = id("TokenMetadataCache");
 export type TokenMetadataCacheId = typeof TokenMetadataCacheId.Type;
+
+const EnsCacheId = id("EnsCache");
+export type EnsCacheId = typeof EnsCacheId.Type;
+
+const BasenameCacheId = id("BasenameCache");
+export type BasenameCacheId = typeof BasenameCacheId.Type;
 
 export const Schema = {
 	eoa: {
@@ -58,6 +64,7 @@ export const Schema = {
 		keyType: nullOr(KeyType),
 		origin: nullOr(Origin),
 		derivationIndex: nullOr(FiniteNumber),
+		orderIndex: nullOr(FiniteNumber),
 	},
 	chain: {
 		id: ChainId,
@@ -97,11 +104,10 @@ export const Schema = {
 		nextIndex: FiniteNumber,
 	},
 
-	// Local-only cache tables (prefixed with _ to prevent sync to relay)
-	// These store stale-while-revalidate data that persists across app reloads
+	// Cache tables - all synced across devices for faster initial load and better UX
 
-	/** Native balance cache (ETH, TRX, etc.) - local-only, never synced */
-	_balanceCache: {
+	/** Native balance cache (ETH, TRX, etc.) - synced across devices */
+	balanceCache: {
 		id: BalanceCacheId,
 		address: NonEmptyString1000, // wallet address (checksummed)
 		chainId: NonEmptyString100, // "1" | "8453" | "tron"
@@ -109,8 +115,8 @@ export const Schema = {
 		// updatedAt is auto-added by Evolu system columns
 	},
 
-	/** Token balance cache (ERC20, TRC20) - local-only, never synced */
-	_tokenBalanceCache: {
+	/** Token balance cache (ERC20, TRC20) - synced across devices */
+	tokenBalanceCache: {
 		id: TokenBalanceCacheId,
 		address: NonEmptyString1000, // wallet address
 		tokenAddress: NonEmptyString1000, // token contract address
@@ -118,15 +124,15 @@ export const Schema = {
 		balanceRaw: NonEmptyString1000, // raw balance as string
 	},
 
-	/** Price cache (CoinGecko prices) - local-only, never synced */
-	_priceCache: {
+	/** Price cache (CoinGecko prices) */
+	priceCache: {
 		id: PriceCacheId,
 		coinId: NonEmptyString100, // "ethereum", "tron", "usd-coin", etc.
 		priceUsd: FiniteNumber, // USD price
 	},
 
-	/** Token metadata cache (logos from CoinGecko) - local-only, never synced */
-	_tokenMetadataCache: {
+	/** Token metadata cache (logos from CoinGecko) */
+	tokenMetadataCache: {
 		id: TokenMetadataCacheId,
 		coinId: NonEmptyString100, // "ethereum", "tron", "usd-coin", etc.
 		name: NonEmptyString100, // token name
@@ -134,6 +140,34 @@ export const Schema = {
 		imageThumb: NonEmptyString1000, // 64x64 image URL
 		imageSmall: NonEmptyString1000, // 128x128 image URL
 		imageLarge: NonEmptyString1000, // 512x512 image URL
+	},
+
+	/** ENS reverse lookup cache (address → .eth name) */
+	ensCache: {
+		id: EnsCacheId,
+		address: NonEmptyString1000, // EVM address (checksummed)
+		ensName: nullOr(NonEmptyString100), // resolved ENS name or null
+	},
+
+	/** Basename reverse lookup cache (address → .base.eth name) */
+	basenameCache: {
+		id: BasenameCacheId,
+		address: NonEmptyString1000, // EVM address (checksummed)
+		basename: nullOr(NonEmptyString100), // resolved Basename or null
+	},
+
+	/** ENS forward lookup cache (name → address) */
+	ensAddressCache: {
+		id: EnsCacheId,
+		name: NonEmptyString100, // ENS name (.eth)
+		address: nullOr(NonEmptyString1000), // resolved address or null
+	},
+
+	/** Basename forward lookup cache (name → address) */
+	basenameAddressCache: {
+		id: BasenameCacheId,
+		name: NonEmptyString100, // Basename (.base.eth)
+		address: nullOr(NonEmptyString1000), // resolved address or null
 	},
 };
 
@@ -146,9 +180,9 @@ export type EoaInsert = {
 	keyType: "evm" | "tron" | "btc" | "solana" | null;
 	origin: "imported" | "derived" | "watchOnly" | null;
 	derivationIndex: number | null;
+	orderIndex: number | null;
 };
 
-// Transaction insert type
 export type TransactionInsert = {
 	walletId: string;
 	txHash: string;
@@ -172,7 +206,6 @@ export type Statement = {
 	timestamp: DateIso;
 };
 
-// TokenBalance insert type
 export type TokenBalanceInsert = {
 	eoaId: string;
 	tokenAddress: string;
@@ -181,20 +214,17 @@ export type TokenBalanceInsert = {
 	updatedAt: string;
 };
 
-// DerivationCounter insert type
 export type DerivationCounterInsert = {
 	keyType: "evm" | "tron" | "btc" | "solana";
 	nextIndex: number;
 };
 
-// BalanceCache insert type (local-only)
 export type BalanceCacheInsert = {
 	address: string;
 	chainId: string;
 	balanceRaw: string;
 };
 
-// TokenBalanceCache insert type (local-only)
 export type TokenBalanceCacheInsert = {
 	address: string;
 	tokenAddress: string;
@@ -202,13 +232,11 @@ export type TokenBalanceCacheInsert = {
 	balanceRaw: string;
 };
 
-// PriceCache insert type (local-only)
 export type PriceCacheInsert = {
 	coinId: string;
 	priceUsd: number;
 };
 
-// TokenMetadataCache insert type (local-only)
 export type TokenMetadataCacheInsert = {
 	coinId: string;
 	name: string;

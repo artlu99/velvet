@@ -1,11 +1,15 @@
-import type { Evolu } from "@evolu/common";
 import { sqliteFalse, sqliteTrue } from "@evolu/common";
-import type { KeyType } from "../schema";
+import type { EvoluInstance } from "../evolu";
+import type { EoaId, KeyType } from "../schema";
+import { getNextOrderIndex } from "./walletOrdering";
 
 /**
  * Query factory for getting derivation counter for a key type
  */
-export const createDerivationCounterQuery = (evolu: Evolu, keyType: KeyType) =>
+export const createDerivationCounterQuery = (
+	evolu: EvoluInstance,
+	keyType: KeyType,
+) =>
 	evolu.createQuery((db) =>
 		db
 			.selectFrom("derivationCounter")
@@ -17,7 +21,7 @@ export const createDerivationCounterQuery = (evolu: Evolu, keyType: KeyType) =>
 /**
  * Query factory for getting all derived keys
  */
-export const createAllDerivedKeysQuery = (evolu: Evolu) =>
+export const createAllDerivedKeysQuery = (evolu: EvoluInstance) =>
 	evolu.createQuery((db) =>
 		db
 			.selectFrom("eoa")
@@ -35,7 +39,7 @@ export const createAllDerivedKeysQuery = (evolu: Evolu) =>
  * @returns Next index to use
  */
 export async function getNextSuggestedIndex(
-	evolu: Evolu,
+	evolu: EvoluInstance,
 	keyType: KeyType,
 ): Promise<number> {
 	// Get existing counter
@@ -51,7 +55,7 @@ export async function getNextSuggestedIndex(
  * @param derivedIndex - The index that was just derived
  */
 export async function updateDerivationCounter(
-	evolu: Evolu,
+	evolu: EvoluInstance,
 	keyType: KeyType,
 	derivedIndex: number,
 ): Promise<void> {
@@ -78,7 +82,7 @@ export async function updateDerivationCounter(
  * @returns Result with inserted flag and EOA ID
  */
 export async function insertDerivedKeyIfNew(
-	evolu: Evolu,
+	evolu: EvoluInstance,
 	data: { index: number; address: string; encryptedPrivateKey: string },
 	keyType: KeyType = "evm",
 ): Promise<{ inserted: boolean; eoaId: string | null }> {
@@ -92,12 +96,12 @@ export async function insertDerivedKeyIfNew(
 		// Record exists - check if it's deleted
 		const existingRecord = existing[0];
 		const existingId = existingRecord.id;
-		const isDeleted =
-			existingRecord.isDeleted === 1 || existingRecord.isDeleted === sqliteTrue;
+		const isDeleted = existingRecord.isDeleted === sqliteTrue;
 
 		if (isDeleted) {
 			// Record is deleted - restore it by setting isDeleted to sqliteFalse
 			// This allows users to "re-derive" deleted wallets and restore them
+			const nextOrderIndex = await getNextOrderIndex(evolu);
 			evolu.update("eoa", {
 				id: existingId,
 				encryptedPrivateKey: data.encryptedPrivateKey,
@@ -106,6 +110,7 @@ export async function insertDerivedKeyIfNew(
 				derivationIndex: data.index,
 				isDeleted: sqliteFalse, // Restore deleted wallet
 				isSelected: existingRecord.isSelected ?? null,
+				orderIndex: nextOrderIndex,
 			});
 
 			// Return as inserted=true so UI shows success message and counter updates
@@ -114,6 +119,7 @@ export async function insertDerivedKeyIfNew(
 		}
 
 		// Record exists and is not deleted - update it, return as not inserted
+		const nextOrderIndex = await getNextOrderIndex(evolu);
 		evolu.update("eoa", {
 			id: existingId,
 			encryptedPrivateKey: data.encryptedPrivateKey,
@@ -122,12 +128,14 @@ export async function insertDerivedKeyIfNew(
 			derivationIndex: data.index,
 			// Preserve isSelected if it exists, otherwise set to null
 			isSelected: existingRecord.isSelected ?? null,
+			orderIndex: nextOrderIndex,
 		});
 
 		return { inserted: false, eoaId: String(existingId) };
 	}
 
 	// No existing record - insert new EOA with derivationIndex
+	const nextOrderIndex = await getNextOrderIndex(evolu);
 	const result = evolu.insert("eoa", {
 		address: data.address,
 		encryptedPrivateKey: data.encryptedPrivateKey,
@@ -135,6 +143,7 @@ export async function insertDerivedKeyIfNew(
 		origin: "derived",
 		derivationIndex: data.index,
 		isSelected: null,
+		orderIndex: nextOrderIndex,
 	});
 
 	if (!result.ok) {
@@ -151,20 +160,37 @@ export async function insertDerivedKeyIfNew(
  * @param evolu - Evolu instance
  * @returns Array of derived keys
  */
-export async function getAllDerivedKeys(evolu: Evolu): Promise<
-	Array<{
-		id: { readonly id: unknown };
-		address: string;
-		derivationIndex: number | null;
-		origin: string | null;
-	}>
-> {
+/**
+ * Narrowed type for derived key data (address is guaranteed to be non-null)
+ */
+interface DerivedKeyData {
+	id: EoaId;
+	address: string;
+	derivationIndex: number | null;
+	origin: string | null;
+}
+
+export async function getAllDerivedKeys(
+	evolu: EvoluInstance,
+): Promise<DerivedKeyData[]> {
 	const query = createAllDerivedKeysQuery(evolu);
 	const rows = await evolu.loadQuery(query);
-	return rows.map((row) => ({
-		id: row.id,
-		address: row.address,
-		derivationIndex: row.derivationIndex,
-		origin: row.origin,
-	}));
+	return rows
+		.filter((row) => {
+			const address =
+				row.address && typeof row.address === "string" ? row.address : null;
+			return address !== null;
+		})
+		.map((row): DerivedKeyData => {
+			const address =
+				row.address && typeof row.address === "string" ? row.address : "";
+			return {
+				id: row.id,
+				address,
+				derivationIndex:
+					typeof row.derivationIndex === "number" ? row.derivationIndex : null,
+				origin:
+					row.origin && typeof row.origin === "string" ? row.origin : null,
+			};
+		});
 }

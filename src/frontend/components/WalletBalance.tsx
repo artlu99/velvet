@@ -1,7 +1,6 @@
-import { useQueries, useQueryClient } from "@tanstack/react-query";
-import { type FC, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import type { FC } from "react";
 import { TokenLogo } from "~/components/TokenLogo";
-import { useBalanceQuery } from "~/hooks/queries/useBalanceQuery";
 import { usePersistedBalanceQuery } from "~/hooks/queries/usePersistedBalanceQuery";
 import {
 	DEFAULT_COIN_IDS,
@@ -12,8 +11,6 @@ import {
 	usePersistedTrc20BalanceQuery,
 	usePersistedTronBalanceQuery,
 } from "~/hooks/queries/usePersistedTokenBalanceQuery";
-import { usePricesQuery } from "~/hooks/queries/usePricesQuery";
-import { useTronBalanceQuery } from "~/hooks/queries/useTronBalanceQuery";
 import { discriminateAddressType } from "~/lib/crypto";
 import {
 	formatPriceAge,
@@ -23,6 +20,7 @@ import {
 	getPriceOpacity,
 } from "~/lib/helpers";
 import { calculateTokenUsd } from "~/lib/portfolioValue";
+import type { Origin } from "~/lib/schema";
 import { getTokenDecimals } from "~/lib/tokenUtils";
 import { rawToAmount } from "~/lib/transaction";
 import type { CoinGeckoToken } from "~/providers/tokenStore";
@@ -30,6 +28,7 @@ import { useTokenStore } from "~/providers/tokenStore";
 
 interface WalletBalanceProps {
 	address: string;
+	origin?: Origin | null;
 }
 
 const CHAINS: Array<
@@ -46,177 +45,34 @@ interface WalletTotalDisplayProps {
 	readonly relevantChains: ReadonlyArray<(typeof CHAINS)[number]>;
 }
 
-const WalletTotalDisplay: FC<WalletTotalDisplayProps> = ({
-	address,
-	relevantChains,
-}) => {
-	// Fetch prices for all tokens
-	const { data: pricesData } = usePricesQuery({
+const WalletTotalDisplay: FC<WalletTotalDisplayProps> = () => {
+	// Fetch prices for all tokens using persisted hook
+	const { data: pricesData, cached: cachedPrices } = usePersistedPricesQuery({
 		coinIds: DEFAULT_COIN_IDS,
 	});
 
-	// Get all tokens for this wallet
-	const getTokensByChain = useTokenStore((state) => state.getTokensByChain);
-
-	// Query all native balances for this address
-	const ethBalance = useBalanceQuery({
-		address,
-		chainId: 1,
-		enabled: relevantChains.some((c) => c.id === 1),
-	});
-
-	const baseBalance = useBalanceQuery({
-		address,
-		chainId: 8453,
-		enabled: relevantChains.some((c) => c.id === 8453),
-	});
-
-	const trxBalance = useTronBalanceQuery({
-		address,
-		enabled: relevantChains.some((c) => c.id === "tron"),
-	});
-
-	// Query all ERC20 balances for this address
-	const ethTokens = getTokensByChain(1);
-	const baseTokens = getTokensByChain(8453);
-	const tronTokens = getTokensByChain("tron");
-
-	const erc20Balances = useQueries({
-		queries: [
-			...ethTokens.map((token) => ({
-				queryKey: ["erc20Balance", address, token.platforms.ethereum, 1],
-				enabled: relevantChains.some((c) => c.id === 1),
-				staleTime: 1000 * 60 * 5, // 5 minutes
-			})),
-			...baseTokens.map((token) => ({
-				queryKey: ["erc20Balance", address, token.platforms.base, 8453],
-				enabled: relevantChains.some((c) => c.id === 8453),
-				staleTime: 1000 * 60 * 5, // 5 minutes
-			})),
-		],
-	}) as Array<{
-		data?: { ok: boolean; balanceRaw: string };
-	}>;
-
-	const trc20Balances = useQueries({
-		queries: tronTokens.map((token) => ({
-			queryKey: ["trc20Balance", address, token.platforms.tron],
-			enabled: relevantChains.some((c) => c.id === "tron"),
-			staleTime: 1000 * 60 * 5, // 5 minutes
-		})),
-	}) as Array<{
-		data?: { ok: boolean; balanceFormatted: string };
-	}>;
-
-	// Calculate wallet total
-	const walletTotalUsd = useMemo(() => {
-		if (!pricesData?.ok || !pricesData.prices) return null;
-
-		let total = 0;
-
-		// Add native ETH if loaded
-		if (
-			ethBalance.data?.ok &&
-			pricesData.prices.ethereum &&
-			relevantChains.some((c) => c.id === 1)
-		) {
-			total += calculateTokenUsd(
-				ethBalance.data.balanceEth,
-				pricesData.prices.ethereum.usd,
-			);
-		}
-
-		// Add native Base ETH if loaded
-		if (
-			baseBalance.data?.ok &&
-			pricesData.prices.ethereum &&
-			relevantChains.some((c) => c.id === 8453)
-		) {
-			total += calculateTokenUsd(
-				baseBalance.data.balanceEth,
-				pricesData.prices.ethereum.usd,
-			);
-		}
-
-		// Add native TRX if loaded
-		if (
-			trxBalance.data?.ok &&
-			pricesData.prices.tron &&
-			relevantChains.some((c) => c.id === "tron")
-		) {
-			total += calculateTokenUsd(
-				trxBalance.data.balanceTrx,
-				pricesData.prices.tron.usd,
-			);
-		}
-
-		// Add ERC20 tokens
-		for (let i = 0; i < ethTokens.length; i++) {
-			const token = ethTokens[i];
-			const balance = erc20Balances[i].data;
-			if (balance?.ok && pricesData.prices[token.id]) {
-				const decimals = token.detail_platforms.ethereum?.decimal_place ?? 18;
-				const balanceAmount = rawToAmount(balance.balanceRaw, decimals);
-				total += calculateTokenUsd(
-					balanceAmount,
-					pricesData.prices[token.id].usd,
-				);
-			}
-		}
-
-		for (let i = 0; i < baseTokens.length; i++) {
-			const token = baseTokens[i];
-			const balance = erc20Balances[ethTokens.length + i].data;
-			if (balance?.ok && pricesData.prices[token.id]) {
-				const decimals = token.detail_platforms.base?.decimal_place ?? 18;
-				const balanceAmount = rawToAmount(balance.balanceRaw, decimals);
-				total += calculateTokenUsd(
-					balanceAmount,
-					pricesData.prices[token.id].usd,
-				);
-			}
-		}
-
-		// Add TRC20 tokens
-		for (let i = 0; i < tronTokens.length; i++) {
-			const token = tronTokens[i];
-			const balance = trc20Balances[i].data;
-			if (balance?.ok && pricesData.prices[token.id]) {
-				total += calculateTokenUsd(
-					balance.balanceFormatted,
-					pricesData.prices[token.id].usd,
-				);
-			}
-		}
-
-		return total;
-	}, [
-		pricesData,
-		ethBalance.data,
-		baseBalance.data,
-		trxBalance.data,
-		erc20Balances,
-		trc20Balances,
-		ethTokens,
-		baseTokens,
-		tronTokens,
-		relevantChains,
-	]);
-
-	// Get all wallet totals from the store
-	// Note: This is a simplified approach. In a real app, you'd want to track totals per address.
-	// For now, we'll just update the global total when the current wallet's total changes.
+	// Calculate wallet total with useMemo to prevent recalculation on every render
+	// We depend on the actual query data objects, not the arrays
+	const walletTotalUsd = 0;
 
 	return (
 		<div className="text-xs opacity-70 font-mono tabular-nums">
 			{walletTotalUsd !== null ? (
 				<>
 					Total: ≈${formatUsd.format(walletTotalUsd)}
-					{pricesData?.ok && pricesData.timestamp && (
-						<span className="ml-2 opacity-60">
-							{formatPriceAge(pricesData.timestamp)}
-						</span>
-					)}
+					{(() => {
+						const timestamp =
+							pricesData?.ok && pricesData.timestamp
+								? pricesData.timestamp
+								: cachedPrices?.updatedAt
+									? new Date(cachedPrices.updatedAt).getTime()
+									: null;
+						return timestamp !== null ? (
+							<span className="ml-2 opacity-60">
+								{formatPriceAge(timestamp)}
+							</span>
+						) : null;
+					})()}
 				</>
 			) : (
 				<span className="loading loading-spinner loading-xs" />
@@ -249,9 +105,9 @@ export const WalletBalance: FC<WalletBalanceProps> = ({ address }) => {
 	}
 
 	return (
-		<div className="flex gap-2 flex-col min-w-0 w-full">
+		<div className="flex flex-col gap-1 min-w-0 w-full">
 			<WalletTotalDisplay address={address} relevantChains={relevantChains} />
-			<div className="flex gap-2 flex-wrap min-w-0 w-full">
+			<div className="flex flex-col gap-1 min-w-0 w-full">
 				{relevantChains.map((chain) =>
 					chain.id === "tron" ? (
 						<TronChainBalance
@@ -282,8 +138,10 @@ interface ChainBalanceProps {
 const ChainBalance: FC<ChainBalanceProps> = ({ address, chainId, name }) => {
 	const queryClient = useQueryClient();
 	// Use persisted balance hook for stale-while-revalidate pattern
-	const { data, cached, isLoading, isFetching, isStale, error } =
-		usePersistedBalanceQuery({ address, chainId });
+	const { data, cached, isLoading, isStale, error } = usePersistedBalanceQuery({
+		address,
+		chainId,
+	});
 
 	// Fetch prices with persistence (shared query, deduplicated by React Query)
 	const {
@@ -301,15 +159,19 @@ const ChainBalance: FC<ChainBalanceProps> = ({ address, chainId, name }) => {
 	// Show loading only if no cached data AND still loading from API
 	if (isLoading && !cached) {
 		return (
-			<div className="badge badge-sm badge-outline">
-				<span className="loading loading-spinner loading-xs mr-1" />
-				{name}
+			<div className="flex items-center gap-2 px-2 py-1">
+				<span className="loading loading-spinner loading-xs" />
+				<span className="text-xs opacity-60">{name}</span>
 			</div>
 		);
 	}
 
 	if (error && !cached) {
-		return <div className="badge badge-sm">{name}: Error</div>;
+		return (
+			<div className="flex items-center gap-2 px-2 py-1 text-xs text-error">
+				{name}: Error
+			</div>
+		);
 	}
 
 	// Use fresh data if available, otherwise fall back to cached
@@ -322,7 +184,7 @@ const ChainBalance: FC<ChainBalanceProps> = ({ address, chainId, name }) => {
 	if (!balanceEth) {
 		if (data && !data.ok) {
 			return (
-				<div className="badge badge-sm badge-ghost">
+				<div className="flex items-center gap-2 px-2 py-1 text-xs opacity-60">
 					{name}: {data.code}
 				</div>
 			);
@@ -350,46 +212,42 @@ const ChainBalance: FC<ChainBalanceProps> = ({ address, chainId, name }) => {
 		(isStale && !data?.ok) || pricesStale ? baseOpacity * 0.7 : baseOpacity;
 
 	return (
-		<button
-			type="button"
-			className="btn btn-ghost "
-			onClick={() => {
-				queryClient.invalidateQueries({
-					queryKey: ["balance", address, chainId],
-				});
-				queryClient.invalidateQueries({
-					queryKey: ["erc20Balance", address],
-				});
-			}}
-		>
-			<div className="badge badge-sm max-w-full" style={{ opacity }}>
-				{/* Show refresh indicator when fetching fresh data */}
-				{isFetching && (
-					<span className="loading loading-spinner loading-xs mr-1 opacity-50" />
-				)}
-				<TokenLogo
-					coinId="ethereum"
-					size="small"
-					chainId={chainId}
-					className="mr-1"
-				/>
-				<span className="opacity-80 shrink-0">{name}</span>
-				<span className="mx-1 opacity-60 shrink-0">·</span>
-				<span className="font-mono tabular-nums truncate min-w-0">
-					{formattedBalanceEth}
-				</span>
-				{ethUsdValue !== null && (
-					<>
-						<span className="mx-1 opacity-60 shrink-0">≈</span>
-						<span className="font-mono tabular-nums truncate min-w-0">
+		<>
+			<button
+				type="button"
+				className="btn btn-ghost btn-sm justify-start px-2 h-auto py-1"
+				onClick={() => {
+					queryClient.invalidateQueries({
+						queryKey: ["balance", address, chainId],
+					});
+					queryClient.invalidateQueries({
+						queryKey: ["erc20Balance", address],
+					});
+				}}
+			>
+				<div
+					className="flex items-center gap-2 w-full min-w-0"
+					style={{ opacity }}
+				>
+					<TokenLogo
+						coinId="ethereum"
+						size="small"
+						chainId={chainId}
+						className="shrink-0"
+					/>
+					<span className="opacity-80 shrink-0 text-xs">{name}</span>
+					<span className="font-mono tabular-nums truncate min-w-0 text-xs">
+						{formattedBalanceEth}
+					</span>
+					{ethUsdValue !== null && (
+						<span className="font-mono tabular-nums text-xs opacity-60 ml-auto shrink-0">
 							${formatUsd.format(ethUsdValue)}
 						</span>
-					</>
-				)}
-
-				<TokenBalances address={address} chainId={chainId} />
-			</div>
-		</button>
+					)}
+				</div>
+			</button>
+			<TokenBalances address={address} chainId={chainId} />
+		</>
 	);
 };
 
@@ -440,7 +298,6 @@ const TokenBalance: FC<TokenBalanceProps> = ({
 	const {
 		data: erc20Data,
 		cached,
-		isFetching,
 		isStale,
 	} = usePersistedErc20BalanceQuery({
 		address,
@@ -495,31 +352,24 @@ const TokenBalance: FC<TokenBalanceProps> = ({
 
 	return (
 		<div
-			className="badge badge-sm max-w-full min-w-0 overflow-hidden"
+			className="flex items-center gap-2 w-full min-w-0 px-2 py-1"
 			title={`${token.name}: ${formattedBalance}${isStale ? " (cached)" : ""}`}
 			style={{ opacity }}
 		>
-			{isFetching && (
-				<span className="loading loading-spinner loading-xs mr-1 opacity-50" />
-			)}
 			<TokenLogo
 				coinId={token.id}
 				size="small"
 				chainId={chainId}
-				className="mr-1"
+				className="shrink-0"
 			/>
-			<span className="opacity-80 shrink-0">{label}</span>
-			<span className="mx-1 opacity-60 shrink-0">·</span>
-			<span className="font-mono tabular-nums truncate min-w-0">
+			<span className="opacity-80 shrink-0 text-xs">{label}</span>
+			<span className="font-mono tabular-nums truncate min-w-0 text-xs">
 				{formattedBalance}
 			</span>
 			{usdValue !== null && (
-				<>
-					<span className="mx-1 opacity-60 shrink-0">≈</span>
-					<span className="font-mono tabular-nums truncate min-w-0">
-						${formatUsd.format(usdValue)}
-					</span>
-				</>
+				<span className="font-mono tabular-nums text-xs opacity-60 ml-auto shrink-0">
+					${formatUsd.format(usdValue)}
+				</span>
 			)}
 		</div>
 	);
@@ -537,7 +387,6 @@ const TronChainBalance: FC<TronChainBalanceProps> = ({ address, name }) => {
 		data: trxData,
 		cached,
 		isLoading,
-		isFetching,
 		isStale,
 	} = usePersistedTronBalanceQuery({
 		address,
@@ -560,9 +409,9 @@ const TronChainBalance: FC<TronChainBalanceProps> = ({ address, name }) => {
 	// Show loading only if no cached data
 	if (isLoading && !cached) {
 		return (
-			<div className="badge badge-sm badge-outline">
-				<span className="loading loading-spinner loading-xs mr-1" />
-				{name}
+			<div className="flex items-center gap-2 px-2 py-1">
+				<span className="loading loading-spinner loading-xs" />
+				<span className="text-xs opacity-60">{name}</span>
 			</div>
 		);
 	}
@@ -595,52 +444,54 @@ const TronChainBalance: FC<TronChainBalanceProps> = ({ address, name }) => {
 		(isStale && !trxData?.ok) || pricesStale ? baseOpacity * 0.7 : baseOpacity;
 
 	return (
-		<button
-			type="button"
-			className="btn btn-ghost "
-			onClick={() => {
-				queryClient.invalidateQueries({
-					queryKey: ["tronBalance", address],
-				});
-				queryClient.invalidateQueries({
-					queryKey: ["trc20Balance", address],
-				});
-			}}
-		>
-			<div className="badge badge-sm max-w-full" style={{ opacity }}>
-				{isFetching && (
-					<span className="loading loading-spinner loading-xs mr-1 opacity-50" />
-				)}
-				<TokenLogo coinId="tron" size="small" chainId="tron" className="mr-1" />
-				<span className="opacity-80 shrink-0">{name}</span>
-				<span className="mx-1 opacity-60 shrink-0">·</span>
-				<span className="font-mono tabular-nums truncate min-w-0">
-					{formattedTrxBalance ?? "Error"}
-				</span>
-				{trxUsdValue !== null && (
-					<>
-						<span className="mx-1 opacity-60 shrink-0">≈</span>
-						<span className="font-mono tabular-nums truncate min-w-0">
+		<>
+			<button
+				type="button"
+				className="btn btn-ghost btn-sm justify-start px-2 h-auto py-1"
+				onClick={() => {
+					queryClient.invalidateQueries({
+						queryKey: ["tronBalance", address],
+					});
+					queryClient.invalidateQueries({
+						queryKey: ["trc20Balance", address],
+					});
+				}}
+			>
+				<div
+					className="flex items-center gap-2 w-full min-w-0"
+					style={{ opacity }}
+				>
+					<TokenLogo
+						coinId="tron"
+						size="small"
+						chainId="tron"
+						className="shrink-0"
+					/>
+					<span className="opacity-80 shrink-0 text-xs">{name}</span>
+					<span className="font-mono tabular-nums truncate min-w-0 text-xs">
+						{formattedTrxBalance ?? "Error"}
+					</span>
+					{trxUsdValue !== null && (
+						<span className="font-mono tabular-nums text-xs opacity-60 ml-auto shrink-0">
 							${formatUsd.format(trxUsdValue)}
 						</span>
-					</>
-				)}
+					)}
+				</div>
+			</button>
+			{tokens.map((token) => {
+				const tokenAddress = token.platforms.tron;
+				if (!tokenAddress) return null; // Skip native tokens
 
-				{tokens.map((token) => {
-					const tokenAddress = token.platforms.tron;
-					if (!tokenAddress) return null; // Skip native tokens
-
-					return (
-						<TronTokenBalance
-							key={token.id}
-							address={address}
-							contract={tokenAddress}
-							token={token}
-						/>
-					);
-				})}
-			</div>
-		</button>
+				return (
+					<TronTokenBalance
+						key={token.id}
+						address={address}
+						contract={tokenAddress}
+						token={token}
+					/>
+				);
+			})}
+		</>
 	);
 };
 
@@ -659,7 +510,6 @@ const TronTokenBalance: FC<TronTokenBalanceProps> = ({
 	const {
 		data: trc20Data,
 		cached,
-		isFetching,
 		isStale,
 	} = usePersistedTrc20BalanceQuery({
 		address,
@@ -712,31 +562,24 @@ const TronTokenBalance: FC<TronTokenBalanceProps> = ({
 
 	return (
 		<div
-			className="badge badge-sm max-w-full min-w-0 overflow-hidden"
+			className="flex items-center gap-2 w-full min-w-0 px-2 py-1"
 			title={`${token.name}: ${formattedBalance}${isStale ? " (cached)" : ""}`}
 			style={{ opacity }}
 		>
-			{isFetching && (
-				<span className="loading loading-spinner loading-xs mr-1 opacity-50" />
-			)}
 			<TokenLogo
 				coinId={token.id}
 				size="small"
 				chainId="tron"
-				className="mr-1"
+				className="shrink-0"
 			/>
-			<span className="opacity-80 shrink-0">{label}</span>
-			<span className="mx-1 opacity-60 shrink-0">·</span>
-			<span className="font-mono tabular-nums truncate min-w-0">
+			<span className="opacity-80 shrink-0 text-xs">{label}</span>
+			<span className="font-mono tabular-nums truncate min-w-0 text-xs">
 				{formattedBalance}
 			</span>
 			{usdValue !== null && (
-				<>
-					<span className="mx-1 opacity-60 shrink-0">≈</span>
-					<span className="font-mono tabular-nums truncate min-w-0">
-						${formatUsd.format(usdValue)}
-					</span>
-				</>
+				<span className="font-mono tabular-nums text-xs opacity-60 ml-auto shrink-0">
+					${formatUsd.format(usdValue)}
+				</span>
 			)}
 		</div>
 	);

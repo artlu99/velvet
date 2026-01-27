@@ -2,7 +2,8 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "underground-velvet-wallet",
 	"main": "src/backend/index.ts",
-	"compatibility_date": "2026-01-20",
+	"compatibility_flags": ["nodejs_compat"],
+	"compatibility_date": "2026-01-24",
 	"vars": {
 		"NAME": "Underground Velvet",
 		"ETHEREUM_RPC_URL": "https://eth.merkle.io",
@@ -16,6 +17,9 @@
 			"remote": true
 		}
 	],
-	"assets": { "not_found_handling": "single-page-application" },
+	"assets": {
+		"not_found_handling": "single-page-application",
+		"run_worker_first": ["/api/*"]
+	},
 	"observability": { "enabled": true }
 }

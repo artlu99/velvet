@@ -5,6 +5,7 @@ import {
 	type MinLengthError,
 	SimpleName,
 } from "@evolu/common";
+import { createUseEvolu } from "@evolu/react";
 import { evoluReactWebDeps } from "@evolu/react-web";
 import { pluralize } from "./helpers";
 import { Schema } from "./schema";
@@ -15,12 +16,21 @@ export const evoluInstance = createEvolu(evoluReactWebDeps)(Schema, {
 	name: SimpleName.orThrow(EVOLU_INSTANCE),
 	transports: [
 		{ type: "WebSocket", url: "wss://evolu-relay-1.artlu.xyz" },
-		// { type: "WebSocket", url: "wss://evolu-relay-2.artlu.xyz" },
+		{ type: "WebSocket", url: "wss://evolu-relay-2.artlu.xyz" },
 	],
-
-	// Disable sync for development to avoid WebSocket connection issues
-	// syncUrl: undefined, // optional, defaults to https://free.evoluhq.com
 });
+
+/**
+ * Typed React Hook for accessing Evolu instance.
+ * Applications should use this instead of useEvolu() directly from @evolu/react.
+ */
+export const useEvolu = createUseEvolu(evoluInstance);
+
+/**
+ * Type for the Evolu instance.
+ * Use this in function signatures that accept the Evolu instance.
+ */
+export type EvoluInstance = typeof evoluInstance;
 
 /**
  * Format MinLengthError and MaxLengthError into human-readable messages.
@@ -30,10 +40,7 @@ export const formatTypeError = createFormatTypeError<
 >((error): string => {
 	switch (error.type) {
 		case "MinLength":
-			return `Text must be at least ${error.min} ${pluralize(
-				error.min,
-				"character",
-			)} long`;
+			return `Text must be at least ${pluralize(error.min, "character")} long`;
 		case "MaxLength":
 			return `Text is too long (maximum ${error.max} characters)`;
 	}

@@ -1,10 +1,10 @@
-import { describe, test, expect } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import {
-	invalidAddressError,
-	invalidChainError,
-	invalidBigIntError,
-	negativeBigIntError,
 	apiError,
+	invalidAddressError,
+	invalidBigIntError,
+	invalidChainError,
+	negativeBigIntError,
 } from "./errors";
 
 describe("errors", () => {

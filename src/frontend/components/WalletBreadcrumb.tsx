@@ -8,7 +8,7 @@ interface WalletBreadcrumbProps {
 
 /**
  * Breadcrumb indicator for wallet navigation.
- * Mobile: "Wallet m of n" (for carousel)
+ * Mobile: "{Wallet icon} m of n" (for carousel)
  * Desktop: "N wallets" heading
  */
 export const WalletBreadcrumb: FC<WalletBreadcrumbProps> = ({
@@ -23,15 +23,13 @@ export const WalletBreadcrumb: FC<WalletBreadcrumbProps> = ({
 			<div className="join sm:hidden">
 				<div className="join-item btn btn-sm btn-ghost font-normal">
 					<i className="fa-solid fa-wallet mr-2" />
-					Wallet {current} <span className="opacity-60 mx-1">of</span> {total}
+					{current} <span className="opacity-60 mx-1">of</span> {total}
 				</div>
 			</div>
 			{/* Desktop: N wallets */}
 			<div className="hidden sm:flex items-center gap-2">
 				<i className="fa-solid fa-wallet text-primary" />
-				<span className="font-semibold">
-					{total} {pluralize(total, "wallet")}
-				</span>
+				<span className="font-semibold">{pluralize(total, "wallet")}</span>
 			</div>
 		</div>
 	);

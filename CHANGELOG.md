@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-01-26
+
+### Added
+- introductory links
+- Mobile wallet carousel with swipe navigation
+- Drag-and-drop wallet reordering (desktop only)
+- ENS and Basename address resolution (client-side)
+
+### Changed
+- Wallet list split into mobile (carousel) and desktop (sortable list) views
+- Send/Receive buttons stack vertically on desktop with text labels, remain horizontal on mobile
+
 ## [0.0.2] - 2026-01-25
 
 ### Added

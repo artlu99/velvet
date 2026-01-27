@@ -1,10 +1,11 @@
-import { useEvolu, useQuery as useEvoluQuery } from "@evolu/react";
+import { useQuery as useEvoluQuery } from "@evolu/react";
 import type { ApiResponses } from "@shared/api";
 import { apiEndpoints, buildUrl } from "@shared/api";
 import type { TokenMetadataMap } from "@shared/types";
 import { useQuery as useTanstackQuery } from "@tanstack/react-query";
 import { fetcher } from "itty-fetcher";
 import { useEffect, useMemo } from "react";
+import { useEvolu } from "~/lib/evolu";
 import {
 	createAllTokenMetadataCacheQuery,
 	isCacheStale,
@@ -45,7 +46,14 @@ export const usePersistedTokenMetadataQuery = ({
 	// Transform cached rows into TokenMetadataMap format
 	const cachedMetadata = useMemo(() => {
 		// Create a map of coinId -> row for quick lookup
-		const cacheMap = new Map(cachedRows.map((row) => [row.coinId, row]));
+		const cacheMap = new Map<string, (typeof cachedRows)[0]>();
+		for (const row of cachedRows) {
+			const coinId =
+				row.coinId && typeof row.coinId === "string" ? row.coinId : null;
+			if (coinId) {
+				cacheMap.set(coinId, row);
+			}
+		}
 
 		const metadata: TokenMetadataMap = {};
 		let oldestUpdatedAt: string | null = null;
@@ -54,22 +62,54 @@ export const usePersistedTokenMetadataQuery = ({
 		for (const coinId of coinIds) {
 			const row = cacheMap.get(coinId);
 			if (row) {
-				metadata[coinId] = {
-					id: row.coinId,
-					name: row.name,
-					symbol: row.symbol,
-					image: {
-						thumb: row.imageThumb,
-						small: row.imageSmall,
-						large: row.imageLarge,
-					},
-				};
-				// Track oldest update time for staleness calculation
+				const rowCoinId =
+					row.coinId && typeof row.coinId === "string" ? row.coinId : null;
+				const rowName =
+					row.name && typeof row.name === "string" ? row.name : null;
+				const rowSymbol =
+					row.symbol && typeof row.symbol === "string" ? row.symbol : null;
+				const rowThumb =
+					row.imageThumb && typeof row.imageThumb === "string"
+						? row.imageThumb
+						: null;
+				const rowSmall =
+					row.imageSmall && typeof row.imageSmall === "string"
+						? row.imageSmall
+						: null;
+				const rowLarge =
+					row.imageLarge && typeof row.imageLarge === "string"
+						? row.imageLarge
+						: null;
+
 				if (
-					!oldestUpdatedAt ||
-					(row.updatedAt && row.updatedAt < oldestUpdatedAt)
+					rowCoinId &&
+					rowName &&
+					rowSymbol &&
+					rowThumb &&
+					rowSmall &&
+					rowLarge
 				) {
-					oldestUpdatedAt = row.updatedAt ?? null;
+					metadata[coinId] = {
+						id: rowCoinId,
+						name: rowName,
+						symbol: rowSymbol,
+						image: {
+							thumb: rowThumb,
+							small: rowSmall,
+							large: rowLarge,
+						},
+					};
+					// Track oldest update time for staleness calculation
+					const updatedAtStr =
+						row.updatedAt && typeof row.updatedAt === "string"
+							? row.updatedAt
+							: null;
+					if (
+						updatedAtStr &&
+						(!oldestUpdatedAt || updatedAtStr < oldestUpdatedAt)
+					) {
+						oldestUpdatedAt = updatedAtStr;
+					}
 				}
 			}
 		}

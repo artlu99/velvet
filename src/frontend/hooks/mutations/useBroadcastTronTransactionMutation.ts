@@ -2,7 +2,12 @@ import type { TronBroadcastRequest, TronBroadcastResult } from "@shared/types";
 import { useMutation } from "@tanstack/react-query";
 import { fetcher } from "itty-fetcher";
 
-const api = fetcher({ base: `${window.location.origin}/api` });
+const api = fetcher({
+	base: `${window.location.origin}/api`,
+	headers: {
+		Origin: window.location.origin,
+	},
+});
 
 export const useBroadcastTronTransactionMutation = () => {
 	return useMutation({

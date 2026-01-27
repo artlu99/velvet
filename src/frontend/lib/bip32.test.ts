@@ -62,8 +62,6 @@ describe("deriveEvmAddress", () => {
 	});
 
 	test("throws on invalid private key", () => {
-		expect(() => deriveEvmAddress("0xinvalid")).toThrow(
-			"Invalid private key",
-		);
+		expect(() => deriveEvmAddress("0xinvalid")).toThrow("Invalid private key");
 	});
 });

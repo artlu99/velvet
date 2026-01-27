@@ -1,7 +1,6 @@
 import type {
 	AppName,
 	BalanceResult,
-	EnsNameResult,
 	Erc20BalanceResult,
 	Erc20GasEstimateResult,
 	PlatformMetadataResult,
@@ -26,12 +25,6 @@ import type {
  * Frontend: consumes via typed itty-fetcher
  */
 export const apiEndpoints = {
-	/** GET /api/name - Get app name */
-	name: {
-		path: "name" as const,
-		method: "GET" as const,
-	},
-
 	/** GET /api/balance/:address?chainId={chainId} - Get ETH balance */
 	balance: {
 		path: "balance/:address" as const,
@@ -45,11 +38,6 @@ export const apiEndpoints = {
 	/** GET /api/balance/erc20/:address/:contract?chainId={chainId} - Get ERC20 balance */
 	erc20Balance: {
 		path: "balance/erc20/:address/:contract" as const,
-		method: "GET" as const,
-	},
-	/** GET /api/ens/:address - Get ENS name for address */
-	ensName: {
-		path: "ens/:address" as const,
 		method: "GET" as const,
 	},
 	/** POST /api/estimate-gas/erc20 - Estimate ERC20 transfer gas */
@@ -100,7 +88,6 @@ export type ApiResponses = {
 	balance: BalanceResult;
 	transactionCount: TransactionCountResult;
 	erc20Balance: Erc20BalanceResult;
-	ensName: EnsNameResult;
 	erc20GasEstimate: Erc20GasEstimateResult;
 	tronBalance: TronBalanceResult;
 	trc20Balance: Trc20BalanceResult;
@@ -118,6 +105,7 @@ export function buildUrl(
 	path: string,
 	params?: {
 		address?: string;
+		name?: string;
 		contract?: string;
 		query?: Record<string, string>;
 	},
@@ -127,6 +115,10 @@ export function buildUrl(
 
 	if (params?.address) {
 		url.pathname = url.pathname.replace(":address", params.address);
+	}
+
+	if (params?.name) {
+		url.pathname = url.pathname.replace(":name", params.name);
 	}
 
 	if (params?.contract) {
