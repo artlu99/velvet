@@ -1,4 +1,4 @@
-import { useQuery } from "@evolu/react";
+import { useQueries, useQuery } from "@evolu/react";
 import { useMemo } from "react";
 import { discriminateAddressType } from "~/lib/crypto";
 import { useEvolu } from "~/lib/evolu";
@@ -46,40 +46,77 @@ export const useGlobalPortfolioTotal = ({
 	const baseTokens = getTokensByChain(8453);
 	const tronTokens = getTokensByChain("tron");
 
-	// Create all query objects upfront (no hooks called here)
-	const balanceQueryConfigs = useMemo(() => {
+	// Create all individual queries upfront (stable across renders)
+	const nativeBalanceQueries = useMemo(() => {
 		return addresses.flatMap((address) => {
 			const addressType = discriminateAddressType(address);
-			const configs: Array<{
-				address: string;
-				chainId: string;
-				query: ReturnType<typeof createBalanceCacheQuery>;
-			}> = [];
+			const queries: ReturnType<typeof createBalanceCacheQuery>[] = [];
 
 			if (addressType.type === "evm") {
-				configs.push({
-					address,
-					chainId: "1",
-					query: createBalanceCacheQuery(evolu, address, "1"),
-				});
-				configs.push({
-					address,
-					chainId: "8453",
-					query: createBalanceCacheQuery(evolu, address, "8453"),
-				});
+				queries.push(createBalanceCacheQuery(evolu, address, "1"));
+				queries.push(createBalanceCacheQuery(evolu, address, "8453"));
 			} else if (addressType.type === "tron") {
-				configs.push({
-					address,
-					chainId: "tron",
-					query: createBalanceCacheQuery(evolu, address, "tron"),
-				});
+				queries.push(createBalanceCacheQuery(evolu, address, "tron"));
 			}
 
-			return configs;
+			return queries;
 		});
 	}, [addresses, evolu]);
 
-	const tokenBalanceQueryConfigs = useMemo(() => {
+	const erc20BalanceQueries = useMemo(() => {
+		return addresses.flatMap((address) => {
+			const addressType = discriminateAddressType(address);
+			if (addressType.type !== "evm") return [];
+
+			return [
+				...ethTokens
+					.filter((token) => token.platforms.ethereum)
+					.map((token) => {
+						const contract = token.platforms.ethereum;
+						if (!contract) return null;
+						return createTokenBalanceCacheQuery(evolu, address, contract, "1");
+					})
+					.filter((q): q is NonNullable<typeof q> => q !== null),
+				...baseTokens
+					.filter((token) => token.platforms.base)
+					.map((token) => {
+						const contract = token.platforms.base;
+						if (!contract) return null;
+						return createTokenBalanceCacheQuery(
+							evolu,
+							address,
+							contract,
+							"8453",
+						);
+					})
+					.filter((q): q is NonNullable<typeof q> => q !== null),
+			];
+		});
+	}, [addresses, ethTokens, baseTokens, evolu]);
+
+	const trc20BalanceQueries = useMemo(() => {
+		return addresses.flatMap((address) => {
+			const addressType = discriminateAddressType(address);
+			if (addressType.type !== "tron") return [];
+
+			return tronTokens
+				.filter((token) => token.platforms.tron)
+				.map((token) => {
+					const contract = token.platforms.tron;
+					if (!contract) return null;
+					return createTokenBalanceCacheQuery(evolu, address, contract, "tron");
+				})
+				.filter((q): q is NonNullable<typeof q> => q !== null);
+		});
+	}, [addresses, tronTokens, evolu]);
+
+	// Use useQueries to get all results reactively (follows Rules of Hooks)
+	const nativeBalances = useQueries(nativeBalanceQueries);
+	const erc20Balances = useQueries(erc20BalanceQueries);
+	const trc20Balances = useQueries(trc20BalanceQueries);
+
+	// Create configs for processing (used for token metadata lookup)
+	const tokenBalanceConfigs = useMemo(() => {
 		return addresses.flatMap((address) => {
 			const addressType = discriminateAddressType(address);
 			if (addressType.type !== "evm") return [];
@@ -95,12 +132,6 @@ export const useGlobalPortfolioTotal = ({
 							contract,
 							chainId: "1" as const,
 							token,
-							query: createTokenBalanceCacheQuery(
-								evolu,
-								address,
-								contract,
-								"1",
-							),
 						};
 					})
 					.filter((q): q is NonNullable<typeof q> => q !== null),
@@ -114,20 +145,14 @@ export const useGlobalPortfolioTotal = ({
 							contract,
 							chainId: "8453" as const,
 							token,
-							query: createTokenBalanceCacheQuery(
-								evolu,
-								address,
-								contract,
-								"8453",
-							),
 						};
 					})
 					.filter((q): q is NonNullable<typeof q> => q !== null),
 			];
 		});
-	}, [addresses, ethTokens, baseTokens, evolu]);
+	}, [addresses, ethTokens, baseTokens]);
 
-	const trc20BalanceQueryConfigs = useMemo(() => {
+	const trc20BalanceConfigs = useMemo(() => {
 		return addresses.flatMap((address) => {
 			const addressType = discriminateAddressType(address);
 			if (addressType.type !== "tron") return [];
@@ -141,35 +166,11 @@ export const useGlobalPortfolioTotal = ({
 						address,
 						contract,
 						token,
-						query: createTokenBalanceCacheQuery(
-							evolu,
-							address,
-							contract,
-							"tron",
-						),
 					};
 				})
 				.filter((q): q is NonNullable<typeof q> => q !== null);
 		});
-	}, [addresses, tronTokens, evolu]);
-
-	// Call useQuery for each query
-	// Note: While hooks are called in map(), the order is stable because it's determined
-	// by stable inputs (addresses, tokens). React allows this pattern when hook order
-	// is deterministic. Evolu queries are reactive and automatically update when cache changes.
-	// The linter warning is a false positive - hook order is guaranteed to be stable.
-	const nativeBalances = balanceQueryConfigs.map((config) =>
-		// biome-ignore lint/correctness/useHookAtTopLevel: hook order is guaranteed to be stable
-		useQuery(config.query),
-	);
-	const erc20Balances = tokenBalanceQueryConfigs.map((config) =>
-		// biome-ignore lint/correctness/useHookAtTopLevel: hook order is guaranteed to be stable
-		useQuery(config.query),
-	);
-	const trc20Balances = trc20BalanceQueryConfigs.map((config) =>
-		// biome-ignore lint/correctness/useHookAtTopLevel: hook order is guaranteed to be stable
-		useQuery(config.query),
-	);
+	}, [addresses, tronTokens]);
 
 	// Calculate total directly from cache (reactive - no useMemo needed)
 	// This recalculates automatically when any cache value changes
@@ -179,8 +180,7 @@ export const useGlobalPortfolioTotal = ({
 	let nativeIndex = 0;
 
 	// Process native balances
-	for (let i = 0; i < addresses.length; i++) {
-		const address = addresses[i];
+	for (const address of addresses) {
 		const addressType = discriminateAddressType(address);
 
 		if (addressType.type === "evm") {
@@ -219,13 +219,19 @@ export const useGlobalPortfolioTotal = ({
 	// Process ERC20 balances
 	for (let i = 0; i < erc20Balances.length; i++) {
 		const cache = erc20Balances[i]?.[0];
-		const config = tokenBalanceQueryConfigs[i];
-		if (cache?.balanceRaw && config?.token && prices[config.token.id]) {
+		const config = tokenBalanceConfigs[i];
+		const balanceRaw = cache?.balanceRaw;
+		if (
+			balanceRaw &&
+			typeof balanceRaw === "string" &&
+			config?.token &&
+			prices[config.token.id]
+		) {
 			const decimals = getTokenDecimals(
 				config.token,
 				config.chainId === "1" ? 1 : 8453,
 			);
-			const balanceAmount = rawToAmount(cache.balanceRaw, decimals);
+			const balanceAmount = rawToAmount(balanceRaw, decimals);
 			total += calculateTokenUsd(balanceAmount, prices[config.token.id].usd);
 		}
 	}
@@ -233,10 +239,16 @@ export const useGlobalPortfolioTotal = ({
 	// Process TRC20 balances
 	for (let i = 0; i < trc20Balances.length; i++) {
 		const cache = trc20Balances[i]?.[0];
-		const config = trc20BalanceQueryConfigs[i];
+		const config = trc20BalanceConfigs[i];
+		const balanceRaw = cache?.balanceRaw;
 		// TRC20 stores balanceFormatted as balanceRaw in cache
-		if (cache?.balanceRaw && config?.token && prices[config.token.id]) {
-			const balanceFormatted = cache.balanceRaw;
+		if (
+			balanceRaw &&
+			typeof balanceRaw === "string" &&
+			config?.token &&
+			prices[config.token.id]
+		) {
+			const balanceFormatted = balanceRaw;
 			total += calculateTokenUsd(balanceFormatted, prices[config.token.id].usd);
 		}
 	}
