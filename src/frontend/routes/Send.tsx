@@ -1,6 +1,6 @@
 import { useQuery } from "@evolu/react";
 import type { KeyType, SupportedChainId } from "@shared/types";
-import { Suspense, use, useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import invariant from "tiny-invariant";
 import { Link, useParams } from "wouter";
 import { SendForm } from "~/components/SendForm";
@@ -15,7 +15,7 @@ import { getTokenAddress, isNativeToken } from "~/lib/tokenUtils";
 import { useSendStore } from "~/providers/store";
 import { useTokenStore } from "~/providers/tokenStore";
 
-const SendContent = () => {
+export const Send = () => {
 	const { address } = useParams<{ address?: string }>();
 	const evolu = useEvolu();
 
@@ -28,7 +28,7 @@ const SendContent = () => {
 	const getTokensByChain = useTokenStore((state) => state.getTokensByChain);
 
 	// Canonical Evolu pattern: useQuery with module-level query
-	const allWallets = useQuery(allEoasQuery);
+	const allWallets = useQuery(allEoasQuery) ?? [];
 
 	// Determine which wallet to use
 	const selectedWallet = address
@@ -166,7 +166,7 @@ const SendContent = () => {
 				? erc20BalanceData.balanceRaw
 				: "0";
 
-	const encryptedPrivateKey = selectedWallet.encryptedPrivateKey;
+	const encryptedPrivateKey = selectedWallet?.encryptedPrivateKey;
 	const isWatchOnly = selectedWallet.origin === "watchOnly";
 
 	// For non-watch-only wallets, encryptedPrivateKey must exist
@@ -261,24 +261,11 @@ const SendContent = () => {
 							encryptedPrivateKey={encryptedPrivateKey}
 							token={selectedToken}
 							chainId={chainId}
+							walletId={selectedWallet.id}
 						/>
 					</>
 				)
 			)}
 		</div>
-	);
-};
-
-export const Send = () => {
-	return (
-		<Suspense
-			fallback={
-				<div className="max-w-md mx-auto p-4">
-					<div className="loading loading-spinner mx-auto" />
-				</div>
-			}
-		>
-			<SendContent />
-		</Suspense>
 	);
 };

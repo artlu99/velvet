@@ -56,7 +56,7 @@ export const WalletList: FC<WalletListProps> = ({
 	const evolu = useEvolu();
 
 	// Canonical Evolu pattern: useQuery with module-level query
-	const rowsRawUnvalidated = useQuery(allEoasQuery);
+	const rowsRawUnvalidated = useQuery(allEoasQuery) ?? [];
 
 	// Validate with valibot to catch data corruption and type mismatches
 	const validatedRows = validateEoaRowArray(rowsRawUnvalidated);
@@ -149,11 +149,9 @@ export const WalletList: FC<WalletListProps> = ({
 					<DeriveWallet />
 				</div>
 			)}
-			{showImport && (
-				<div className="mb-4">
-					<ImportPrivateKey />
-				</div>
-			)}
+			<div className={`mb-4 ${showImport ? "block" : "hidden"}`}>
+				<ImportPrivateKey />
+			</div>
 			{rows.length === 0 ? (
 				<div className="space-y-4">
 					<div className="card card-compact bg-base-200 shadow-xl">

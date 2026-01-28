@@ -16,7 +16,13 @@ export interface WalletWithTokens {
  * @returns USD value
  */
 export function calculateTokenUsd(balance: string, price: number): number {
-	return Number.parseFloat(balance) * price;
+	// Handle empty/whitespace strings as 0
+	if (!balance || balance.trim() === "") {
+		return 0;
+	}
+	const parsed = Number.parseFloat(balance);
+	// Return 0 for NaN (e.g., invalid balance string)
+	return Number.isNaN(parsed) ? 0 : parsed * price;
 }
 
 /**

@@ -36,6 +36,12 @@ export type TokenBalanceId = typeof TokenBalanceId.Type;
 const DerivationCounterId = id("DerivationCounter");
 export type DerivationCounterId = typeof DerivationCounterId.Type;
 
+const BlocklistId = id("Blocklist");
+export type BlocklistId = typeof BlocklistId.Type;
+
+const BlocklistSource = union("app", "user");
+export type BlocklistSource = typeof BlocklistSource.Type;
+
 // Cache tables - all synced across devices for faster initial load
 const BalanceCacheId = id("BalanceCache");
 export type BalanceCacheId = typeof BalanceCacheId.Type;
@@ -102,6 +108,13 @@ export const Schema = {
 		id: DerivationCounterId,
 		keyType: KeyType,
 		nextIndex: FiniteNumber,
+	},
+	blocklist: {
+		id: BlocklistId,
+		address: NonEmptyString1000,
+		reason: nullOr(NonEmptyString100),
+		source: BlocklistSource,
+		addedAt: DateIso,
 	},
 
 	// Cache tables - all synced across devices for faster initial load and better UX

@@ -1,14 +1,14 @@
 import { useQuery } from "@evolu/react";
 import type { KeyType } from "@shared/types";
 import type React from "react";
-import { Suspense, use, useState } from "react";
+import { use, useState } from "react";
 import invariant from "tiny-invariant";
 import { Link, useParams } from "wouter";
 import { QRCodeDisplay } from "~/components/QRCodeDisplay";
 import { useEvolu } from "~/lib/evolu";
 import { allEoasQuery, normalizeAddressForQuery } from "~/lib/queries/eoa";
 
-const ReceiveContent = () => {
+export const Receive = () => {
 	const { address } = useParams<{ address?: string }>();
 	const evolu = useEvolu();
 
@@ -19,7 +19,7 @@ const ReceiveContent = () => {
 	const [evmNetwork, setEvmNetwork] = useState<"ethereum" | "base">("base");
 
 	// Canonical Evolu pattern: useQuery with module-level query
-	const allWallets = useQuery(allEoasQuery);
+	const allWallets = useQuery(allEoasQuery) ?? [];
 
 	// Determine which wallet to display
 	// Priority: 1) address from URL  2) selected wallet  3) first wallet
@@ -172,19 +172,5 @@ const ReceiveContent = () => {
 				</div>
 			)}
 		</div>
-	);
-};
-
-export const Receive = () => {
-	return (
-		<Suspense
-			fallback={
-				<div className="max-w-md mx-auto p-4">
-					<div className="loading loading-spinner mx-auto" />
-				</div>
-			}
-		>
-			<ReceiveContent />
-		</Suspense>
 	);
 };

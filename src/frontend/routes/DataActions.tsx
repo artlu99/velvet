@@ -1,11 +1,11 @@
 import { Mnemonic } from "@evolu/common";
 import { featureFlags } from "@shared/feature-flags";
-import { Suspense, use, useState } from "react";
+import { use, useState } from "react";
 import { useClipboardWithTimeout } from "~/hooks/useClipboardWithTimeout";
 import { formatTypeError, useEvolu } from "~/lib/evolu";
 import { CLIPBOARD_TIMEOUT_MS } from "~/lib/helpers";
 
-const DataActionsContent = () => {
+export const DataActions = () => {
 	const evolu = useEvolu();
 	const appOwner = use(evolu.appOwner);
 
@@ -269,19 +269,5 @@ const DataActionsContent = () => {
 				</div>
 			)}
 		</div>
-	);
-};
-
-export const DataActions = () => {
-	return (
-		<Suspense
-			fallback={
-				<div className="container mx-auto px-4 py-8 max-w-4xl">
-					<div className="loading loading-spinner mx-auto" />
-				</div>
-			}
-		>
-			<DataActionsContent />
-		</Suspense>
 	);
 };

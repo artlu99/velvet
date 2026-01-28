@@ -3,8 +3,16 @@
  * Uses viem for type-safe blockchain interactions.
  */
 
+import { fetcher } from "itty-fetcher";
 import { createPublicClient, http } from "viem";
 import { base, mainnet } from "viem/chains";
+
+/**
+ * Etherscan API client for transaction history
+ */
+export const etherscanApi = fetcher({
+	base: "https://api.etherscan.io/api",
+});
 
 /**
  * Get the RPC URL for a given chain ID.
@@ -103,4 +111,51 @@ export async function getTransactionCount(
 		address: address as `0x${string}`,
 	});
 	return count;
+}
+
+/**
+ * Get transaction receipt for a transaction hash.
+ * Returns null if transaction is not found or not yet confirmed.
+ */
+export async function getTransactionReceipt(
+	env: Env,
+	txHash: `0x${string}`,
+	chainId: number,
+): Promise<{
+	status: "success" | "reverted";
+	gasUsed: bigint;
+	blockNumber: bigint;
+	blockTimestamp: number | null;
+} | null> {
+	const client = getPublicClient(env, chainId);
+
+	try {
+		const receipt = await client.getTransactionReceipt({ hash: txHash });
+
+		// Get block timestamp
+		let blockTimestamp: number | null = null;
+		try {
+			const block = await client.getBlock({ blockNumber: receipt.blockNumber });
+			blockTimestamp = Number(block.timestamp);
+		} catch {
+			// Block timestamp fetch failed, continue without it
+		}
+
+		return {
+			status: receipt.status === "success" ? "success" : "reverted",
+			gasUsed: receipt.gasUsed,
+			blockNumber: receipt.blockNumber,
+			blockTimestamp,
+		};
+	} catch (error) {
+		// Transaction not found or not yet confirmed
+		if (
+			error instanceof Error &&
+			(error.message.includes("not found") ||
+				error.message.includes("TransactionNotFound"))
+		) {
+			return null;
+		}
+		throw error;
+	}
 }

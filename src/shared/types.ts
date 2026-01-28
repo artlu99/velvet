@@ -449,3 +449,23 @@ export interface PlatformMetadataError {
 export type PlatformMetadataResult =
 	| PlatformMetadataSuccess
 	| PlatformMetadataError;
+
+// Transaction Receipt types
+export interface TransactionReceiptSuccess {
+	ok: true;
+	txHash: string;
+	status: "success" | "reverted";
+	gasUsed: string;
+	blockNumber: string;
+	blockTimestamp: number | null;
+}
+
+export interface TransactionReceiptError {
+	ok: false;
+	error: string;
+	code: "INVALID_TRANSACTION" | "NETWORK_ERROR" | "NOT_FOUND";
+}
+
+export type TransactionReceiptResult =
+	| TransactionReceiptSuccess
+	| TransactionReceiptError;

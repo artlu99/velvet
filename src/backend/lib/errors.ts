@@ -37,7 +37,7 @@ export type ApiErrorCode =
  * @returns A discriminated union error object
  */
 export function invalidAddressError(
-	errorType: "balance" | "ens" | "txCount" | "gasEstimate",
+	errorType: "balance" | "ens" | "txCount" | "gasEstimate" | "transactions",
 ): AddressableError {
 	const baseError = {
 		ok: false as const,
@@ -56,6 +56,8 @@ export function invalidAddressError(
 			return baseError as unknown as TransactionCountError;
 		case "gasEstimate":
 			return baseError as unknown as GasEstimateError;
+		case "transactions":
+			return baseError as unknown as GasEstimateError; // Reuse gas estimate error type
 	}
 }
 
@@ -65,13 +67,14 @@ export function invalidAddressError(
  * @returns A discriminated union error object
  */
 export function invalidChainError(
-	errorType: "balance" | "txCount" | "gasEstimate",
+	errorType: "balance" | "txCount" | "gasEstimate" | "transactions",
 ): ChainableError {
 	const errorMessages = {
 		balance:
 			"Invalid or unsupported chain ID. Supported: 1 (mainnet), 8453 (Base)",
 		txCount: "Invalid or unsupported chain ID",
 		gasEstimate: "Invalid or unsupported chain ID",
+		transactions: "Invalid or unsupported chain ID",
 	};
 
 	const baseError = {
@@ -89,6 +92,8 @@ export function invalidChainError(
 			return baseError as unknown as TransactionCountError;
 		case "gasEstimate":
 			return baseError as unknown as GasEstimateError;
+		case "transactions":
+			return baseError as unknown as GasEstimateError; // Reuse gas estimate error type
 	}
 }
 

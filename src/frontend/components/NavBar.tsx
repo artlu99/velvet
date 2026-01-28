@@ -10,36 +10,44 @@ import { allEoasQuery } from "~/lib/queries/eoa";
 
 const NavBarContent = () => {
 	// Canonical Evolu pattern: useQuery with module-level query
-	const wallets = useQuery(allEoasQuery);
+	const wallets = useQuery(allEoasQuery) ?? [];
 
 	// Toggle for including WatchOnly wallets in portfolio total
 	const [includeWatchOnly, setIncludeWatchOnly] = useState(true);
 
 	// Identify WatchOnly wallets and extract addresses
-	const { watchOnlyWallets, filteredAddresses } = useMemo(() => {
+	const { watchOnlyWallets, allAddresses, addressFilterMap } = useMemo(() => {
 		const watchOnly: string[] = [];
-		const result: string[] = [];
+		const all: string[] = [];
+		const filterMap = new Map<string, boolean>();
 
 		for (const wallet of wallets) {
 			const addr = wallet.address;
 			if (addr && typeof addr === "string") {
 				const address = String(addr);
+				all.push(address);
 				if (wallet.origin === "watchOnly") {
 					watchOnly.push(address);
-				}
-				// Include address if: not watch-only OR (watch-only and toggle is on)
-				if (wallet.origin !== "watchOnly" || includeWatchOnly) {
-					result.push(address);
+					// Include watch-only addresses only if toggle is on
+					filterMap.set(address, includeWatchOnly);
+				} else {
+					// Always include non-watch-only addresses
+					filterMap.set(address, true);
 				}
 			}
 		}
 
-		return { watchOnlyWallets: watchOnly, filteredAddresses: result };
+		return {
+			watchOnlyWallets: watchOnly,
+			allAddresses: all,
+			addressFilterMap: filterMap,
+		};
 	}, [wallets, includeWatchOnly]);
 
-	// global portfolio total
+	// global portfolio total - pass all addresses, hook will filter internally
 	const globalTotalUsd = useGlobalPortfolioTotal({
-		addresses: filteredAddresses,
+		addresses: allAddresses,
+		filterMap: addressFilterMap,
 	});
 
 	// Fetch prices for timestamp display
@@ -150,6 +158,12 @@ const NavBarContent = () => {
 							<Link href="/account" className="flex items-center gap-3">
 								<i className="fa-solid fa-cloud-bolt" />
 								Data
+							</Link>
+						</li>
+						<li>
+							<Link href="/blocklist" className="flex items-center gap-3">
+								<i className="fa-solid fa-shield-halved" />
+								Blocklist
 							</Link>
 						</li>
 						<div className="divider my-1" />

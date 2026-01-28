@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-01-28
+
+### Added
+- Transaction history API and UI for EVM addresses with dust/spam filtering
+- Transaction receipt lookup endpoint and status view for recent sends
+- Address reputation and blocklist system with safety badges and blocklist management UI
+- Address details route aggregating balances, history, and safety signals
+
+### Changed
+- Tightened validation and error handling for transaction-related APIs
+- Improved portfolio total and USD value handling across the wallet
+- Refined ENS/Basename resolution UX and navigation to address details
+
+### Fixed
+- Filter out zero-value ERC20 spam and gas-waste attacks from transaction lists
+- Minor layout and navigation issues in send/receive flows
+
 ## [0.0.3] - 2026-01-26
 
 ### Added

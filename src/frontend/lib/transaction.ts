@@ -32,6 +32,11 @@ export function amountToRaw(amount: string, decimals: number): string {
  * @returns Human-readable amount (e.g., "100.5" USDC)
  */
 export function rawToAmount(raw: string, decimals: number): string {
+	// Handle empty/whitespace strings as 0 (first load, no cached balance)
+	if (!raw || raw.trim() === "") {
+		return "0";
+	}
+
 	try {
 		const divisor = BigInt(10 ** decimals);
 		const value = BigInt(raw);

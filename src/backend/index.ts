@@ -3,6 +3,7 @@ import type {
 	BroadcastTransactionRequest,
 	Erc20GasEstimateRequest,
 	GasEstimateRequest,
+	TransactionReceiptResult,
 	TronGasEstimateRequest,
 } from "@shared/types";
 import { Hono } from "hono";
@@ -25,7 +26,9 @@ import {
 	estimateGas,
 	estimateGasCost,
 	getTransactionCount,
+	getTransactionReceipt,
 } from "./lib/rpc";
+import { getTransactionList } from "./lib/transactions";
 import {
 	broadcastTronTransaction,
 	estimateTrc20Transfer,
@@ -42,7 +45,7 @@ import {
 
 const app = new Hono<{ Bindings: Env }>().basePath("/api");
 
-const BALANCE_CACHE_TTL_SECONDS = 60; // 1 minute
+const BALANCE_CACHE_TTL_SECONDS = 150; // 2.5 minutes
 
 app
 	.use(cors())
@@ -376,6 +379,127 @@ app
 				code: "NETWORK_ERROR",
 			} as const;
 			return c.json(err, 500);
+		}
+	})
+	.get("/transactions/:address", async (c) => {
+		const address = c.req.param("address");
+		const chainIdParam = c.req.query("chainId");
+
+		// Validate address
+		const addressValidation = validateAddress(address, "transactions");
+		if (!addressValidation.ok) return c.json(addressValidation.error, 400);
+
+		// For Tron, return empty array (not supported)
+		if (chainIdParam === "tron") {
+			return c.json({
+				ok: true,
+				data: [],
+				timestamp: Date.now(),
+			});
+		}
+
+		// Validate chainId (only numeric chains)
+		const chainIdValidation = validateChainId(chainIdParam, "transactions");
+		if (!chainIdValidation.ok) return c.json(chainIdValidation.error, 400);
+
+		// At this point, chainId is guaranteed to be 1 | 8453
+		const numericChainId = chainIdValidation.chainId as 1 | 8453;
+
+		try {
+			// Get current ETH price for USD filtering
+			const prices = await fetchPrices({ env: c.env, coinIds: ["ethereum"] });
+			const ethPriceUsd = prices.ethereum?.usd ?? 2000;
+
+			const result = await getTransactionList(
+				c,
+				numericChainId,
+				addressValidation.address,
+				ethPriceUsd,
+			);
+			return c.json(result);
+		} catch (error) {
+			const errorMessage =
+				error instanceof Error ? error.message : "Unknown error";
+			const err = {
+				ok: false,
+				error: `Failed to fetch transaction list: ${errorMessage}`,
+				code: "NETWORK_ERROR",
+			} as const;
+			return c.json(err, 500);
+		}
+	})
+	.get("/transaction/:txHash", async (c) => {
+		const txHash = c.req.param("txHash");
+		const chainIdParam = c.req.query("chainId");
+
+		// Validate transaction hash format
+		if (!txHash || !txHash.startsWith("0x") || txHash.length !== 66) {
+			return c.json(
+				{
+					ok: false,
+					error: "Invalid transaction hash format",
+					code: "INVALID_TRANSACTION",
+				},
+				400,
+			);
+		}
+
+		// For Tron, return error (not supported)
+		if (chainIdParam === "tron") {
+			return c.json(
+				{
+					ok: false,
+					error: "Transaction receipt lookup not supported for Tron",
+					code: "NOT_FOUND",
+				},
+				400,
+			);
+		}
+
+		// Validate chainId (only numeric chains)
+		const chainIdValidation = validateChainId(chainIdParam, "transactions");
+		if (!chainIdValidation.ok) return c.json(chainIdValidation.error, 400);
+
+		// At this point, chainId is guaranteed to be 1 | 8453
+		const numericChainId = chainIdValidation.chainId as 1 | 8453;
+
+		try {
+			const receipt = await getTransactionReceipt(
+				c.env,
+				txHash as `0x${string}`,
+				numericChainId,
+			);
+
+			if (!receipt) {
+				return c.json(
+					{
+						ok: false,
+						error: "Transaction not found or not yet confirmed",
+						code: "NOT_FOUND",
+					} as TransactionReceiptResult,
+					404,
+				);
+			}
+
+			return c.json({
+				ok: true,
+				txHash,
+				status: receipt.status,
+				gasUsed: receipt.gasUsed.toString(),
+				blockNumber: receipt.blockNumber.toString(),
+				blockTimestamp: receipt.blockTimestamp,
+			} as TransactionReceiptResult);
+		} catch (error) {
+			const errorMessage =
+				error instanceof Error ? error.message : "Unknown error";
+			return c.json(
+				{
+					ok: false,
+					error: `Failed to fetch transaction receipt: ${errorMessage}`,
+					code: "NETWORK_ERROR",
+				} as TransactionReceiptResult,
+				500,
+			);
 		}
 	})
 	// ===== POST Routes =====

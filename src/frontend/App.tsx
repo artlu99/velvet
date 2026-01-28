@@ -5,6 +5,8 @@ import { Toaster } from "react-hot-toast";
 import { Route, Switch } from "wouter";
 import { NavBar } from "~/components/NavBar";
 import { evoluInstance } from "~/lib/evolu";
+import { AddressDetails } from "~/routes/AddressDetails";
+import { Blocklist } from "~/routes/Blocklist";
 import { DataActions } from "~/routes/DataActions";
 import { Home } from "~/routes/Home";
 import { Landing } from "~/routes/Landing";
@@ -85,6 +87,8 @@ function App() {
 						<Switch>
 							<Route path="/" component={Home} />
 							<Route path="/account" component={DataActions} />
+							<Route path="/address/:address" component={AddressDetails} />
+							<Route path="/blocklist" component={Blocklist} />
 							<Route path="/landing" component={Landing} />
 							<Route path="/receive" component={Receive} />
 							<Route path="/receive/:address" component={Receive} />

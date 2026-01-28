@@ -70,7 +70,7 @@ export type BigIntValidation = BigIntValidationResult | BigIntValidationError;
  */
 export function validateAddress(
 	address: string,
-	errorType: "balance" | "ens" | "txCount" | "gasEstimate",
+	errorType: "balance" | "ens" | "txCount" | "gasEstimate" | "transactions",
 ): AddressValidation {
 	if (!isAddress(address)) {
 		return { ok: false, error: invalidAddressError(errorType) };
@@ -87,7 +87,7 @@ export function validateAddress(
  */
 export function validateChainId(
 	chainIdParam: string | undefined,
-	errorType: "balance" | "txCount" | "gasEstimate",
+	errorType: "balance" | "txCount" | "gasEstimate" | "transactions",
 ): ChainIdValidation {
 	const chainId = parseChainId(chainIdParam);
 	if (

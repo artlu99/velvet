@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { normalize } from "viem/ens";
 import { useBasenameAddressQuery } from "~/hooks/queries/useBasenameQueries";
 import { useEnsAddressQuery } from "~/hooks/queries/useEnsAddressQuery";
@@ -26,6 +26,8 @@ export function useDebouncedNameResolution(
 	delay = 500,
 ): NameResolutionResult {
 	const [debouncedInput, setDebouncedInput] = useState(input);
+	// Track if we've started loading to prevent flickering
+	const hasStartedLoading = useRef(false);
 
 	// Debounce input changes
 	useEffect(() => {
@@ -38,40 +40,52 @@ export function useDebouncedNameResolution(
 		};
 	}, [input, delay]);
 
-	// Normalize name for type detection (ENSIP-15 canonical normalization)
-	let normalizedForType: string;
-	try {
-		normalizedForType = normalize(debouncedInput);
-		if (normalizedForType !== debouncedInput) {
-			console.log(`[NameResolution] Input normalized:`, {
-				original: debouncedInput,
-				normalized: normalizedForType,
+	// Reset loading state when input clears
+	useEffect(() => {
+		if (!input) {
+			hasStartedLoading.current = false;
+		}
+	}, [input]);
+
+	// Memoize normalization and type detection to avoid repeated work on every render
+	const { nameType } = useMemo(() => {
+		// Normalize name for type detection (ENSIP-15 canonical normalization)
+		let normalized: string;
+		try {
+			normalized = normalize(debouncedInput);
+			if (normalized !== debouncedInput) {
+				console.log(`[NameResolution] Input normalized:`, {
+					original: debouncedInput,
+					normalized,
+				});
+			}
+		} catch (error) {
+			// If normalization fails, fall back to lowercase for basic detection
+			console.warn(`[NameResolution] Normalization failed, using lowercase:`, {
+				input: debouncedInput,
+				error: error instanceof Error ? error.message : String(error),
+			});
+			normalized = debouncedInput.toLowerCase();
+		}
+
+		// Detect name type (check .base.eth before .eth since it also ends with .eth)
+		// Use normalized name for case-insensitive detection
+		const type: NameType = normalized.endsWith(".base.eth")
+			? "basename"
+			: normalized.endsWith(".eth")
+				? "ens"
+				: "unknown";
+
+		if (debouncedInput && type !== "unknown") {
+			console.log(`[NameResolution] Detected name type:`, {
+				input: debouncedInput,
+				normalized,
+				nameType: type,
 			});
 		}
-	} catch (error) {
-		// If normalization fails, fall back to lowercase for basic detection
-		console.warn(`[NameResolution] Normalization failed, using lowercase:`, {
-			input: debouncedInput,
-			error: error instanceof Error ? error.message : String(error),
-		});
-		normalizedForType = debouncedInput.toLowerCase();
-	}
 
-	// Detect name type (check .base.eth before .eth since it also ends with .eth)
-	// Use normalized name for case-insensitive detection
-	const nameType: NameType = normalizedForType.endsWith(".base.eth")
-		? "basename"
-		: normalizedForType.endsWith(".eth")
-			? "ens"
-			: "unknown";
-
-	if (debouncedInput && nameType !== "unknown") {
-		console.log(`[NameResolution] Detected name type:`, {
-			input: debouncedInput,
-			normalized: normalizedForType,
-			nameType,
-		});
-	}
+		return { nameType: type };
+	}, [debouncedInput]);
 
 	// Run appropriate query based on name type
 	const ensQuery = useEnsAddressQuery({
@@ -84,7 +98,7 @@ export function useDebouncedNameResolution(
 		enabled: nameType === "basename",
 	});
 
-	// Return appropriate query results
+	// Return appropriate query results with stabilized loading state
 	if (nameType === "ens") {
 		const ensAddress =
 			ensQuery.data?.ok === true &&
@@ -93,9 +107,19 @@ export function useDebouncedNameResolution(
 				? ensQuery.data.address
 				: null;
 		const error = ensQuery.data?.ok === false ? ensQuery.data.error : null;
+		const hasResult = ensQuery.data !== undefined;
+		const isLoading = ensQuery.isLoading;
+
+		// Stabilize loading state: once we start loading, keep showing it until we have a result
+		if (isLoading && !hasStartedLoading.current) {
+			hasStartedLoading.current = true;
+		}
+		const stabilizedIsLoading =
+			hasStartedLoading.current && !hasResult && !error;
+
 		return {
 			address: ensAddress,
-			isLoading: ensQuery.isLoading,
+			isLoading: stabilizedIsLoading,
 			error,
 			nameType,
 		};
@@ -110,15 +134,26 @@ export function useDebouncedNameResolution(
 				: null;
 		const error =
 			basenameQuery.data?.ok === false ? basenameQuery.data.error : null;
+		const hasResult = basenameQuery.data !== undefined;
+		const isLoading = basenameQuery.isLoading;
+
+		// Stabilize loading state: once we start loading, keep showing it until we have a result
+		if (isLoading && !hasStartedLoading.current) {
+			hasStartedLoading.current = true;
+		}
+		const stabilizedIsLoading =
+			hasStartedLoading.current && !hasResult && !error;
+
 		return {
 			address: basenameAddress,
-			isLoading: basenameQuery.isLoading,
+			isLoading: stabilizedIsLoading,
 			error,
 			nameType,
 		};
 	}
 
-	// Unknown name type
+	// Unknown name type - reset loading state
+	hasStartedLoading.current = false;
 	return {
 		address: null,
 		isLoading: false,

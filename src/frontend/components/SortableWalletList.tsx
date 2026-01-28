@@ -27,14 +27,15 @@ export const SortableWalletList: FC<SortableWalletListProps> = ({
 	copiedText,
 }) => {
 	// Extract wallet IDs for SortableContext
-	const walletIds = wallets.map((wallet) => wallet.id);
+	// Defensive: handle undefined/null wallets
+	const walletIds = (wallets ?? []).map((wallet) => wallet.id);
 
 	// Handle drag end event
 	const handleDragEnd = (event: DragEndEvent) => {
 		const { active, over } = event;
 
 		// Only reorder if dropped on a different wallet
-		if (over && active.id !== over.id) {
+		if (over && active.id !== over.id && wallets) {
 			const oldIndex = wallets.findIndex((w) => w.id === active.id);
 			const newIndex = wallets.findIndex((w) => w.id === over.id);
 
@@ -46,9 +47,12 @@ export const SortableWalletList: FC<SortableWalletListProps> = ({
 
 	return (
 		<DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-			<SortableContext items={walletIds} strategy={verticalListSortingStrategy}>
+			<SortableContext
+				items={walletIds ?? []}
+				strategy={verticalListSortingStrategy}
+			>
 				<div className="space-y-4">
-					{wallets.map((row) => (
+					{(wallets ?? []).map((row) => (
 						<SortableWalletCard
 							key={row.id}
 							id={row.id}

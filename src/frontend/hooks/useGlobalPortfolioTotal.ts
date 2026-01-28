@@ -14,6 +14,7 @@ import { useTokenStore } from "~/providers/tokenStore";
 
 interface UseGlobalPortfolioTotalOptions {
 	readonly addresses: ReadonlyArray<string>;
+	readonly filterMap?: ReadonlyMap<string, boolean>;
 }
 
 /**
@@ -25,7 +26,13 @@ interface UseGlobalPortfolioTotalOptions {
  */
 export const useGlobalPortfolioTotal = ({
 	addresses,
+	filterMap,
 }: UseGlobalPortfolioTotalOptions): number | null => {
+	// Filter addresses if filterMap is provided (for watch-only toggle)
+	const filteredAddresses = useMemo(() => {
+		if (!filterMap) return addresses;
+		return addresses.filter((addr) => filterMap.get(addr) === true);
+	}, [addresses, filterMap]);
 	const evolu = useEvolu();
 
 	// Read prices directly from Evolu cache (single source of truth)
@@ -47,6 +54,7 @@ export const useGlobalPortfolioTotal = ({
 	const tronTokens = getTokensByChain("tron");
 
 	// Create all individual queries upfront (stable across renders)
+	// Use addresses (not filteredAddresses) to maintain stable query count
 	const nativeBalanceQueries = useMemo(() => {
 		return addresses.flatMap((address) => {
 			const addressType = discriminateAddressType(address);
@@ -110,10 +118,16 @@ export const useGlobalPortfolioTotal = ({
 		});
 	}, [addresses, tronTokens, evolu]);
 
-	// Use useQueries to get all results reactively (follows Rules of Hooks)
-	const nativeBalances = useQueries(nativeBalanceQueries);
-	const erc20Balances = useQueries(erc20BalanceQueries);
-	const trc20Balances = useQueries(trc20BalanceQueries);
+	// Ensure arrays are always defined (useMemo should always return arrays, but defensive)
+	// Must always call useQueries unconditionally (Rules of Hooks)
+	const nativeQueries = nativeBalanceQueries ?? [];
+	const erc20Queries = erc20BalanceQueries ?? [];
+	const trc20Queries = trc20BalanceQueries ?? [];
+
+	// Always call useQueries - Evolu requires stable query count, but we handle empty arrays
+	const nativeBalances = useQueries(nativeQueries);
+	const erc20Balances = useQueries(erc20Queries);
+	const trc20Balances = useQueries(trc20Queries);
 
 	// Create configs for processing (used for token metadata lookup)
 	const tokenBalanceConfigs = useMemo(() => {
@@ -174,57 +188,74 @@ export const useGlobalPortfolioTotal = ({
 
 	// Calculate total directly from cache (reactive - no useMemo needed)
 	// This recalculates automatically when any cache value changes
-	if (!prices) return null;
+	// Early return if no prices or no filtered addresses
+	if (!prices || filteredAddresses.length === 0) return null;
 
 	let total = 0;
-	let nativeIndex = 0;
 
-	// Process native balances
+	// Process native balances - iterate filtered addresses but use full index
+	// We need to map filtered addresses back to their position in the full addresses array
+	const addressToIndex = new Map<string, number>();
+	let currentIndex = 0;
 	for (const address of addresses) {
 		const addressType = discriminateAddressType(address);
+		addressToIndex.set(address, currentIndex);
+		if (addressType.type === "evm") {
+			currentIndex += 2; // ETH + Base
+		} else if (addressType.type === "tron") {
+			currentIndex += 1; // TRX
+		}
+	}
+
+	// Process native balances for filtered addresses only
+	for (const address of filteredAddresses) {
+		const addressType = discriminateAddressType(address);
+		const index = addressToIndex.get(address);
+		if (index === undefined) continue;
 
 		if (addressType.type === "evm") {
 			// ETH balance
-			const ethCache = nativeBalances[nativeIndex]?.[0];
+			const ethCache = nativeBalances[index]?.[0];
 			if (ethCache?.balanceRaw && typeof ethCache.balanceRaw === "string") {
 				const ethBalanceValue = rawToAmount(ethCache.balanceRaw, 18);
 				if (prices.ethereum) {
 					total += calculateTokenUsd(ethBalanceValue, prices.ethereum.usd);
 				}
 			}
-			nativeIndex++;
 
 			// Base ETH balance
-			const baseCache = nativeBalances[nativeIndex]?.[0];
+			const baseCache = nativeBalances[index + 1]?.[0];
 			if (baseCache?.balanceRaw && typeof baseCache.balanceRaw === "string") {
 				const baseBalanceValue = rawToAmount(baseCache.balanceRaw, 18);
 				if (prices.ethereum) {
 					total += calculateTokenUsd(baseBalanceValue, prices.ethereum.usd);
 				}
 			}
-			nativeIndex++;
 		} else if (addressType.type === "tron") {
 			// TRX balance
-			const trxCache = nativeBalances[nativeIndex]?.[0];
+			const trxCache = nativeBalances[index]?.[0];
 			if (trxCache?.balanceRaw && typeof trxCache.balanceRaw === "string") {
 				const trxBalanceValue = rawToAmount(trxCache.balanceRaw, 6);
 				if (prices.tron) {
 					total += calculateTokenUsd(trxBalanceValue, prices.tron.usd);
 				}
 			}
-			nativeIndex++;
 		}
 	}
 
-	// Process ERC20 balances
+	// Process ERC20 balances - only for filtered addresses
+	const filteredAddressSet = new Set(filteredAddresses);
 	for (let i = 0; i < erc20Balances.length; i++) {
 		const cache = erc20Balances[i]?.[0];
 		const config = tokenBalanceConfigs[i];
 		const balanceRaw = cache?.balanceRaw;
+		// Only process if address is in filtered set
 		if (
 			balanceRaw &&
 			typeof balanceRaw === "string" &&
 			config?.token &&
+			config?.address &&
+			filteredAddressSet.has(config.address) &&
 			prices[config.token.id]
 		) {
 			const decimals = getTokenDecimals(
@@ -236,16 +267,19 @@ export const useGlobalPortfolioTotal = ({
 		}
 	}
 
-	// Process TRC20 balances
+	// Process TRC20 balances - only for filtered addresses
 	for (let i = 0; i < trc20Balances.length; i++) {
 		const cache = trc20Balances[i]?.[0];
 		const config = trc20BalanceConfigs[i];
 		const balanceRaw = cache?.balanceRaw;
 		// TRC20 stores balanceFormatted as balanceRaw in cache
+		// Only process if address is in filtered set
 		if (
 			balanceRaw &&
 			typeof balanceRaw === "string" &&
 			config?.token &&
+			config?.address &&
+			filteredAddressSet.has(config.address) &&
 			prices[config.token.id]
 		) {
 			const balanceFormatted = balanceRaw;

@@ -6,11 +6,19 @@ import type {
 	TronGasEstimateResult,
 } from "@shared/types";
 import { useQueryClient } from "@tanstack/react-query";
-import { type FC, useEffect, useState } from "react";
+import {
+	type FC,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	useTransition,
+} from "react";
 import toast from "react-hot-toast";
 import { isAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { useLocation } from "wouter";
+import { AddressSafetyBadge } from "~/components/AddressSafetyBadge";
 import { EnsOrAddress } from "~/components/EnsOrAddress";
 import SpringTransition from "~/components/effects/SpringTransition";
 import { QRScannerModal } from "~/components/QRScannerModal";
@@ -20,6 +28,7 @@ import { useBroadcastTronTransactionMutation } from "~/hooks/mutations/useBroadc
 import { useEstimateErc20GasMutation } from "~/hooks/mutations/useEstimateErc20GasMutation";
 import { useEstimateGasMutation } from "~/hooks/mutations/useEstimateGasMutation";
 import { useTronGasEstimateMutation } from "~/hooks/mutations/useTronGasEstimateMutation";
+import { useAddressReputationQuery } from "~/hooks/queries/useAddressReputationQuery";
 import {
 	DEFAULT_COIN_IDS,
 	usePricesQuery,
@@ -35,7 +44,12 @@ import {
 } from "~/lib/crypto";
 import { useEvolu } from "~/lib/evolu";
 import { calculateTokenUsd } from "~/lib/portfolioValue";
+import {
+	getBlocklistReason,
+	isAddressBlocklisted,
+} from "~/lib/queries/blocklist";
 import { refreshAddressQueries } from "~/lib/refreshQueries";
+import type { EoaId } from "~/lib/schema";
 import {
 	getTokenAddress,
 	getTokenDecimals,
@@ -58,6 +72,7 @@ interface SendFormProps {
 	readonly encryptedPrivateKey: string;
 	readonly token: CoinGeckoToken;
 	readonly chainId: SupportedChainId;
+	readonly walletId: EoaId;
 }
 
 export const SendForm: FC<SendFormProps> = ({
@@ -66,6 +81,7 @@ export const SendForm: FC<SendFormProps> = ({
 	encryptedPrivateKey,
 	token,
 	chainId,
+	walletId,
 }) => {
 	const [, navigate] = useLocation();
 	const evolu = useEvolu();
@@ -111,31 +127,95 @@ export const SendForm: FC<SendFormProps> = ({
 	const isNative = isNativeToken(token, chainId);
 
 	const [recipientNameInput, setRecipientNameInput] = useState("");
-	const [recipientAddressInput, setRecipientAddressInput] = useState("");
-	const [resolvedAddress, setResolvedAddress] = useState("");
+	const [recipientAddress, setRecipientAddress] = useState("");
+	const [_, startTransition] = useTransition();
+	const [resolutionCommitted, setResolutionCommitted] = useState(false);
 	const [amount, setAmount] = useState("");
 
 	// Debounced name resolution for recipient name field
 	const recipientNameResolution =
 		useDebouncedNameResolution(recipientNameInput);
 
-	// Auto-fill address field when name resolves
-	useEffect(() => {
-		if (recipientNameResolution.address && !recipientAddressInput) {
-			setRecipientAddressInput(recipientNameResolution.address);
-			setResolvedAddress(recipientNameResolution.address);
-		} else if (!recipientNameInput) {
-			// Clear resolved address when name field is cleared
-			setResolvedAddress("");
-		}
-	}, [
-		recipientNameResolution.address,
-		recipientNameInput,
-		recipientAddressInput,
-	]);
+	// Track previous resolved address to detect when name resolution clears
+	const prevResolvedAddressRef = useRef<string | null>(null);
 
-	// Use resolved address if available, otherwise use raw address input
-	const recipient = resolvedAddress || recipientAddressInput;
+	// Auto-fill address field when name resolves (using transition for non-blocking update)
+	useEffect(() => {
+		const currentResolved = recipientNameResolution.address ?? null;
+		const prevResolved = prevResolvedAddressRef.current;
+
+		// When we have a resolved address, update the recipient address
+		if (currentResolved) {
+			startTransition(() => {
+				setRecipientAddress(currentResolved);
+				setResolutionCommitted(true);
+			});
+			prevResolvedAddressRef.current = currentResolved;
+		} else if (prevResolved && !currentResolved && !recipientNameInput) {
+			// Only clear when name resolution address changes from something to nothing
+			// AND name input is empty (user cleared the name field)
+			// This prevents clearing manually pasted addresses
+			startTransition(() => {
+				setRecipientAddress("");
+				setResolutionCommitted(false);
+			});
+			prevResolvedAddressRef.current = null;
+		}
+	}, [recipientNameResolution.address, recipientNameInput]);
+
+	// Use the resolved/maintained address
+	const recipient = recipientAddress;
+
+	// Address safety checks
+	const [showRiskModal, setShowRiskModal] = useState(false);
+	const [isBlocklisted, setIsBlocklisted] = useState(false);
+	const [blocklistReason, setBlocklistReason] = useState<string | null>(null);
+
+	// Check address reputation (only when we have a recipient and resolution is committed)
+	const addressReputationQuery = useAddressReputationQuery({
+		walletId,
+		address: recipient,
+		incomingTxs: [],
+		enabled: !!recipient && isAddress(recipient) && resolutionCommitted,
+	});
+
+	// Check blocklist when recipient changes (only after resolution is committed)
+	useEffect(() => {
+		// Skip if resolution is not yet committed (prevents premature queries during typing)
+		if (!resolutionCommitted) return;
+
+		async function checkBlocklist() {
+			if (recipient && isAddress(recipient)) {
+				const blocked = await isAddressBlocklisted(evolu, recipient);
+				setIsBlocklisted(blocked);
+				if (blocked) {
+					const reason = await getBlocklistReason(evolu, recipient);
+					setBlocklistReason(reason);
+				} else {
+					setBlocklistReason(null);
+				}
+			} else {
+				setIsBlocklisted(false);
+				setBlocklistReason(null);
+			}
+		}
+		checkBlocklist();
+	}, [evolu, recipient, resolutionCommitted]);
+
+	// Combine to determine final safety level
+	const safetyLevel = useMemo(() => {
+		if (!recipient || !isAddress(recipient)) return null;
+
+		// Check blocklist first
+		if (isBlocklisted) return "blocklisted";
+
+		// Check reputation
+		if (addressReputationQuery.data?.safetyLevel) {
+			return addressReputationQuery.data.safetyLevel;
+		}
+
+		return "new";
+	}, [recipient, isBlocklisted, addressReputationQuery.data]);
 
 	const [gasEstimate, setGasEstimate] = useState<
 		GasEstimateResult | TronGasEstimateResult | null
@@ -156,7 +236,8 @@ export const SendForm: FC<SendFormProps> = ({
 			setRecipientNameInput(result.data);
 			toast.success("Name scanned!");
 		} else {
-			setRecipientAddressInput(result.data);
+			setRecipientAddress(result.data);
+			setResolutionCommitted(true);
 			if (result.type === "evm") {
 				toast.success("EVM address scanned successfully!");
 			} else if (result.type === "tron") {
@@ -243,8 +324,23 @@ export const SendForm: FC<SendFormProps> = ({
 		}
 	};
 
-	// Sign and send transaction
+	// Sign and send transaction (checks safety level first)
 	const sendTransaction = async () => {
+		if (!gasEstimate?.ok) return;
+
+		// Check if address is risky and show modal
+		if (safetyLevel === "blocklisted" || safetyLevel === "new") {
+			setShowRiskModal(true);
+			setIsSending(false);
+			return;
+		}
+
+		// Safe address - execute directly
+		await executeTransaction();
+	};
+
+	// Execute the actual transaction (called from sendTransaction or modal)
+	const executeTransaction = async () => {
 		if (!gasEstimate?.ok) return;
 
 		setIsSending(true);
@@ -306,6 +402,29 @@ export const SendForm: FC<SendFormProps> = ({
 						refreshAddressQueries(queryClient, address),
 						refreshAddressQueries(queryClient, recipient),
 					]);
+
+					// Save transaction to Evolu database for address safety tracking
+					evolu.insert("transaction", {
+						walletId: walletId,
+						txHash: result.txHash,
+						from: address,
+						to: recipient,
+						value: amountRaw,
+						gasUsed: null, // Will be updated when confirmed
+						maxFeePerGas: "0", // Tron doesn't use EIP-1559 gas
+						chainId: "tron",
+						status: "pending",
+						confirmedAt: null,
+					});
+
+					// Create statement for portfolio tracking
+					evolu.insert("statement", {
+						eoaId: walletId,
+						chainId: "tron",
+						amount: Number.parseFloat(amount) * -1,
+						currency: token.symbol.toUpperCase(),
+						timestamp: new Date().toISOString(),
+					});
 
 					toast.success("Transaction submitted!");
 
@@ -372,9 +491,28 @@ export const SendForm: FC<SendFormProps> = ({
 						refreshAddressQueries(queryClient, recipient),
 					]);
 
-					// Save transaction to Evolu database
-					// Note: Skipped for now due to type issues
-					// Transaction will be tracked on blockchain
+					// Save transaction to Evolu database for address safety tracking
+					evolu.insert("transaction", {
+						walletId: walletId,
+						txHash: result.txHash,
+						from: address,
+						to: recipient,
+						value: amountRaw,
+						gasUsed: null, // Will be updated when confirmed
+						maxFeePerGas: gasEstimate.maxFeePerGas,
+						chainId: chainId.toString(),
+						status: "pending",
+						confirmedAt: null,
+					});
+
+					// Create statement for portfolio tracking
+					evolu.insert("statement", {
+						eoaId: walletId,
+						chainId: chainId.toString(),
+						amount: Number.parseFloat(amount) * -1,
+						currency: token.symbol.toUpperCase(),
+						timestamp: new Date().toISOString(),
+					});
 
 					toast.success("Transaction submitted!");
 
@@ -489,6 +627,20 @@ export const SendForm: FC<SendFormProps> = ({
 										<EnsOrAddress address={recipient} />
 									</span>
 								</div>
+
+								{/* Address Safety Badge */}
+								{safetyLevel && (
+									<div className="flex justify-between items-start">
+										<span className="opacity-70">Safety:</span>
+										<AddressSafetyBadge
+											safetyLevel={safetyLevel}
+											interactionCount={
+												addressReputationQuery.data?.interactionCount
+											}
+											blocklistReason={blocklistReason}
+										/>
+									</div>
+								)}
 
 								{/* Amount */}
 								<div className="flex justify-between items-start">
@@ -631,13 +783,11 @@ export const SendForm: FC<SendFormProps> = ({
 					type="text"
 					className="input input-bordered font-mono"
 					placeholder="0x... for EVM or T... for Tron"
-					value={recipientAddressInput}
+					value={recipientAddress}
 					onChange={(e) => {
-						setRecipientAddressInput(e.target.value);
-						// Clear resolved address if user manually edits the address field
-						if (e.target.value !== resolvedAddress) {
-							setResolvedAddress("");
-						}
+						setRecipientAddress(e.target.value);
+						// Mark resolution as committed when user manually edits
+						setResolutionCommitted(true);
 					}}
 					disabled={isSending}
 					autoComplete="off"
@@ -734,6 +884,55 @@ export const SendForm: FC<SendFormProps> = ({
 				onClose={() => setShowQRScanner(false)}
 				onScanSuccess={handleQRScanSuccess}
 			/>
+
+			{/* Risk Confirmation Modal */}
+			{showRiskModal && safetyLevel && (
+				<dialog className="modal modal-open">
+					<div className="modal-box">
+						<h3 className="font-bold text-lg flex items-center gap-2">
+							<i
+								className={`fa-solid ${safetyLevel === "blocklisted" ? "fa-triangle-exclamation text-error" : "fa-circle-exclamation text-warning"}`}
+							/>
+							{safetyLevel === "blocklisted"
+								? "Blocklisted Address"
+								: "New Address Warning"}
+						</h3>
+						<p className="py-4">
+							{safetyLevel === "blocklisted"
+								? `This address is on your blocklist. ${blocklistReason ?? ""}`
+								: "You haven't interacted with this address before. Please verify the recipient address carefully."}
+						</p>
+						<div className="alert alert-warning mb-4">
+							<i className="fa-solid fa-circle-info" />
+							<span className="text-sm font-mono break-all">{recipient}</span>
+						</div>
+						<div className="modal-action">
+							<button
+								type="button"
+								className="btn btn-ghost"
+								onClick={() => setShowRiskModal(false)}
+							>
+								Cancel
+							</button>
+							<button
+								type="button"
+								className="btn btn-error"
+								onClick={() => {
+									setShowRiskModal(false);
+									executeTransaction();
+								}}
+							>
+								I understand, proceed
+							</button>
+						</div>
+					</div>
+					<form method="dialog" className="modal-backdrop">
+						<button type="button" onClick={() => setShowRiskModal(false)}>
+							Close
+						</button>
+					</form>
+				</dialog>
+			)}
 		</div>
 	);
 };
