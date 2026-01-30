@@ -1,3 +1,4 @@
+# Secrets only. Public config (NAME, ETHEREUM_RPC_URL, BASE_RPC_URL, TRONGRID_API_URL) is in wrangler.jsonc
 SECRET=this is a secret
 COINGECKO_API_KEY=XXXX
 ETHERSCAN_API_KEY=XXXX

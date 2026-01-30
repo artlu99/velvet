@@ -2,6 +2,7 @@ import { Mnemonic } from "@evolu/common";
 import { featureFlags } from "@shared/feature-flags";
 import { use, useState } from "react";
 import { useClipboardWithTimeout } from "~/hooks/useClipboardWithTimeout";
+import { ENS_WSS_URLS } from "~/lib/constants";
 import { formatTypeError, useEvolu } from "~/lib/evolu";
 import { CLIPBOARD_TIMEOUT_MS } from "~/lib/helpers";
 
@@ -248,6 +249,32 @@ export const DataActions = () => {
 								/>
 							</div>
 						)}
+					</div>
+				</div>
+			</div>
+
+			{/* RPC Settings Card */}
+			<div className="card bg-base-100 shadow-xl">
+				<div className="card-body">
+					<div className="alert alert-info mb-6">
+						<i className="fa-solid fa-info-circle" />
+						<div>
+							<p className="text-sm">
+								Ethereum mainnet WSS endpoints used for ENS/Basename in the
+								browser. Backend RPCs (Ethereum, Base, Trongrid) are in{" "}
+								<code>wrangler.jsonc</code>.
+							</p>
+						</div>
+					</div>
+					<div className="card bg-base-200">
+						<div className="card-body">
+							<h3 className="card-title">ENS / Basename (client)</h3>
+							<p className="text-sm opacity-70">
+								{ENS_WSS_URLS.map((url) => (
+									<div key={url}>{url}</div>
+								))}
+							</p>
+						</div>
 					</div>
 				</div>
 			</div>

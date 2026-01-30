@@ -103,16 +103,34 @@ export async function withCache<T, E extends Cloudflare.Env = Cloudflare.Env>(
 	// Set cache header to indicate status
 	setCacheHeader(c, options.headerName, status);
 
-	// Return cached value if available
+	// Return cached value if available and it's not an error
+	// Skip cached errors to allow retry logic to work properly
 	if (cached !== null && status !== "bypass") {
-		return cached;
+		// Check if cached value is an error (has ok: false)
+		const isCachedError =
+			typeof cached === "object" &&
+			cached !== null &&
+			"ok" in cached &&
+			cached.ok === false;
+
+		if (!isCachedError) {
+			return cached;
+		}
+		// If cached value is an error, treat as cache miss and fetch fresh data
 	}
 
 	// Fetch fresh data
 	const result = await options.fetcher();
 
-	// Cache the result if not bypassing
-	if (status !== "bypass") {
+	// Cache the result if not bypassing AND it's a successful result (not an error)
+	// Errors should not be cached to allow retry logic to work properly
+	if (
+		status !== "bypass" &&
+		typeof result === "object" &&
+		result !== null &&
+		"ok" in result &&
+		result.ok === true
+	) {
 		await setCached(c.env.BALANCE_CACHE, options.cacheKey, result, options.ttl);
 	}
 

@@ -1,16 +1,15 @@
 import { useQueryClient } from "@tanstack/react-query";
 import type { FC } from "react";
 import { TokenLogo } from "~/components/TokenLogo";
-import { usePersistedBalanceQuery } from "~/hooks/queries/usePersistedBalanceQuery";
+import { useBalanceQuery } from "~/hooks/queries/useBalanceQuery";
+import { useErc20BalanceQuery } from "~/hooks/queries/useErc20BalanceQuery";
 import {
 	DEFAULT_COIN_IDS,
-	usePersistedPricesQuery,
-} from "~/hooks/queries/usePersistedPricesQuery";
-import {
-	usePersistedErc20BalanceQuery,
-	usePersistedTrc20BalanceQuery,
-	usePersistedTronBalanceQuery,
-} from "~/hooks/queries/usePersistedTokenBalanceQuery";
+	usePricesQuery,
+} from "~/hooks/queries/usePricesQuery";
+import { useTrc20BalanceQuery } from "~/hooks/queries/useTrc20BalanceQuery";
+import { useTronBalanceQuery } from "~/hooks/queries/useTronBalanceQuery";
+import { useGlobalPortfolioTotal } from "~/hooks/useGlobalPortfolioTotal";
 import { discriminateAddressType } from "~/lib/crypto";
 import {
 	formatPriceAge,
@@ -45,15 +44,15 @@ interface WalletTotalDisplayProps {
 	readonly relevantChains: ReadonlyArray<(typeof CHAINS)[number]>;
 }
 
-const WalletTotalDisplay: FC<WalletTotalDisplayProps> = () => {
-	// Fetch prices for all tokens using persisted hook
-	const { data: pricesData, cached: cachedPrices } = usePersistedPricesQuery({
+const WalletTotalDisplay: FC<WalletTotalDisplayProps> = ({
+	address,
+	relevantChains: _relevantChains,
+}) => {
+	const walletTotalUsd = useGlobalPortfolioTotal({ addresses: [address] });
+
+	const { data: pricesData } = usePricesQuery({
 		coinIds: DEFAULT_COIN_IDS,
 	});
-
-	// Calculate wallet total with useMemo to prevent recalculation on every render
-	// We depend on the actual query data objects, not the arrays
-	const walletTotalUsd = 0;
 
 	return (
 		<div className="text-xs opacity-70 font-mono tabular-nums">
@@ -64,9 +63,7 @@ const WalletTotalDisplay: FC<WalletTotalDisplayProps> = () => {
 						const timestamp =
 							pricesData?.ok && pricesData.timestamp
 								? pricesData.timestamp
-								: cachedPrices?.updatedAt
-									? new Date(cachedPrices.updatedAt).getTime()
-									: null;
+								: null;
 						return timestamp !== null ? (
 							<span className="ml-2 opacity-60">
 								{formatPriceAge(timestamp)}
@@ -138,26 +135,21 @@ interface ChainBalanceProps {
 const ChainBalance: FC<ChainBalanceProps> = ({ address, chainId, name }) => {
 	const queryClient = useQueryClient();
 	// Use persisted balance hook for stale-while-revalidate pattern
-	const { data, cached, isLoading, isStale, error } = usePersistedBalanceQuery({
+	const { data, isLoading, isStale, error } = useBalanceQuery({
 		address,
 		chainId,
 	});
 
 	// Fetch prices with persistence (shared query, deduplicated by React Query)
-	const {
-		data: pricesData,
-		cached: cachedPrices,
-		isStale: pricesStale,
-	} = usePersistedPricesQuery({
+	const { data: pricesData, isStale: pricesStale } = usePricesQuery({
 		coinIds: DEFAULT_COIN_IDS,
-		enabled: data?.ok === true || cached !== null,
+		enabled: data?.ok === true,
 	});
 
-	// Use fresh prices if available, otherwise cached
-	const prices = pricesData?.ok ? pricesData.prices : cachedPrices?.prices;
+	const prices = pricesData?.ok ? pricesData.prices : null;
 
 	// Show loading only if no cached data AND still loading from API
-	if (isLoading && !cached) {
+	if (isLoading) {
 		return (
 			<div className="flex items-center gap-2 px-2 py-1">
 				<span className="loading loading-spinner loading-xs" />
@@ -166,7 +158,8 @@ const ChainBalance: FC<ChainBalanceProps> = ({ address, chainId, name }) => {
 		);
 	}
 
-	if (error && !cached) {
+	// If error but no cached data, show error message
+	if (error && !data) {
 		return (
 			<div className="flex items-center gap-2 px-2 py-1 text-xs text-error">
 				{name}: Error
@@ -174,13 +167,9 @@ const ChainBalance: FC<ChainBalanceProps> = ({ address, chainId, name }) => {
 		);
 	}
 
-	// Use fresh data if available, otherwise fall back to cached
-	const balanceEth = data?.ok
-		? data.balanceEth
-		: cached
-			? rawToAmount(cached.balanceRaw, 18)
-			: null;
+	const balanceEth = data?.ok ? data.balanceEth : null;
 
+	// If we have data but it's not ok (e.g., RPC error), show error code
 	if (!balanceEth) {
 		if (data && !data.ok) {
 			return (
@@ -209,7 +198,9 @@ const ChainBalance: FC<ChainBalanceProps> = ({ address, chainId, name }) => {
 			: 1;
 	// If showing cached/stale data, reduce opacity
 	const opacity =
-		(isStale && !data?.ok) || pricesStale ? baseOpacity * 0.7 : baseOpacity;
+		(isStale && !data?.ok) || pricesStale || (error && data?.ok)
+			? baseOpacity * 0.7
+			: baseOpacity;
 
 	return (
 		<>
@@ -242,6 +233,14 @@ const ChainBalance: FC<ChainBalanceProps> = ({ address, chainId, name }) => {
 					{ethUsdValue !== null && (
 						<span className="font-mono tabular-nums text-xs opacity-60 ml-auto shrink-0">
 							${formatUsd.format(ethUsdValue)}
+						</span>
+					)}
+					{error && (
+						<span
+							className="text-xs text-warning opacity-70 shrink-0"
+							title="Error fetching data, showing cached value"
+						>
+							⚠
 						</span>
 					)}
 				</div>
@@ -295,31 +294,22 @@ const TokenBalance: FC<TokenBalanceProps> = ({
 	token,
 }) => {
 	// Use persisted hook for stale-while-revalidate pattern
-	const {
-		data: erc20Data,
-		cached,
-		isStale,
-	} = usePersistedErc20BalanceQuery({
+	const { data: erc20Data, isStale } = useErc20BalanceQuery({
 		address,
 		contract,
 		chainId,
 	});
 
 	// Fetch prices with persistence
-	const {
-		data: pricesData,
-		cached: cachedPrices,
-		isStale: pricesStale,
-	} = usePersistedPricesQuery({
+	const { data: pricesData, isStale: pricesStale } = usePricesQuery({
 		coinIds: DEFAULT_COIN_IDS,
-		enabled: erc20Data?.ok === true || cached !== null,
+		enabled: erc20Data?.ok === true,
 	});
 
-	const prices = pricesData?.ok ? pricesData.prices : cachedPrices?.prices;
+	const prices = pricesData?.ok ? pricesData.prices : null;
 	const decimals = getTokenDecimals(token, chainId);
 
-	// Use fresh data if available, otherwise fall back to cached
-	const balanceRaw = erc20Data?.ok ? erc20Data.balanceRaw : cached?.balanceRaw;
+	const balanceRaw = erc20Data?.ok ? erc20Data.balanceRaw : null;
 
 	if (!balanceRaw) {
 		return null;
@@ -385,29 +375,25 @@ const TronChainBalance: FC<TronChainBalanceProps> = ({ address, name }) => {
 	// Use persisted hook for stale-while-revalidate pattern
 	const {
 		data: trxData,
-		cached,
 		isLoading,
 		isStale,
-	} = usePersistedTronBalanceQuery({
+		error,
+	} = useTronBalanceQuery({
 		address,
 	});
 
-	// Fetch prices with persistence
-	const {
-		data: pricesData,
-		cached: cachedPrices,
-		isStale: pricesStale,
-	} = usePersistedPricesQuery({
+	// Fetch prices
+	const { data: pricesData, isStale: pricesStale } = usePricesQuery({
 		coinIds: DEFAULT_COIN_IDS,
-		enabled: trxData?.ok === true || cached !== null,
+		enabled: trxData?.ok === true,
 	});
 
-	const prices = pricesData?.ok ? pricesData.prices : cachedPrices?.prices;
+	const prices = pricesData?.ok ? pricesData.prices : null;
 	const getTokensByChain = useTokenStore((state) => state.getTokensByChain);
 	const tokens = getTokensByChain("tron");
 
 	// Show loading only if no cached data
-	if (isLoading && !cached) {
+	if (isLoading) {
 		return (
 			<div className="flex items-center gap-2 px-2 py-1">
 				<span className="loading loading-spinner loading-xs" />
@@ -416,12 +402,16 @@ const TronChainBalance: FC<TronChainBalanceProps> = ({ address, name }) => {
 		);
 	}
 
-	// Use fresh data if available, otherwise convert cached (stored as Sun)
-	const balanceTrx = trxData?.ok
-		? trxData.balanceTrx
-		: cached?.balanceRaw
-			? rawToAmount(cached.balanceRaw, 6) // TRX has 6 decimals
-			: null;
+	// If error but no cached data, show error message
+	if (error && !trxData) {
+		return (
+			<div className="flex items-center gap-2 px-2 py-1 text-xs text-error">
+				{name}: Error
+			</div>
+		);
+	}
+
+	const balanceTrx = trxData?.ok ? trxData.balanceTrx : null;
 
 	const formattedTrxBalance = (() => {
 		if (!balanceTrx) return null;
@@ -441,7 +431,9 @@ const TronChainBalance: FC<TronChainBalanceProps> = ({ address, name }) => {
 			? getPriceOpacity(pricesData.timestamp)
 			: 1;
 	const opacity =
-		(isStale && !trxData?.ok) || pricesStale ? baseOpacity * 0.7 : baseOpacity;
+		(isStale && !trxData?.ok) || pricesStale || (error && trxData?.ok)
+			? baseOpacity * 0.7
+			: baseOpacity;
 
 	return (
 		<>
@@ -476,6 +468,14 @@ const TronChainBalance: FC<TronChainBalanceProps> = ({ address, name }) => {
 							${formatUsd.format(trxUsdValue)}
 						</span>
 					)}
+					{error && formattedTrxBalance && (
+						<span
+							className="text-xs text-warning opacity-70 shrink-0"
+							title="Error fetching data, showing cached value"
+						>
+							⚠
+						</span>
+					)}
 				</div>
 			</button>
 			{tokens.map((token) => {
@@ -507,32 +507,20 @@ const TronTokenBalance: FC<TronTokenBalanceProps> = ({
 	token,
 }) => {
 	// Use persisted hook for stale-while-revalidate pattern
-	const {
-		data: trc20Data,
-		cached,
-		isStale,
-	} = usePersistedTrc20BalanceQuery({
+	const { data: trc20Data, isStale } = useTrc20BalanceQuery({
 		address,
 		contract,
 	});
 
-	// Fetch prices with persistence
-	const {
-		data: pricesData,
-		cached: cachedPrices,
-		isStale: pricesStale,
-	} = usePersistedPricesQuery({
+	// Fetch prices
+	const { data: pricesData, isStale: pricesStale } = usePricesQuery({
 		coinIds: DEFAULT_COIN_IDS,
-		enabled: trc20Data?.ok === true || cached !== null,
+		enabled: trc20Data?.ok === true,
 	});
 
-	const prices = pricesData?.ok ? pricesData.prices : cachedPrices?.prices;
+	const prices = pricesData?.ok ? pricesData.prices : null;
 
-	// Use fresh data if available, otherwise fall back to cached
-	// TRC20 stores balanceFormatted as balanceRaw in cache
-	const balanceFormatted = trc20Data?.ok
-		? trc20Data.balanceFormatted
-		: cached?.balanceRaw;
+	const balanceFormatted = trc20Data?.ok ? trc20Data.balanceFormatted : null;
 
 	if (!balanceFormatted) {
 		return null;

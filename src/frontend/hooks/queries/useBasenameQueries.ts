@@ -1,21 +1,13 @@
-import { useQuery as useEvoluQuery } from "@evolu/react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import invariant from "tiny-invariant";
-import { createPublicClient, http, isAddress } from "viem";
+import { createPublicClient, fallback, isAddress, webSocket } from "viem";
 import { base, mainnet } from "viem/chains";
 import { normalize, toCoinType } from "viem/ens";
-import { useEvolu } from "~/lib/evolu";
-import {
-	createBasenameAddressCacheQuery,
-	createBasenameCacheQuery,
-	isNameCacheStale,
-	upsertBasenameAddressCache,
-	upsertBasenameCache,
-} from "~/lib/queries/cache";
+import { ENS_WSS_URLS } from "~/lib/constants";
 
 // Basenames resolution uses Ethereum mainnet with Base coinType
 // See: https://docs.base.org/base-account/framework-integrations/wagmi/basenames
-const BASENAME_RESOLUTION_RPC_URL = "https://eth.llamarpc.com";
+// WSS transport avoids CORS when calling RPC from the browser.
 
 let basenameClient: ReturnType<typeof createPublicClient> | null = null;
 
@@ -23,7 +15,7 @@ function getBasenameClient() {
 	if (!basenameClient) {
 		basenameClient = createPublicClient({
 			chain: mainnet,
-			transport: http(BASENAME_RESOLUTION_RPC_URL),
+			transport: fallback(ENS_WSS_URLS.map((url) => webSocket(url))),
 		});
 	}
 	invariant(basenameClient, "Basename client not initialized");
@@ -44,18 +36,7 @@ export const useBasenameQuery = ({
 	address,
 	enabled = true,
 }: UseBasenameQueryOptions) => {
-	const evolu = useEvolu();
-	const queryClient = useQueryClient();
-
-	// Get cached Basename from Evolu
-	const cachedRows = useEvoluQuery(createBasenameCacheQuery(evolu, address));
-	const cached = cachedRows[0];
-	const updatedAtStr =
-		cached && typeof cached.updatedAt === "string" ? cached.updatedAt : null;
-	const isStale = cached ? isNameCacheStale(updatedAtStr) : true;
-
-	// Main query: fetches fresh data (only if no cache or stale)
-	const freshQuery = useQuery({
+	return useQuery({
 		queryKey: ["basename", address],
 		queryFn: async () => {
 			try {
@@ -63,12 +44,6 @@ export const useBasenameQuery = ({
 				const basename = await client.getEnsName({
 					address: address as `0x${string}`,
 					coinType: toCoinType(base.id),
-				});
-
-				// Cache the result
-				await upsertBasenameCache(evolu, {
-					address,
-					basename,
 				});
 
 				return {
@@ -86,72 +61,11 @@ export const useBasenameQuery = ({
 			}
 		},
 		// Basenames only work for EVM addresses, disable for Tron (base58)
-		enabled:
-			enabled &&
-			Boolean(address) &&
-			isAddress(address as `0x${string}`) &&
-			isStale,
+		enabled: enabled && Boolean(address) && isAddress(address as `0x${string}`),
 		staleTime: 1000 * 60 * 60 * 24, // 24 hours - trust our cache more
 		gcTime: 1000 * 60 * 60 * 24 * 7, // Keep in memory for 7 days
 		retry: 1,
 	});
-
-	// Background refresh: if cache is stale, start a refresh but don't block on it
-	useQuery({
-		queryKey: ["basename", "refresh", address],
-		queryFn: async () => {
-			console.log(`[Basename] Background refresh:`, { address });
-			const client = getBasenameClient();
-			const basename = await client.getEnsName({
-				address: address as `0x${string}`,
-				coinType: toCoinType(base.id),
-			});
-
-			// Update cache in background
-			await upsertBasenameCache(evolu, {
-				address,
-				basename,
-			});
-
-			// Invalidate main query to trigger re-render with fresh data
-			queryClient.invalidateQueries({ queryKey: ["basename", address] });
-
-			return {
-				ok: true,
-				address,
-				basename,
-				timestamp: Date.now(),
-			} as const;
-		},
-		enabled:
-			enabled &&
-			Boolean(address) &&
-			isAddress(address as `0x${string}`) &&
-			cached &&
-			!isStale,
-		staleTime: 1000 * 60 * 60 * 24, // 24 hours
-		retry: 1,
-	});
-
-	// Return cached data as query-like object if fresh
-	if (cached && !isStale && updatedAtStr) {
-		const basename =
-			cached.basename && typeof cached.basename === "string"
-				? cached.basename
-				: null;
-		return {
-			data: {
-				ok: true,
-				address,
-				basename,
-				timestamp: new Date(updatedAtStr).getTime(),
-			} as const,
-			isLoading: false,
-		} as const;
-	}
-
-	// Otherwise return the fresh query
-	return freshQuery;
 };
 
 interface UseBasenameAddressQueryOptions {
@@ -168,9 +82,6 @@ export const useBasenameAddressQuery = ({
 	name,
 	enabled = true,
 }: UseBasenameAddressQueryOptions) => {
-	const evolu = useEvolu();
-	const queryClient = useQueryClient();
-
 	// Normalize name using viem's ENSIP-15 canonical normalization
 	let normalizedName: string;
 	try {
@@ -190,29 +101,7 @@ export const useBasenameAddressQuery = ({
 		normalizedName = name.toLowerCase();
 	}
 
-	// Get cached address from Evolu
-	const cachedRows = useEvoluQuery(
-		createBasenameAddressCacheQuery(evolu, normalizedName),
-	);
-	const cached = cachedRows[0];
-	const updatedAtStr =
-		cached && typeof cached.updatedAt === "string" ? cached.updatedAt : null;
-	const isStale = cached ? isNameCacheStale(updatedAtStr) : true;
-
-	if (cached) {
-		console.log(
-			`[Basename] Forward lookup cache ${isStale ? "stale" : "fresh"}:`,
-			{
-				name,
-				normalizedName,
-				cachedAddress: cached.address,
-				updatedAt: cached.updatedAt,
-			},
-		);
-	}
-
-	// Main query: fetches fresh data (only if no cache or stale)
-	const freshQuery = useQuery({
+	return useQuery({
 		queryKey: ["basenameAddress", normalizedName],
 		queryFn: async () => {
 			console.log(`[Basename] Starting forward lookup:`, {
@@ -245,7 +134,7 @@ export const useBasenameAddressQuery = ({
 				const client = getBasenameClient();
 				console.log(`[Basename] Calling RPC getEnsAddress:`, {
 					name: normalizedName,
-					rpcUrl: BASENAME_RESOLUTION_RPC_URL,
+					rpcUrl: "fallback-providers",
 					chain: "mainnet",
 					coinType: toCoinType(base.id),
 				});
@@ -259,12 +148,6 @@ export const useBasenameAddressQuery = ({
 				});
 
 				const duration = Date.now() - startTime;
-
-				// Cache the result (even null results are cached)
-				await upsertBasenameAddressCache(evolu, {
-					name: normalizedName,
-					address,
-				});
 
 				// If address is null, the name exists but has no resolver or no address set
 				if (!address) {
@@ -304,98 +187,9 @@ export const useBasenameAddressQuery = ({
 			}
 		},
 		// Only enable query if name looks like Basename (basic format check)
-		enabled:
-			enabled &&
-			Boolean(name) &&
-			normalizedName.endsWith(".base.eth") &&
-			isStale,
+		enabled: enabled && Boolean(name) && normalizedName.endsWith(".base.eth"),
 		staleTime: 1000 * 60 * 60 * 24, // 24 hours - trust our cache more
 		gcTime: 1000 * 60 * 60 * 24 * 7, // Keep in memory for 7 days
 		retry: 1,
 	});
-
-	// Background refresh: if cache is stale, start a refresh but don't block on it
-	useQuery({
-		queryKey: ["basenameAddress", "refresh", normalizedName],
-		queryFn: async () => {
-			console.log(`[Basename] Background refresh:`, { name, normalizedName });
-			const client = getBasenameClient();
-
-			const address = await client.getEnsAddress({
-				name: normalizedName,
-				coinType: toCoinType(base.id),
-			});
-
-			console.log(`[Basename] Background refresh complete:`, {
-				name: normalizedName,
-				address,
-			});
-
-			// Update cache in background
-			await upsertBasenameAddressCache(evolu, {
-				name: normalizedName,
-				address,
-			});
-
-			// Invalidate main query to trigger re-render with fresh data
-			queryClient.invalidateQueries({
-				queryKey: ["basenameAddress", normalizedName],
-			});
-
-			// Return the result (error handling for background refresh)
-			if (!address) {
-				return {
-					ok: false,
-					error: `Basename "${normalizedName}" does not resolve to an address.`,
-					code: "NAME_NOT_FOUND",
-				} as const;
-			}
-
-			return {
-				ok: true,
-				name: normalizedName,
-				address,
-				timestamp: Date.now(),
-			} as const;
-		},
-		enabled:
-			enabled &&
-			Boolean(name) &&
-			normalizedName.endsWith(".base.eth") &&
-			cached &&
-			!isStale,
-		staleTime: 1000 * 60 * 60 * 24, // 24 hours
-		retry: 1,
-	});
-
-	// Return cached data as query-like object if fresh
-	if (cached && !isStale && updatedAtStr) {
-		const address =
-			cached.address && typeof cached.address === "string"
-				? cached.address
-				: null;
-		if (!address) {
-			return {
-				data: {
-					ok: false,
-					error: `Basename "${normalizedName}" does not resolve to an address.`,
-					code: "NAME_NOT_FOUND",
-				} as const,
-				isLoading: false,
-			} as const;
-		}
-
-		return {
-			data: {
-				ok: true,
-				name: normalizedName,
-				address,
-				timestamp: new Date(updatedAtStr).getTime(),
-			} as const,
-			isLoading: false,
-		} as const;
-	}
-
-	// Otherwise return the fresh query
-	return freshQuery;
 };

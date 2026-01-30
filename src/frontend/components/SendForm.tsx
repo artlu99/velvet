@@ -8,11 +8,11 @@ import type {
 import { useQueryClient } from "@tanstack/react-query";
 import {
 	type FC,
+	useCallback,
 	useEffect,
 	useMemo,
 	useRef,
 	useState,
-	useTransition,
 } from "react";
 import toast from "react-hot-toast";
 import { isAddress } from "viem";
@@ -107,66 +107,76 @@ export const SendForm: FC<SendFormProps> = ({
 
 	const isTron = chainId === "tron";
 
-	// Type guard for EVM gas estimate
-	function isEvmGasEstimate(
-		estimate: GasEstimateResult | TronGasEstimateResult,
-	): estimate is GasEstimateResult {
-		return "gasLimit" in estimate && estimate.ok;
-	}
+	// Type guards (stable, defined once at top level)
+	const isEvmGasEstimate = useCallback(
+		(
+			estimate: GasEstimateResult | TronGasEstimateResult,
+		): estimate is GasEstimateResult => {
+			return "gasLimit" in estimate && estimate.ok;
+		},
+		[],
+	);
 
-	// Type guard for Tron gas estimate
-	function isTronGasEstimate(
-		estimate: GasEstimateResult | TronGasEstimateResult,
-	): estimate is TronGasEstimateResult {
-		return "bandwidthRequired" in estimate && estimate.ok;
-	}
+	const isTronGasEstimate = useCallback(
+		(
+			estimate: GasEstimateResult | TronGasEstimateResult,
+		): estimate is TronGasEstimateResult => {
+			return "bandwidthRequired" in estimate && estimate.ok;
+		},
+		[],
+	);
 
-	// Get token properties
+	// Get token properties (stable calculations)
 	const tokenAddress = getTokenAddress(token, chainId);
 	const decimals = getTokenDecimals(token, chainId);
 	const isNative = isNativeToken(token, chainId);
+	const balanceFormatted = useMemo(
+		() => (isNative ? weiToEth(balance) : rawToAmount(balance, decimals)),
+		[balance, decimals, isNative],
+	);
 
+	// Form state
 	const [recipientNameInput, setRecipientNameInput] = useState("");
 	const [recipientAddress, setRecipientAddress] = useState("");
-	const [_, startTransition] = useTransition();
-	const [resolutionCommitted, setResolutionCommitted] = useState(false);
 	const [amount, setAmount] = useState("");
+	const [gasEstimate, setGasEstimate] = useState<
+		GasEstimateResult | TronGasEstimateResult | null
+	>(null);
+	const [isEstimating, setIsEstimating] = useState(false);
+	const [isSending, setIsSending] = useState(false);
+	const [showQRScanner, setShowQRScanner] = useState(false);
+
+	// Track resolution state with ref to avoid effect loops
+	const resolutionCommittedRef = useRef(false);
+	const prevResolvedAddressRef = useRef<string | null>(null);
 
 	// Debounced name resolution for recipient name field
 	const recipientNameResolution =
 		useDebouncedNameResolution(recipientNameInput);
 
-	// Track previous resolved address to detect when name resolution clears
-	const prevResolvedAddressRef = useRef<string | null>(null);
-
-	// Auto-fill address field when name resolves (using transition for non-blocking update)
+	// Auto-fill address field when name resolves (no dependency on recipientAddress)
 	useEffect(() => {
 		const currentResolved = recipientNameResolution.address ?? null;
 		const prevResolved = prevResolvedAddressRef.current;
 
-		// When we have a resolved address, update the recipient address
-		if (currentResolved) {
-			startTransition(() => {
-				setRecipientAddress(currentResolved);
-				setResolutionCommitted(true);
-			});
+		if (currentResolved && currentResolved !== prevResolved) {
+			// When we have a resolved address, update the recipient address
+			setRecipientAddress(currentResolved);
+			resolutionCommittedRef.current = true;
 			prevResolvedAddressRef.current = currentResolved;
 		} else if (prevResolved && !currentResolved && !recipientNameInput) {
 			// Only clear when name resolution address changes from something to nothing
 			// AND name input is empty (user cleared the name field)
-			// This prevents clearing manually pasted addresses
-			startTransition(() => {
-				setRecipientAddress("");
-				setResolutionCommitted(false);
-			});
+			setRecipientAddress("");
+			resolutionCommittedRef.current = false;
 			prevResolvedAddressRef.current = null;
 		}
 	}, [recipientNameResolution.address, recipientNameInput]);
 
-	// Use the resolved/maintained address
+	// Derived value (no state update, no re-render cascade)
 	const recipient = recipientAddress;
 
-	// Address safety checks
+	// Address safety state
 	const [showRiskModal, setShowRiskModal] = useState(false);
 	const [isBlocklisted, setIsBlocklisted] = useState(false);
 	const [blocklistReason, setBlocklistReason] = useState<string | null>(null);
@@ -176,20 +186,21 @@ export const SendForm: FC<SendFormProps> = ({
 		walletId,
 		address: recipient,
 		incomingTxs: [],
-		enabled: !!recipient && isAddress(recipient) && resolutionCommitted,
+		enabled:
+			!!recipient && isAddress(recipient) && resolutionCommittedRef.current,
 	});
 
 	// Check blocklist when recipient changes (only after resolution is committed)
 	useEffect(() => {
 		// Skip if resolution is not yet committed (prevents premature queries during typing)
-		if (!resolutionCommitted) return;
+		if (!resolutionCommittedRef.current) return;
 
 		async function checkBlocklist() {
 			if (recipient && isAddress(recipient)) {
-				const blocked = await isAddressBlocklisted(evolu, recipient);
+				const blocked = await isAddressBlocklisted(recipient);
 				setIsBlocklisted(blocked);
 				if (blocked) {
-					const reason = await getBlocklistReason(evolu, recipient);
+					const reason = await getBlocklistReason(recipient);
 					setBlocklistReason(reason);
 				} else {
 					setBlocklistReason(null);
@@ -200,9 +211,9 @@ export const SendForm: FC<SendFormProps> = ({
 			}
 		}
 		checkBlocklist();
-	}, [evolu, recipient, resolutionCommitted]);
+	}, [recipient]);
 
-	// Combine to determine final safety level
+	// Safety level (memoized)
 	const safetyLevel = useMemo(() => {
 		if (!recipient || !isAddress(recipient)) return null;
 
@@ -217,15 +228,13 @@ export const SendForm: FC<SendFormProps> = ({
 		return "new";
 	}, [recipient, isBlocklisted, addressReputationQuery.data]);
 
-	const [gasEstimate, setGasEstimate] = useState<
-		GasEstimateResult | TronGasEstimateResult | null
-	>(null);
-	const [isEstimating, setIsEstimating] = useState(false);
-	const [isSending, setIsSending] = useState(false);
-	const [showQRScanner, setShowQRScanner] = useState(false);
+	// Stable callbacks with useCallback
+	const handleRecipientAddressChange = useCallback((value: string) => {
+		setRecipientAddress(value);
+		resolutionCommittedRef.current = true;
+	}, []);
 
-	// Handle QR scan success
-	const handleQRScanSuccess = (scannedData: string) => {
+	const handleQRScanSuccess = useCallback((scannedData: string) => {
 		const result = validateQRScannedData(scannedData);
 		if (!result.ok) {
 			toast.error(result.error);
@@ -237,17 +246,109 @@ export const SendForm: FC<SendFormProps> = ({
 			toast.success("Name scanned!");
 		} else {
 			setRecipientAddress(result.data);
-			setResolutionCommitted(true);
+			resolutionCommittedRef.current = true;
 			if (result.type === "evm") {
 				toast.success("EVM address scanned successfully!");
 			} else if (result.type === "tron") {
 				toast.success("Tron address scanned successfully!");
 			}
 		}
-	};
+	}, []);
 
-	// Estimate gas when recipient or amount changes
-	const estimateGas = async () => {
+	const handleAmountChange = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => {
+			setAmount(e.target.value);
+		},
+		[],
+	);
+
+	const handleSetMax = useCallback(() => {
+		setAmount(balanceFormatted);
+	}, [balanceFormatted]);
+
+	const handleCancelGas = useCallback(() => {
+		setGasEstimate(null);
+	}, []);
+
+	// Memoized calculations to prevent re-renders
+	const amountExceedsBalance = useMemo(() => {
+		return (
+			amount !== "" &&
+			amount !== "0" &&
+			!Number.isNaN(Number.parseFloat(amount)) &&
+			Number.parseFloat(amount) > Number.parseFloat(balanceFormatted)
+		);
+	}, [amount, balanceFormatted]);
+
+	const tokenPrice = useMemo(
+		() =>
+			pricesData?.ok && pricesData.prices[token.id]
+				? pricesData.prices[token.id].usd
+				: null,
+		[pricesData, token.id],
+	);
+
+	const amountUsd = useMemo(
+		() => (tokenPrice && amount ? calculateTokenUsd(amount, tokenPrice) : null),
+		[amount, tokenPrice],
+	);
+
+	const ethPrice = useMemo(
+		() =>
+			pricesData?.ok && pricesData.prices.ethereum
+				? pricesData.prices.ethereum.usd
+				: null,
+		[pricesData],
+	);
+
+	const totalCost = useMemo(() => {
+		if (!gasEstimate?.ok || !amount) return "0";
+
+		if (isTron && isTronGasEstimate(gasEstimate)) {
+			return gasEstimate.totalCostTrx;
+		}
+
+		if (isEvmGasEstimate(gasEstimate)) {
+			return calculateTotalCost(
+				isNative ? ethToWei(amount) : amountToRaw(amount, decimals),
+				gasEstimate.gasLimit,
+				gasEstimate.maxFeePerGas,
+			);
+		}
+
+		return "0";
+	}, [
+		gasEstimate,
+		amount,
+		isTron,
+		isNative,
+		decimals,
+		isEvmGasEstimate,
+		isTronGasEstimate,
+	]);
+
+	const totalCostEth = useMemo(
+		() => (isTron ? totalCost : weiToEth(totalCost)),
+		[isTron, totalCost],
+	);
+
+	const totalCostUsd = useMemo(
+		() =>
+			ethPrice && totalCostEth
+				? calculateTokenUsd(totalCostEth, ethPrice)
+				: null,
+		[ethPrice, totalCostEth],
+	);
+
+	const hasEnoughBalance = useMemo(
+		() =>
+			BigInt(balance) >=
+			BigInt(isNative ? ethToWei(amount) : amountToRaw(amount, decimals)),
+		[balance, amount, isNative, decimals],
+	);
+
+	// Estimate gas (memoized with dependencies)
+	const estimateGas = useCallback(async () => {
 		if (!recipient || !amount) return;
 
 		// Validate address based on chain
@@ -267,11 +368,8 @@ export const SendForm: FC<SendFormProps> = ({
 		try {
 			if (isTron) {
 				// Tron gas estimation
-				// For native TRX, pass empty contract; for TRC20, pass contract address
 				const contractAddress = isNative ? "" : tokenAddress;
-				const amountRaw = isNative
-					? amountToRaw(amount, decimals) // TRX uses 6 decimals
-					: amountToRaw(amount, decimals);
+				const amountRaw = amountToRaw(amount, decimals);
 
 				const result: TronGasEstimateResult =
 					await tronGasEstimateMutation.mutateAsync({
@@ -322,25 +420,22 @@ export const SendForm: FC<SendFormProps> = ({
 		} finally {
 			setIsEstimating(false);
 		}
-	};
-
-	// Sign and send transaction (checks safety level first)
-	const sendTransaction = async () => {
-		if (!gasEstimate?.ok) return;
-
-		// Check if address is risky and show modal
-		if (safetyLevel === "blocklisted" || safetyLevel === "new") {
-			setShowRiskModal(true);
-			setIsSending(false);
-			return;
-		}
-
-		// Safe address - execute directly
-		await executeTransaction();
-	};
+	}, [
+		recipient,
+		amount,
+		isTron,
+		tokenAddress,
+		decimals,
+		address,
+		chainId,
+		isNative,
+		estimateGasMutation,
+		estimateErc20GasMutation,
+		tronGasEstimateMutation,
+	]);
 
 	// Execute the actual transaction (called from sendTransaction or modal)
-	const executeTransaction = async () => {
+	const executeTransaction = useCallback(async () => {
 		if (!gasEstimate?.ok) return;
 
 		setIsSending(true);
@@ -372,21 +467,21 @@ export const SendForm: FC<SendFormProps> = ({
 
 					const amountRaw = amountToRaw(amount, decimals);
 
-					// Build and sign the transfer - use native TRX or TRC20 based on token type
+					// Build and sign the transfer
 					const signedTx = isNative
 						? await buildAndSignTrxTransfer(
 								privateKey as `0x${string}`,
-								recipient, // to
-								amountRaw, // amount in SUN
+								recipient,
+								amountRaw,
 							)
 						: await buildAndSignTrc20Transfer(
 								privateKey as `0x${string}`,
-								recipient, // to
-								tokenAddress, // contract
-								amountRaw, // amount
+								recipient,
+								tokenAddress,
+								amountRaw,
 							);
 
-					// Broadcast via backend API (transaction object needs to be stringified)
+					// Broadcast via backend API
 					const result: TronBroadcastResult =
 						await broadcastTronTransactionMutation.mutateAsync({
 							signedTransaction: JSON.stringify(signedTx),
@@ -403,21 +498,20 @@ export const SendForm: FC<SendFormProps> = ({
 						refreshAddressQueries(queryClient, recipient),
 					]);
 
-					// Save transaction to Evolu database for address safety tracking
+					// Save transaction to Evolu database
 					evolu.insert("transaction", {
 						walletId: walletId,
 						txHash: result.txHash,
 						from: address,
 						to: recipient,
 						value: amountRaw,
-						gasUsed: null, // Will be updated when confirmed
-						maxFeePerGas: "0", // Tron doesn't use EIP-1559 gas
+						gasUsed: null,
+						maxFeePerGas: "0",
 						chainId: "tron",
 						status: "pending",
 						confirmedAt: null,
 					});
 
-					// Create statement for portfolio tracking
 					evolu.insert("statement", {
 						eoaId: walletId,
 						chainId: "tron",
@@ -427,8 +521,6 @@ export const SendForm: FC<SendFormProps> = ({
 					});
 
 					toast.success("Transaction submitted!");
-
-					// Navigate to transaction status page
 					navigate(`/transaction/${result.txHash}?chainId=${chainId}`);
 				} else {
 					// EVM transaction flow
@@ -437,10 +529,9 @@ export const SendForm: FC<SendFormProps> = ({
 						return;
 					}
 
-					// Create account from private key
 					const account = privateKeyToAccount(privateKey as `0x${string}`);
 
-					// Fetch nonce (transaction count)
+					// Fetch nonce
 					const { data: nonceResult } = await transactionCountQuery.refetch();
 
 					if (!nonceResult || !nonceResult.ok) {
@@ -450,12 +541,11 @@ export const SendForm: FC<SendFormProps> = ({
 						return;
 					}
 
-					// Build transaction parameters
 					const amountRaw = isNative
 						? ethToWei(amount)
 						: amountToRaw(amount, decimals);
 
-					// Sign transaction - EIP-1559 format
+					// Sign transaction
 					const signedTx = await account.signTransaction({
 						to: isNative
 							? (recipient as `0x${string}`)
@@ -484,28 +574,26 @@ export const SendForm: FC<SendFormProps> = ({
 						return;
 					}
 
-					// Refresh all address-related queries (balance, transaction-count) for sender + recipient
-					// Uses cacheBust=1 for balance queries to bypass KV cache
+					// Refresh all address-related queries
 					await Promise.all([
 						refreshAddressQueries(queryClient, address),
 						refreshAddressQueries(queryClient, recipient),
 					]);
 
-					// Save transaction to Evolu database for address safety tracking
+					// Save transaction to Evolu database
 					evolu.insert("transaction", {
 						walletId: walletId,
 						txHash: result.txHash,
 						from: address,
 						to: recipient,
 						value: amountRaw,
-						gasUsed: null, // Will be updated when confirmed
+						gasUsed: null,
 						maxFeePerGas: gasEstimate.maxFeePerGas,
 						chainId: chainId.toString(),
 						status: "pending",
 						confirmedAt: null,
 					});
 
-					// Create statement for portfolio tracking
 					evolu.insert("statement", {
 						eoaId: walletId,
 						chainId: chainId.toString(),
@@ -515,68 +603,64 @@ export const SendForm: FC<SendFormProps> = ({
 					});
 
 					toast.success("Transaction submitted!");
-
-					// Navigate to transaction status page
 					navigate(`/transaction/${result.txHash}?chainId=${chainId}`);
 				}
-			} finally {
-				// Note: privateKey is a string and cannot be securely wiped.
-				// The decrypted bytes in decryptPrivateKey are already wiped.
-				// The string will be garbage collected when it goes out of scope.
+			} catch (error) {
+				const errorMessage =
+					error instanceof Error ? error.message : "Unknown error";
+				toast.error(`Failed to send transaction: ${errorMessage}`);
+				console.error("Transaction error:", error);
 			}
-		} catch (error) {
-			const errorMessage =
-				error instanceof Error ? error.message : "Unknown error";
-			toast.error(`Failed to send transaction: ${errorMessage}`);
-			console.error("Transaction error:", error);
 		} finally {
 			setIsSending(false);
 		}
-	};
+	}, [
+		gasEstimate,
+		isTron,
+		isEvmGasEstimate,
+		isTronGasEstimate,
+		encryptedPrivateKey,
+		amount,
+		decimals,
+		recipient,
+		address,
+		tokenAddress,
+		isNative,
+		chainId,
+		token,
+		walletId,
+		evolu,
+		queryClient,
+		broadcastTronTransactionMutation,
+		broadcastTransactionMutation,
+		transactionCountQuery,
+		navigate,
+	]);
 
-	const balanceFormatted = isNative
-		? weiToEth(balance)
-		: rawToAmount(balance, decimals);
+	// Sign and send transaction (checks safety level first)
+	const sendTransaction = useCallback(async () => {
+		if (!gasEstimate?.ok) return;
 
-	// Validate amount against balance
-	const amountExceedsBalance =
-		amount !== "" &&
-		amount !== "0" &&
-		!Number.isNaN(Number.parseFloat(amount)) &&
-		Number.parseFloat(amount) > Number.parseFloat(balanceFormatted);
+		// Check if address is risky and show modal
+		if (safetyLevel === "blocklisted" || safetyLevel === "new") {
+			setShowRiskModal(true);
+			setIsSending(false);
+			return;
+		}
 
-	// Calculate USD values
-	const tokenPrice =
-		pricesData?.ok && pricesData.prices[token.id]
-			? pricesData.prices[token.id].usd
-			: null;
-	const amountUsd =
-		tokenPrice && amount ? calculateTokenUsd(amount, tokenPrice) : null;
+		// Safe address - execute directly
+		await executeTransaction();
+	}, [gasEstimate, safetyLevel, executeTransaction]);
 
-	const ethPrice =
-		pricesData?.ok && pricesData.prices.ethereum
-			? pricesData.prices.ethereum.usd
-			: null;
+	// Modal handlers
+	const handleConfirmRisk = useCallback(() => {
+		setShowRiskModal(false);
+		executeTransaction();
+	}, [executeTransaction]);
 
-	const totalCost =
-		gasEstimate?.ok && amount
-			? isTron && isTronGasEstimate(gasEstimate)
-				? gasEstimate.totalCostTrx // Tron provides total cost directly
-				: isEvmGasEstimate(gasEstimate)
-					? calculateTotalCost(
-							isNative ? ethToWei(amount) : amountToRaw(amount, decimals),
-							gasEstimate.gasLimit,
-							gasEstimate.maxFeePerGas,
-						)
-					: "0"
-			: "0";
-
-	const totalCostEth = isTron ? totalCost : weiToEth(totalCost);
-	const totalCostUsd =
-		ethPrice && totalCostEth ? calculateTokenUsd(totalCostEth, ethPrice) : null;
-	const hasEnoughBalance =
-		BigInt(balance) >=
-		BigInt(isNative ? ethToWei(amount) : amountToRaw(amount, decimals));
+	const handleCancelRisk = useCallback(() => {
+		setShowRiskModal(false);
+	}, []);
 
 	return (
 		<div className="max-w-md mx-auto p-4">
@@ -588,7 +672,7 @@ export const SendForm: FC<SendFormProps> = ({
 					<button
 						type="button"
 						className="btn btn-outline flex-1"
-						onClick={() => setGasEstimate(null)}
+						onClick={handleCancelGas}
 						disabled={isSending}
 					>
 						Edit
@@ -784,11 +868,7 @@ export const SendForm: FC<SendFormProps> = ({
 					className="input input-bordered font-mono"
 					placeholder="0x... for EVM or T... for Tron"
 					value={recipientAddress}
-					onChange={(e) => {
-						setRecipientAddress(e.target.value);
-						// Mark resolution as committed when user manually edits
-						setResolutionCommitted(true);
-					}}
+					onChange={(e) => handleRecipientAddressChange(e.target.value)}
 					disabled={isSending}
 					autoComplete="off"
 				/>
@@ -809,7 +889,7 @@ export const SendForm: FC<SendFormProps> = ({
 							<button
 								type="button"
 								className="btn btn-xs btn-ghost"
-								onClick={() => setAmount(balanceFormatted)}
+								onClick={handleSetMax}
 								disabled={isSending}
 							>
 								Max
@@ -823,7 +903,7 @@ export const SendForm: FC<SendFormProps> = ({
 					className={`input input-bordered ${amountExceedsBalance ? "input-error" : ""}`}
 					placeholder="0.0"
 					value={amount}
-					onChange={(e) => setAmount(e.target.value)}
+					onChange={handleAmountChange}
 					disabled={isSending}
 					step="0.001"
 					min="0"
@@ -910,27 +990,24 @@ export const SendForm: FC<SendFormProps> = ({
 							<button
 								type="button"
 								className="btn btn-ghost"
-								onClick={() => setShowRiskModal(false)}
+								onClick={handleCancelRisk}
 							>
 								Cancel
 							</button>
 							<button
 								type="button"
 								className="btn btn-error"
-								onClick={() => {
-									setShowRiskModal(false);
-									executeTransaction();
-								}}
+								onClick={handleConfirmRisk}
 							>
 								I understand, proceed
 							</button>
 						</div>
+						<form method="dialog" className="modal-backdrop">
+							<button type="button" onClick={handleCancelRisk}>
+								Close
+							</button>
+						</form>
 					</div>
-					<form method="dialog" className="modal-backdrop">
-						<button type="button" onClick={() => setShowRiskModal(false)}>
-							Close
-						</button>
-					</form>
 				</dialog>
 			)}
 		</div>

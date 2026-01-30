@@ -20,7 +20,7 @@ export const useErc20BalanceQuery = ({
 	enabled = true,
 	cacheBust = false,
 }: UseErc20BalanceQueryOptions) => {
-	return useQuery({
+	const result = useQuery({
 		queryKey: ["erc20Balance", address, contract, chainId],
 		queryFn: async () => {
 			const query: Record<string, string> = { chainId: String(chainId) };
@@ -36,5 +36,18 @@ export const useErc20BalanceQuery = ({
 		},
 		enabled: enabled && Boolean(address) && Boolean(contract),
 		staleTime: 1000 * 60 * 5, // 5 minutes
+		gcTime: 1000 * 60 * 60, // Keep in cache for 1 hour (serve stale data on errors)
+		retry: 3,
+		retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff, max 30s
+		refetchOnWindowFocus: true,
+		refetchOnReconnect: true,
 	});
+
+	// isStale: true if we're fetching/refetching after initial load
+	const isStale = result.isFetching && result.dataUpdatedAt > 0;
+
+	return {
+		...result,
+		isStale,
+	};
 };

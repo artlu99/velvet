@@ -34,6 +34,10 @@ export function useTokenMetadataQuery({
 		enabled: enabled && coinIds.length > 0,
 		staleTime: 1000 * 60 * 60 * 24, // 24 hours - token logos are static
 		gcTime: 1000 * 60 * 60 * 24, // Keep in cache for 24 hours
+		retry: 3,
+		retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff, max 30s
+		refetchOnWindowFocus: false, // Don't refetch on focus for static data
+		refetchOnReconnect: true,
 	});
 
 	// Update TokenStore when data is successfully fetched
@@ -50,5 +54,11 @@ export function useTokenMetadataQuery({
 		}
 	}, [result.data, setTokenImages]);
 
-	return result;
+	// isStale: true if we're fetching/refetching after initial load
+	const isStale = result.isFetching && result.dataUpdatedAt > 0;
+
+	return {
+		...result,
+		isStale,
+	};
 }

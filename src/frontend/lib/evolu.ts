@@ -14,10 +14,7 @@ const EVOLU_INSTANCE = "underground-velvet-wallet-3241038978";
 
 export const evoluInstance = createEvolu(evoluReactWebDeps)(Schema, {
 	name: SimpleName.orThrow(EVOLU_INSTANCE),
-	transports: [
-		{ type: "WebSocket", url: "wss://evolu-relay-1.artlu.xyz" },
-		{ type: "WebSocket", url: "wss://evolu-relay-2.artlu.xyz" },
-	],
+	transports: [{ type: "WebSocket", url: "wss://evolu-relay-1.artlu.xyz" }],
 });
 
 /**

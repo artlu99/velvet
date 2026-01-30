@@ -1,7 +1,9 @@
 import type { FC } from "react";
 import { useMemo } from "react";
-import { usePersistedPricesQuery } from "~/hooks/queries/usePersistedPricesQuery";
-import { DEFAULT_COIN_IDS } from "~/hooks/queries/usePricesQuery";
+import {
+	DEFAULT_COIN_IDS,
+	usePricesQuery,
+} from "~/hooks/queries/usePricesQuery";
 import { useGlobalPortfolioTotal } from "~/hooks/useGlobalPortfolioTotal";
 import { formatPriceAge, formatUsd } from "~/lib/helpers";
 
@@ -30,7 +32,7 @@ export const GlobalPortfolioTotal: FC<GlobalPortfolioTotalProps> = ({
 	});
 
 	// Fetch prices for timestamp display (with cache check)
-	const { data: pricesData, cached: cachedPrices } = usePersistedPricesQuery({
+	const { data: pricesData } = usePricesQuery({
 		coinIds: DEFAULT_COIN_IDS,
 	});
 
@@ -38,31 +40,19 @@ export const GlobalPortfolioTotal: FC<GlobalPortfolioTotalProps> = ({
 		return null;
 	}
 
-	// Show spinner only on first load when there's no cached data at all
-	// Otherwise show the total (even if 0) using stale/cached data
-	const hasCachedData = cachedPrices !== null;
-	const hasAnyData = globalTotalUsd !== null || pricesData?.ok || hasCachedData;
-	const showSpinner = !hasAnyData;
-
 	return (
 		<div className="card card-compact bg-primary/10 shadow-lg mb-6">
 			<div className="card-body">
 				<h3 className="text-sm font-semibold opacity-70">Portfolio Total</h3>
 				<div className="text-3xl font-bold tabular-nums">
-					{showSpinner ? (
-						<span className="loading loading-spinner loading-sm" />
-					) : (
-						<>≈${formatUsd.format(globalTotalUsd ?? 0)}</>
-					)}
+					≈${formatUsd.format(globalTotalUsd ?? 0)}
 				</div>
-				{(pricesData?.ok || cachedPrices) && (
+				{pricesData?.ok && (
 					<div className="text-xs opacity-60">
 						Prices:{" "}
 						{pricesData?.ok && pricesData.timestamp
 							? formatPriceAge(pricesData.timestamp)
-							: cachedPrices?.updatedAt
-								? formatPriceAge(new Date(cachedPrices.updatedAt).getTime())
-								: null}
+							: null}
 					</div>
 				)}
 			</div>

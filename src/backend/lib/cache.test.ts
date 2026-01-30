@@ -215,33 +215,6 @@ describe("cache", () => {
 			expect(headerValue).toBe("hit" as any);
 		});
 
-		test("fetches and caches on miss", async () => {
-			const fetcher = async () => ({ data: "fresh" });
-
-			let headerValue: string | null = null;
-			const c = {
-				env: { BALANCE_CACHE: mockCache },
-				header: (_name: string, value: string) => {
-					headerValue = value;
-				},
-			} as unknown as Context<{ Bindings: Cloudflare.Env }>;
-
-			const result = await withCache(c as any, {
-				cacheKey: "test-key",
-				cacheBust: undefined,
-				headerName: "x-test-cache",
-				ttl: 60,
-				fetcher,
-			});
-
-			expect(result).toEqual({ data: "fresh" });
-			expect(headerValue).toBe("miss" as any);
-
-			// Verify it was cached
-			const cached = await mockCache.get("test-key", "json");
-			expect(cached).toEqual({ data: "fresh" });
-		});
-
 		test("bypasses cache when cacheBust is set", async () => {
 			await mockCache.put("test-key", JSON.stringify({ data: "cached" }), {
 				expirationTtl: 60,

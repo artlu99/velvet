@@ -226,6 +226,7 @@ app
 				console.error(
 					`error getting balance:${chainIdValidation.chainId}:${addressValidation.address}`,
 				);
+				console.log(JSON.stringify(result, null, 2));
 				const status = result.code === "RATE_LIMITED" ? 429 : 502;
 				return c.json(result, status);
 			}

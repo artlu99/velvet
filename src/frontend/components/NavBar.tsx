@@ -1,8 +1,10 @@
 import { useQuery } from "@evolu/react";
 import { Suspense, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { usePersistedPricesQuery } from "~/hooks/queries/usePersistedPricesQuery";
-import { DEFAULT_COIN_IDS } from "~/hooks/queries/usePricesQuery";
+import {
+	DEFAULT_COIN_IDS,
+	usePricesQuery,
+} from "~/hooks/queries/usePricesQuery";
 import { useGlobalPortfolioTotal } from "~/hooks/useGlobalPortfolioTotal";
 import { documentationLinks } from "~/lib/documentation-links";
 import { formatPriceAge, formatUsd } from "~/lib/helpers";
@@ -51,7 +53,7 @@ const NavBarContent = () => {
 	});
 
 	// Fetch prices for timestamp display
-	const { data: pricesData, cached: cachedPrices } = usePersistedPricesQuery({
+	const { data: pricesData } = usePricesQuery({
 		coinIds: DEFAULT_COIN_IDS,
 	});
 
@@ -68,8 +70,7 @@ const NavBarContent = () => {
 		}
 
 		const isLoading = globalTotalUsd === null;
-		const hasPriceTimestamp =
-			(pricesData?.ok && pricesData.timestamp) || cachedPrices?.updatedAt;
+		const hasPriceTimestamp = pricesData?.ok && pricesData.timestamp;
 		const hasWatchOnlyWallets = watchOnlyWallets.length > 0;
 
 		return (
@@ -109,11 +110,7 @@ const NavBarContent = () => {
 								<span className="text-xs opacity-60">
 									{pricesData?.ok && pricesData.timestamp
 										? formatPriceAge(pricesData.timestamp)
-										: cachedPrices?.updatedAt
-											? formatPriceAge(
-													new Date(cachedPrices.updatedAt).getTime(),
-												)
-											: null}
+										: null}
 								</span>
 							)}
 						</div>

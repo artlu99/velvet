@@ -23,10 +23,13 @@ src/
     main.tsx           # Entry
     store.ts           # Zustand (localStorage)
     sessionStore.ts    # Zustand (sessionStorage)
-  shared/types.ts      # Frontend+Backend interfaces
+  shared/types.ts      # Frontend+Backend interfaces (API contracts)
+  shared/api.ts        # API path helpers (shared)
+  shared/feature-flags.ts
+  frontend/lib/constants.ts  # Client-only config (e.g. ENS RPC URLs)
 ```
 
-**Aliases**: `~/` → frontend, `@shared/` → shared
+**Aliases**: `~/` → frontend, `@shared/` → shared. Use `shared/` only for code used by both frontend and backend; client-only config lives in `frontend/lib/`.
 
 ## State Rules
 - **Server data** → TanStack Query (hooks in `frontend/hooks/`)

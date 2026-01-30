@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-01-30
+
+### Added
+- TanStack Query persistence via IndexedDB (query-persister) for cache across reloads
+- Top-level error boundary with recovery UI for render errors
+- Dedicated Wallet Management route; wallet list/card logic split into WalletCardWrapper
+
+### Changed
+- Replaced per-hook persisted query hooks with PersistQueryClientProvider and single IDB persister
+- Client-only config moved to `frontend/lib/constants.ts`; removed `shared/constants.ts`
+- Query retry logic: no retry on 429, 502, 503, 504 to avoid request storms
+- Backend cache and RPC helpers updated
+
+### Removed
+- `usePersistedBalanceQuery`, `usePersistedPricesQuery`, `usePersistedTokenBalanceQuery`, `usePersistedTokenMetadataQuery`
+- Home route (landing and wallet flows reorganized)
+- Frontend query cache module (superseded by TanStack persist-client)
+
 ## [0.0.4] - 2026-01-28
 
 ### Added

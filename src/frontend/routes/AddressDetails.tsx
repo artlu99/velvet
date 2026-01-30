@@ -1,7 +1,6 @@
 import { useQuery } from "@evolu/react";
 import type { SupportedChainId } from "@shared/types";
 import { type FC, Suspense, use, useEffect, useMemo, useState } from "react";
-import toast from "react-hot-toast";
 import { formatEther, isAddress } from "viem";
 import { Link, useParams, useSearch } from "wouter";
 import { AddressSafetyBadge } from "~/components/AddressSafetyBadge";
@@ -11,7 +10,6 @@ import { useTransactionHistoryQuery } from "~/hooks/queries/useTransactionHistor
 import { useEvolu } from "~/lib/evolu";
 import { formatUsd } from "~/lib/helpers";
 import {
-	addToBlocklist,
 	getBlocklistReason,
 	isAddressBlocklisted,
 } from "~/lib/queries/blocklist";
@@ -85,10 +83,10 @@ const AddressDetailsContent: FC = () => {
 	useEffect(() => {
 		async function checkBlocklist() {
 			if (isValidAddress) {
-				const blocked = await isAddressBlocklisted(evolu, address);
+				const blocked = await isAddressBlocklisted(address);
 				setIsBlocklisted(blocked);
 				if (blocked) {
-					const reason = await getBlocklistReason(evolu, address);
+					const reason = await getBlocklistReason(address);
 					setBlocklistReason(reason);
 				} else {
 					setBlocklistReason(null);
@@ -99,7 +97,7 @@ const AddressDetailsContent: FC = () => {
 			}
 		}
 		checkBlocklist();
-	}, [evolu, address, isValidAddress]);
+	}, [address, isValidAddress]);
 
 	// Determine safety level (must be before early return - Rules of Hooks)
 	const safetyLevel = useMemo(() => {
@@ -144,19 +142,6 @@ const AddressDetailsContent: FC = () => {
 		);
 	}
 
-	// Handle add to blocklist
-	const handleAddToBlocklist = async () => {
-		try {
-			await addToBlocklist(evolu, address);
-			toast.success("Address added to blocklist");
-			setIsBlocklisted(true);
-		} catch (error) {
-			const errorMessage =
-				error instanceof Error ? error.message : "Unknown error";
-			toast.error(`Failed to add to blocklist: ${errorMessage}`);
-		}
-	};
-
 	return (
 		<div className="max-w-4xl mx-auto p-4">
 			<div className="mb-6">
@@ -192,16 +177,6 @@ const AddressDetailsContent: FC = () => {
 							<i className="fa-solid fa-external-link-alt" />
 							View on {explorerName}
 						</a>
-						{!isBlocklisted && (
-							<button
-								type="button"
-								className="btn btn-error btn-sm"
-								onClick={handleAddToBlocklist}
-							>
-								<i className="fa-solid fa-ban" />
-								Add to Blocklist
-							</button>
-						)}
 					</div>
 				</div>
 			</div>

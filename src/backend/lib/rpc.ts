@@ -30,12 +30,19 @@ export function getRpcUrl(env: Env, chainId: number): string {
 
 /**
  * Get a public client for the given chain ID.
+ * Includes CORS headers for compatibility with restricted RPC providers.
  */
 export function getPublicClient(env: Env, chainId: number) {
 	const rpcUrl = getRpcUrl(env, chainId);
 	return createPublicClient({
 		chain: chainId === 8453 ? base : mainnet,
-		transport: http(rpcUrl),
+		transport: http(rpcUrl, {
+			fetchOptions: {
+				headers: {
+					"Access-Control-Allow-Origin": "*",
+				},
+			},
+		}),
 	});
 }
 

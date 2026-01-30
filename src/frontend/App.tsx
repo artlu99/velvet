@@ -1,18 +1,21 @@
 import { EvoluProvider } from "@evolu/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { Suspense } from "react";
 import { Toaster } from "react-hot-toast";
 import { Route, Switch } from "wouter";
+import { ErrorBoundary } from "~/components/ErrorBoundary";
 import { NavBar } from "~/components/NavBar";
 import { evoluInstance } from "~/lib/evolu";
+import { createIDBPersister } from "~/lib/query-persister";
 import { AddressDetails } from "~/routes/AddressDetails";
 import { Blocklist } from "~/routes/Blocklist";
 import { DataActions } from "~/routes/DataActions";
-import { Home } from "~/routes/Home";
 import { Landing } from "~/routes/Landing";
 import { Receive } from "~/routes/Receive";
 import { Send } from "~/routes/Send";
 import { TransactionStatus } from "~/routes/TransactionStatus";
+import { WalletManagement } from "~/routes/WalletManagement";
 
 /**
  * Check if an error should not be retried (429, 502, 503, 504)
@@ -74,35 +77,42 @@ const queryClient = new QueryClient({
 	},
 });
 
+const persister = createIDBPersister();
+
 function App() {
 	return (
 		<div
 			className="min-h-screen bg-base-100 flex flex-col"
 			data-theme="dracula"
 		>
-			<EvoluProvider value={evoluInstance}>
-				<Suspense fallback={<Landing />}>
-					<QueryClientProvider client={queryClient}>
-						<NavBar />
-						<Switch>
-							<Route path="/" component={Home} />
-							<Route path="/account" component={DataActions} />
-							<Route path="/address/:address" component={AddressDetails} />
-							<Route path="/blocklist" component={Blocklist} />
-							<Route path="/landing" component={Landing} />
-							<Route path="/receive" component={Receive} />
-							<Route path="/receive/:address" component={Receive} />
-							<Route path="/send" component={Send} />
-							<Route path="/send/:address" component={Send} />
-							<Route
-								path="/transaction/:txHash"
-								component={TransactionStatus}
-							/>
-						</Switch>
-						<Toaster />
-					</QueryClientProvider>
-				</Suspense>
-			</EvoluProvider>
+			<ErrorBoundary>
+				<EvoluProvider value={evoluInstance}>
+					<Suspense fallback={<Landing />}>
+						<PersistQueryClientProvider
+							client={queryClient}
+							persistOptions={{ persister }}
+						>
+							<NavBar />
+							<Switch>
+								<Route path="/" component={WalletManagement} />
+								<Route path="/account" component={DataActions} />
+								<Route path="/address/:address" component={AddressDetails} />
+								<Route path="/blocklist" component={Blocklist} />
+								<Route path="/landing" component={Landing} />
+								<Route path="/receive" component={Receive} />
+								<Route path="/receive/:address" component={Receive} />
+								<Route path="/send" component={Send} />
+								<Route path="/send/:address" component={Send} />
+								<Route
+									path="/transaction/:txHash"
+									component={TransactionStatus}
+								/>
+							</Switch>
+							<Toaster />
+						</PersistQueryClientProvider>
+					</Suspense>
+				</EvoluProvider>
+			</ErrorBoundary>
 		</div>
 	);
 }

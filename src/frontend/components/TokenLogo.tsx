@@ -1,7 +1,7 @@
 import type { SupportedChainId } from "@shared/types";
 import { type FC, useEffect } from "react";
-import { usePersistedTokenMetadataQuery } from "~/hooks/queries/usePersistedTokenMetadataQuery";
 import { usePlatformMetadataQuery } from "~/hooks/queries/usePlatformMetadataQuery";
+import { useTokenMetadataQuery } from "~/hooks/queries/useTokenMetadataQuery";
 import { usePlatformStore } from "~/providers/platformStore";
 import { useTokenStore } from "~/providers/tokenStore";
 
@@ -101,18 +101,14 @@ export const TokenLogo: FC<TokenLogoProps> = ({
 	}, [platformData, setPlatforms]);
 
 	// Fetch metadata for this coin using persisted query (cache + API)
-	const { data: metadata, cached: cachedMetadata } =
-		usePersistedTokenMetadataQuery({
-			coinIds: [coinId],
-			enabled: !imageUrl,
-		});
+	const { data: metadata } = useTokenMetadataQuery({
+		coinIds: [coinId],
+		enabled: !imageUrl,
+	});
 
-	// Determine which image URL to use (prioritize fresh API data, fall back to cache)
 	const src =
 		imageUrl ||
-		(metadata?.ok
-			? metadata.tokens[coinId]?.image[size]
-			: cachedMetadata?.tokens[coinId]?.image[size]);
+		(metadata?.ok ? metadata.tokens[coinId]?.image[size] : undefined);
 	const altText = alt || token?.name || coinId;
 	const pxSize = SIZE_PX[size];
 
