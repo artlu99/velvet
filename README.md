@@ -7,11 +7,14 @@ FOSS, modular, and self-hostable at *de minimis* cost.
 ## Features
 
 - Multi-chain wallet management (Ethereum, Base, Tron)
-- HD wallet derivation (BIP32/44/60/84)
+- HD wallet derivation (BIP32/44)
 - ERC20/TRC20 token balances with USD values
 - Gas estimation & transaction broadcasting
 - ENS and Basename name resolution (client-side)
 - Local-first encrypted sync via Evolu
+- Transaction history with dust/spam filtering
+- Address reputation and blocklist system with safety badges
+- Address details view (balances, history, safety signals)
 
 ## Tech Stack
 

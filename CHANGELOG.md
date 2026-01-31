@@ -57,7 +57,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.0.2] - 2026-01-25
 
 ### Added
-- BIP39 passphrase support (25th word) for enhanced wallet security
 - Auto-clear clipboard after 12 seconds for sensitive data
 - Soft delete wipes data instead of overwriting
 - Feature flags system for controlled feature rollouts

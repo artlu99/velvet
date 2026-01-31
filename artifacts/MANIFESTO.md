@@ -4,35 +4,25 @@
 
 **Your keys, your data, your sovereignty.**
 
-We believe in digital self-determination. Your private keys never leave your device. Your transaction history lives onchain, and we empower you to securely manage ephemeral addresses, with as much or as little anonymity as desired.
+We believe in digital self-determination. Private keys never leave your device. Your transaction history lives onchain, and we empower you to securely manage ephemeral addresses, with as much or as little anonymity as desired.
 
 No third party ever holds or has access to your funds. No centralized service can freeze your account[^1]. No corporation can curtail your financial activity.
-
-Sovereignty means you are the sole authority over your assets. We provide the tools; you maintain the power.
 
 ## User Choice
 
 **Freedom to choose, freedom to modify, freedom to leave.**
 
-This wallet is open source. You can inspect every line of code. You can fork it, modify it, and run your own version. You can choose which networks to connect to, which RPC providers to use, and which features to enable.
+This wallet is open source. You or your agent can inspect every line of code. You can fork it, modify it, and run your own version. You can choose which networks to connect to, which RPC providers to use, and which features to enable.
 
-We don't lock you into proprietary protocols. We don't force you to use specific services. We don't require accounts or registrations. Your choices are yours alone.
-
-Simplicity of code paths means that a skilled programmer, human or otherwise, can easily modify and host code to implement the logic inside this app.
+Simplicity of code paths means that a programmer, human or otherwise, can easily understand and modify this app.
 
 ## User Ownership
 
-**What's yours stays yours.**
-
-Private keys are stored encrypted in your local SQLite database. They belong to you, on your device, under your control. During sync, data is encrypted in transport using your mnemonic—but at rest, it's yours to manage, backup, and restore as you see fit.
-
-You own your wallet data. You own your backups. We don't store your data in the cloud, although we faciliate cross-platform, multi-device private syncing. We don't analyze your usage patterns. We don't monetize your information.
+We don't store your data in the cloud, although we faciliate cross-platform, multi-device private syncing. We don't analyze your usage patterns. We don't monetize your information.
 
 ## Transparency
 
-**Open source, open standards.**
-
-Every feature is implemented in plain sight. Every API call is visible. Every data structure is documented. There are no hidden backdoors, no secret keys, no obscured functionality.
+Every feature is implemented in plain sight.
 
 We use open standards: BIP39 for mnemonics, [BIP32/BIP44 for key derivation], EIP-1559 for transactions. We integrate with public RPC endpoints. We follow established cryptographic practices.
 
@@ -40,7 +30,7 @@ You can audit the code. You can verify the behavior. You can trust because you c
 
 ---
 
-**Underground Velvet Wallet** is not just software—it's a tool of freedom. A statement that you deserve sovereignty over your digital assets. A statement that user choice matters. A statement that ownership belongs to the user, not the platform. A statement that transparency builds trust. A statement that complexity is unnecessary, and comes with difficult tradeoffs.
+**Underground Velvet Wallet** believes that you deserve sovereignty over your digital assets. Ownership belongs to the user, not the platform. Transparency builds trust. Complexity is unnecessary, and comes with difficult tradeoffs.
 
 *Secure privacy, with a velvety smooth touch.*
 
