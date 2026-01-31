@@ -1,17 +1,17 @@
 export const documentationLinks = [
 	{
 		label: "Security",
-		href: "https://github.com/artlu99/velvet/blob/main/SECURITY.md",
+		href: "https://velvet-docs.artlu.xyz/SECURITY/",
 		icon: "fa-solid fa-building-shield",
 	},
 	{
 		label: "Manifesto",
-		href: "https://github.com/artlu99/velvet/blob/main/artifacts/MANIFESTO.md",
+		href: "https://velvet-docs.artlu.xyz/MANIFESTO/",
 		icon: "fa-solid fa-explosion",
 	},
 	{
 		label: "Self Hosting",
-		href: "https://github.com/artlu99/velvet/blob/main/CONTRIBUTING.md",
+		href: "https://velvet-docs.artlu.xyz/CONTRIBUTING/",
 		icon: "fa-solid fa-server",
 	},
 	{

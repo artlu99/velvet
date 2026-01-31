@@ -103,7 +103,7 @@ See `.dev.vars.example` for secret environment variables, and `wrangler.jsonc` f
 
 ## Out of Scope
 
-See [artifacts/PLANNING.md](./artifacts/PLANNING.md) for roadmap.
+See [artifacts/POSSIBILITIES.md](./artifacts/POSSIBILITIES.md) for roadmap.
 
 **Explicit WONTFIX**:
 - Bitcoin Lightning

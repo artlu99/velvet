@@ -37,12 +37,12 @@ AGENTS.md documents the *external contract* and what the system does (APIs, type
 
 - [SECURITY.md](./SECURITY.md) - Security considerations and threat model
 - [CHANGELOG.md](./CHANGELOG.md) - Release history
-- [artifacts/PLANNING.md](./artifacts/PLANNING.md) - Roadmap and completed features
+- [artifacts/POSSIBILITIES.md](./artifacts/POSSIBILITIES.md) - Roadmap and completed features
 - [artifacts/MANIFESTO.md](./artifacts/MANIFESTO.md) - Project philosophy
 
 ## Roadmap
 
-See [artifacts/PLANNING.md](./artifacts/PLANNING.md) for completed features and upcoming work.
+See [artifacts/POSSIBILITIES.md](./artifacts/POSSIBILITIES.md) for completed features and upcoming work.
 
 ## WONTFIX
 
