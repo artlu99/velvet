@@ -161,8 +161,8 @@ const ChainBalance: FC<ChainBalanceProps> = ({ address, chainId, name }) => {
 	// If error but no cached data, show error message
 	if (error && !data) {
 		return (
-			<div className="flex items-center gap-2 px-2 py-1 text-xs text-error">
-				{name}: Error
+			<div className="flex items-center gap-2 px-2 py-1 text-xs">
+				<span className="opacity-80">{name}</span>: -
 			</div>
 		);
 	}
@@ -235,7 +235,7 @@ const ChainBalance: FC<ChainBalanceProps> = ({ address, chainId, name }) => {
 							${formatUsd.format(ethUsdValue)}
 						</span>
 					)}
-					{error && (
+					{!!error && (
 						<span
 							className="text-xs text-warning opacity-70 shrink-0"
 							title="Error fetching data, showing cached value"
@@ -468,7 +468,7 @@ const TronChainBalance: FC<TronChainBalanceProps> = ({ address, name }) => {
 							${formatUsd.format(trxUsdValue)}
 						</span>
 					)}
-					{error && formattedTrxBalance && (
+					{!!error && formattedTrxBalance && (
 						<span
 							className="text-xs text-warning opacity-70 shrink-0"
 							title="Error fetching data, showing cached value"

@@ -15,7 +15,6 @@ export const DEFAULT_COIN_IDS = [
 	"usd-coin",
 	"tether",
 ] as const;
-const FIVE_MINUTES_MS = 1000 * 60 * 5;
 
 export const usePricesQuery = ({
 	coinIds = DEFAULT_COIN_IDS,
@@ -31,11 +30,6 @@ export const usePricesQuery = ({
 			return api.get<ApiResponses["prices"]>(url);
 		},
 		enabled: enabled && coinIds.length > 0,
-		staleTime: FIVE_MINUTES_MS,
-		refetchInterval: FIVE_MINUTES_MS,
-		gcTime: 1000 * 60 * 60, // Keep in cache for 1 hour
-		retry: 3,
-		retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff, max 30s
 		refetchOnWindowFocus: true,
 		refetchOnReconnect: true,
 	});

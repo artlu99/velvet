@@ -32,10 +32,6 @@ export const useBalanceQuery = ({
 			return api.get<ApiResponses["balance"]>(url);
 		},
 		enabled: enabled && Boolean(address),
-		staleTime: 1000 * 60 * 5, // 5 minutes
-		gcTime: 1000 * 60 * 60, // Keep in cache for 1 hour (serve stale data on errors)
-		retry: 3,
-		retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff, max 30s
 		refetchOnWindowFocus: true,
 		refetchOnReconnect: true,
 	});

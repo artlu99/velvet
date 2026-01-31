@@ -1,12 +1,13 @@
 import { EvoluProvider } from "@evolu/react";
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { Toaster } from "react-hot-toast";
 import { Route, Switch } from "wouter";
 import { ErrorBoundary } from "~/components/ErrorBoundary";
 import { NavBar } from "~/components/NavBar";
 import { evoluInstance } from "~/lib/evolu";
+import { retryDelayHandler, retryHandler } from "~/lib/queries/common";
 import { createIDBPersister } from "~/lib/query-persister";
 import { AddressDetails } from "~/routes/AddressDetails";
 import { Blocklist } from "~/routes/Blocklist";
@@ -17,59 +18,24 @@ import { Send } from "~/routes/Send";
 import { TransactionStatus } from "~/routes/TransactionStatus";
 import { WalletManagement } from "~/routes/WalletManagement";
 
-/**
- * Check if an error should not be retried (429, 502, 503, 504)
- * itty-fetcher throws errors with a `status` property for HTTP errors
- */
-function shouldNotRetry(error: unknown): boolean {
-	// Check for itty-fetcher error format (has status property)
-	if (
-		typeof error === "object" &&
-		error !== null &&
-		"status" in error &&
-		typeof (error as { status: unknown }).status === "number"
-	) {
-		const status = (error as { status: number }).status;
-		// Don't retry on rate limits or server errors
-		return status === 429 || status >= 502;
-	}
-
-	// Fallback: check error message
-	if (error instanceof Error) {
-		const message = error.message.toLowerCase();
-		return (
-			message.includes("429") ||
-			message.includes("too many requests") ||
-			message.includes("502") ||
-			message.includes("bad gateway") ||
-			message.includes("503") ||
-			message.includes("service unavailable") ||
-			message.includes("504") ||
-			message.includes("gateway timeout")
-		);
-	}
-	return false;
-}
-
 const queryClient = new QueryClient({
 	defaultOptions: {
 		queries: {
-			// Don't retry on 401 (unauthorized) or rate limit/server errors
-			retry: (failureCount, error) => {
-				if (shouldNotRetry(error)) {
-					return false;
-				}
-				// Default retry behavior for other errors (max 1 retry to prevent storms)
-				return failureCount < 1;
-			},
-			// Stale time for most queries
-			staleTime: 1000 * 60, // 1 minute
+			// Prefer cache, try network in background
+			networkMode: "offlineFirst",
+			// Intelligent retry: offline forever, network errors forever, API errors limited
+			retry: retryHandler,
+			retryDelay: retryDelayHandler,
+			// Cache strategy
+			staleTime: 1000 * 60 * 5, // 5 minutes
+			gcTime: Infinity, // Never garbage collect - always have fallback
 		},
 		mutations: {
+			networkMode: "offlineFirst",
 			// Don't retry mutations on rate limit/server errors
 			retry: (failureCount, error) => {
-				if (shouldNotRetry(error)) {
-					return false;
+				if (retryHandler(failureCount, error)) {
+					return true;
 				}
 				return failureCount < 1;
 			},
@@ -80,6 +46,16 @@ const queryClient = new QueryClient({
 const persister = createIDBPersister();
 
 function App() {
+	useEffect(() => {
+		const handleOnline = () => {
+			// Refetch all active queries when coming back online
+			queryClient.refetchQueries({ type: "active" });
+		};
+
+		window.addEventListener("online", handleOnline);
+		return () => window.removeEventListener("online", handleOnline);
+	}, []);
+
 	return (
 		<div
 			className="min-h-screen bg-base-100 flex flex-col"

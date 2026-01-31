@@ -15,7 +15,6 @@ interface UseGlobalPortfolioTotalOptions {
 }
 
 const api = fetcher({ base: `${window.location.origin}/api` });
-const FIVE_MINUTES_MS = 1000 * 60 * 5;
 
 /**
  * Custom hook to calculate the total USD value across all wallets.
@@ -64,13 +63,11 @@ export const useGlobalPortfolioTotal = ({
 						queryKey: readonly ["balance", string, 1 | 8453, false];
 						queryFn: () => Promise<BalanceResult>;
 						enabled: boolean;
-						staleTime: number;
 				  }
 				| {
 						queryKey: readonly ["tronBalance", string, false];
 						queryFn: () => Promise<TronBalanceResult>;
 						enabled: boolean;
-						staleTime: number;
 				  }
 			> => {
 				const addressType = discriminateAddressType(address);
@@ -85,7 +82,6 @@ export const useGlobalPortfolioTotal = ({
 							return api.get<ApiResponses["balance"]>(url);
 						},
 						enabled: Boolean(address),
-						staleTime: FIVE_MINUTES_MS,
 					});
 					return [makeBalanceQuery(1), makeBalanceQuery(8453)];
 				}
@@ -101,7 +97,6 @@ export const useGlobalPortfolioTotal = ({
 								return api.get<ApiResponses["tronBalance"]>(url);
 							},
 							enabled: Boolean(address),
-							staleTime: FIVE_MINUTES_MS,
 						},
 					];
 				}
@@ -150,7 +145,6 @@ export const useGlobalPortfolioTotal = ({
 				return api.get<ApiResponses["erc20Balance"]>(url);
 			},
 			enabled: Boolean(address) && Boolean(contract),
-			staleTime: FIVE_MINUTES_MS,
 		}));
 	}, [erc20Configs]);
 
@@ -181,7 +175,6 @@ export const useGlobalPortfolioTotal = ({
 				return api.get<ApiResponses["trc20Balance"]>(url);
 			},
 			enabled: Boolean(address) && Boolean(contract),
-			staleTime: FIVE_MINUTES_MS,
 		}));
 	}, [trc20Configs]);
 
