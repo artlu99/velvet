@@ -574,11 +574,9 @@ export const SendForm: FC<SendFormProps> = ({
 						return;
 					}
 
-					// Refresh all address-related queries
-					await Promise.all([
-						refreshAddressQueries(queryClient, address),
-						refreshAddressQueries(queryClient, recipient),
-					]);
+					// Fire-and-forget; errors are absorbed
+					void refreshAddressQueries(queryClient, address).catch(() => {});
+					void refreshAddressQueries(queryClient, recipient).catch(() => {});
 
 					// Save transaction to Evolu database
 					evolu.insert("transaction", {
@@ -800,121 +798,125 @@ export const SendForm: FC<SendFormProps> = ({
 					</div>
 				)}
 			</SpringTransition>
-
-			{/* To - ENS/Basename Field */}
-			<div className="form-control mb-4">
-				<label className="label" htmlFor="send-recipient-name">
-					<span className="label-text">
-						ENS (.eth) or Basename (.base.eth) - Optional
-					</span>
-				</label>
-				<div className="join w-full mb-2">
-					<input
-						id="send-recipient-name"
-						type="text"
-						className={`input input-bordered join-item grow ${recipientNameResolution.error ? "input-error" : ""}`}
-						placeholder="yourname.eth or yourname.base.eth"
-						value={recipientNameInput}
-						onChange={(e) => setRecipientNameInput(e.target.value)}
-						disabled={isSending}
-						autoComplete="off"
-					/>
-					{recipientNameResolution.isLoading && (
-						<span className="loading loading-spinner loading-sm join-item" />
-					)}
-					<button
-						type="button"
-						className="btn btn-primary join-item btn-square"
-						onClick={() => setShowQRScanner(true)}
-						disabled={isSending}
-						title="Scan QR code"
-					>
-						<i className="fa-solid fa-qrcode" />
-					</button>
-				</div>
-
-				{/* Resolution status indicators */}
-				{recipientNameResolution.isLoading && (
-					<div className="text-sm opacity-70 mb-2">
-						Resolving {recipientNameInput}...
-					</div>
-				)}
-
-				{recipientNameResolution.address && !recipientNameResolution.error && (
-					<div className="text-sm text-success mb-2">
-						✓ Resolved to {recipientNameResolution.address}
-					</div>
-				)}
-
-				{recipientNameResolution.error && (
-					<div className="text-sm text-error mb-2">
-						{recipientNameResolution.error}
-					</div>
-				)}
-
-				<div className="text-xs opacity-60">
-					Optional: Enter ENS or Basename to auto-resolve address
-				</div>
-			</div>
-
-			{/* To - Address Field */}
-			<div className="form-control mb-4">
-				<label className="label" htmlFor="send-recipient-address">
-					<span className="label-text">Recipient Address</span>
-				</label>
-				<input
-					id="send-recipient-address"
-					type="text"
-					className="input input-bordered font-mono"
-					placeholder="0x... for EVM or T... for Tron"
-					value={recipientAddress}
-					onChange={(e) => handleRecipientAddressChange(e.target.value)}
-					disabled={isSending}
-					autoComplete="off"
-				/>
-				<div className="text-xs opacity-60 mt-2">
-					Enter recipient address directly, or use ENS field above
-				</div>
-			</div>
-
-			{/* Amount */}
-			<div className="form-control mb-4">
-				<label className="label" htmlFor="send-amount">
-					<span className="label-text flex items-center gap-2">
-						<TokenLogo coinId={token.id} size="large" chainId={chainId} />
-						Amount ({token.symbol.toUpperCase()})
-					</span>
-					{!isNative && (
-						<span className="label-text-alt">
+			{!gasEstimate?.ok && (
+				<>
+					{/* To - ENS/Basename Field */}
+					<div className="form-control mb-4">
+						<label className="label" htmlFor="send-recipient-name">
+							<span className="label-text">
+								ENS (.eth) or Basename (.base.eth) - Optional
+							</span>
+						</label>
+						<div className="join w-full mb-2">
+							<input
+								id="send-recipient-name"
+								type="text"
+								className={`input input-bordered join-item grow ${recipientNameResolution.error ? "input-error" : ""}`}
+								placeholder="yourname.eth or yourname.base.eth"
+								value={recipientNameInput}
+								onChange={(e) => setRecipientNameInput(e.target.value)}
+								disabled={isSending}
+								autoComplete="off"
+							/>
+							{recipientNameResolution.isLoading && (
+								<span className="loading loading-spinner loading-sm join-item" />
+							)}
 							<button
 								type="button"
-								className="btn btn-xs btn-ghost"
-								onClick={handleSetMax}
+								className="btn btn-primary join-item btn-square"
+								onClick={() => setShowQRScanner(true)}
 								disabled={isSending}
+								title="Scan QR code"
 							>
-								Max
+								<i className="fa-solid fa-qrcode" />
 							</button>
-						</span>
-					)}
-				</label>
-				<input
-					id="send-amount"
-					type="number"
-					className={`input input-bordered ${amountExceedsBalance ? "input-error" : ""}`}
-					placeholder="0.0"
-					value={amount}
-					onChange={handleAmountChange}
-					disabled={isSending}
-					step="0.001"
-					min="0"
-				/>
-				{amountExceedsBalance && (
-					<div className="text-sm text-error mt-2">
-						Amount exceeds balance of {balanceFormatted}{" "}
-						{token.symbol.toUpperCase()}
+						</div>
+
+						{/* Resolution status indicators */}
+						{recipientNameResolution.isLoading && (
+							<div className="text-sm opacity-70 mb-2">
+								Resolving {recipientNameInput}...
+							</div>
+						)}
+
+						{recipientNameResolution.address &&
+							!recipientNameResolution.error && (
+								<div className="text-sm text-success mb-2">
+									✓ Resolved to {recipientNameResolution.address}
+								</div>
+							)}
+
+						{recipientNameResolution.error && (
+							<div className="text-sm text-error mb-2">
+								{recipientNameResolution.error}
+							</div>
+						)}
+
+						<div className="text-xs opacity-60">
+							Optional: Enter ENS or Basename to auto-resolve address
+						</div>
 					</div>
-				)}
-			</div>
+
+					{/* To - Address Field */}
+					<div className="form-control mb-4">
+						<label className="label" htmlFor="send-recipient-address">
+							<span className="label-text">Recipient Address</span>
+						</label>
+						<input
+							id="send-recipient-address"
+							type="text"
+							className="input input-bordered font-mono"
+							placeholder="0x... for EVM or T... for Tron"
+							value={recipientAddress}
+							onChange={(e) => handleRecipientAddressChange(e.target.value)}
+							disabled={isSending}
+							autoComplete="off"
+						/>
+						<div className="text-xs opacity-60 mt-2">
+							Enter recipient address directly, or use ENS field above
+						</div>
+					</div>
+
+					{/* Amount */}
+					<div className="form-control mb-4">
+						<label className="label" htmlFor="send-amount">
+							<span className="label-text flex items-center gap-2">
+								<TokenLogo coinId={token.id} size="large" chainId={chainId} />
+								Amount ({token.symbol.toUpperCase()})
+							</span>
+							{!isNative && (
+								<span className="label-text-alt">
+									<button
+										type="button"
+										className="btn btn-xs btn-ghost"
+										onClick={handleSetMax}
+										disabled={isSending}
+									>
+										Max
+									</button>
+								</span>
+							)}
+						</label>
+						<input
+							id="send-amount"
+							type="number"
+							className={`input input-bordered ${amountExceedsBalance ? "input-error" : ""}`}
+							placeholder="0.0"
+							value={amount}
+							onChange={handleAmountChange}
+							disabled={isSending}
+							step="0.001"
+							min="0"
+						/>
+						{amountExceedsBalance && (
+							<div className="text-sm text-error mt-2">
+								Amount exceeds balance of {balanceFormatted}{" "}
+								{token.symbol.toUpperCase()}
+							</div>
+						)}
+					</div>
+				</>
+			)}
 
 			{/* From */}
 			<div className="form-control mb-4">
