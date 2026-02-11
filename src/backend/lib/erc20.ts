@@ -3,7 +3,11 @@
  * Handles balance fetching and transfer gas estimation for ERC20 tokens.
  */
 
-import type { Erc20BalanceResult, GasEstimateResult } from "@shared/types";
+import type {
+	Erc20BalanceResult,
+	EvmChainId,
+	GasEstimateResult,
+} from "@shared/types";
 import { encodeFunctionData, formatEther } from "viem";
 import { getPublicClient } from "./rpc";
 
@@ -48,7 +52,7 @@ export async function fetchErc20Balance(
 	env: Env,
 	address: string,
 	contract: string,
-	chainId: number,
+	chainId: EvmChainId,
 ): Promise<Erc20BalanceResult> {
 	try {
 		const client = getPublicClient(env, chainId);
@@ -115,7 +119,7 @@ export async function estimateErc20Transfer(
 	to: string,
 	contract: string,
 	amountRaw: string,
-	chainId: number,
+	chainId: EvmChainId,
 ): Promise<GasEstimateResult> {
 	try {
 		const client = getPublicClient(env, chainId);

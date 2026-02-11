@@ -12,7 +12,6 @@ import { csrf } from "hono/csrf";
 import { secureHeaders } from "hono/secure-headers";
 import invariant from "tiny-invariant";
 import { formatEther } from "viem";
-import { fetchBalance, isSupportedChainId } from "./lib/balance";
 import { withCache } from "./lib/cache";
 import {
 	fetchAssetPlatforms,
@@ -25,6 +24,7 @@ import {
 	broadcastTransaction,
 	estimateGas,
 	estimateGasCost,
+	getNativeBalance,
 	getTransactionCount,
 	getTransactionReceipt,
 } from "./lib/rpc";
@@ -37,7 +37,7 @@ import {
 	getTronBalance,
 } from "./lib/tron/rpc";
 import {
-	isNumericChainId,
+	isEvmChainId,
 	parseBigInt,
 	validateAddress,
 	validateChainId,
@@ -201,10 +201,15 @@ app
 			if (!addressValidation.ok) return c.json(addressValidation.error, 400);
 
 			// Validate chainId
-			const chainIdValidation = validateChainId(
-				c.req.query("chainId"),
-				"balance",
-			);
+			const chainId = c.req.query("chainId");
+			if (!isEvmChainId(chainId ?? "unknown")) {
+				return c.json(
+					{ ok: false, error: "Invalid chain", code: "INVALID_CHAIN" },
+					400,
+				);
+			}
+
+			const chainIdValidation = validateChainId(chainId, "balance");
 			if (!chainIdValidation.ok) return c.json(chainIdValidation.error, 400);
 
 			const result = await withCache(c, {
@@ -213,11 +218,10 @@ app
 				headerName: "x-balance-cache",
 				ttl: BALANCE_CACHE_TTL_SECONDS,
 				fetcher: async () => {
-					invariant(c.env.ETHERSCAN_API_KEY, "ETHERSCAN_API_KEY is not set");
-					return fetchBalance(
+					return getNativeBalance(
+						c.env,
 						addressValidation.address,
-						chainIdValidation.chainId as 1 | 8453,
-						c.env.ETHERSCAN_API_KEY,
+						chainIdValidation.chainId,
 					);
 				},
 			});
@@ -226,7 +230,6 @@ app
 				console.error(
 					`error getting balance:${chainIdValidation.chainId}:${addressValidation.address}`,
 				);
-				console.log(JSON.stringify(result, null, 2));
 				const status = result.code === "RATE_LIMITED" ? 429 : 502;
 				return c.json(result, status);
 			}
@@ -516,7 +519,7 @@ app
 		if (!toValidation.ok) return c.json(toValidation.error, 400);
 
 		// Validate chainId (already a number in request body)
-		if (!isSupportedChainId(body.chainId) || !isNumericChainId(body.chainId)) {
+		if (!isEvmChainId(body.chainId)) {
 			return c.json(
 				{
 					ok: false,
@@ -581,7 +584,7 @@ app
 		if (!contractValidation.ok) return c.json(contractValidation.error, 400);
 
 		// Validate chainId (already a number in request body)
-		if (!isSupportedChainId(body.chainId) || !isNumericChainId(body.chainId)) {
+		if (!isEvmChainId(body.chainId)) {
 			return c.json(
 				{
 					ok: false,
@@ -653,7 +656,7 @@ app
 		}
 
 		// Validate chainId (already a number in request body)
-		if (!isSupportedChainId(body.chainId) || !isNumericChainId(body.chainId)) {
+		if (!isEvmChainId(body.chainId)) {
 			return c.json(
 				{
 					ok: false,

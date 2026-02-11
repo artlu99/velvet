@@ -3,21 +3,14 @@
  * Uses viem for type-safe blockchain interactions.
  */
 
-import { fetcher } from "itty-fetcher";
-import { createPublicClient, http } from "viem";
+import type { BalanceResult, EvmChainId } from "@shared/types";
+import { createPublicClient, formatEther, http } from "viem";
 import { base, mainnet } from "viem/chains";
-
-/**
- * Etherscan API client for transaction history
- */
-export const etherscanApi = fetcher({
-	base: "https://api.etherscan.io/api",
-});
 
 /**
  * Get the RPC URL for a given chain ID.
  */
-export function getRpcUrl(env: Env, chainId: number): string {
+export function getRpcUrl(env: Env, chainId: EvmChainId): string {
 	switch (chainId) {
 		case 1:
 			return env.ETHEREUM_RPC_URL;
@@ -32,7 +25,7 @@ export function getRpcUrl(env: Env, chainId: number): string {
  * Get a public client for the given chain ID.
  * Includes CORS headers for compatibility with restricted RPC providers.
  */
-export function getPublicClient(env: Env, chainId: number) {
+export function getPublicClient(env: Env, chainId: EvmChainId) {
 	const rpcUrl = getRpcUrl(env, chainId);
 	return createPublicClient({
 		chain: chainId === 8453 ? base : mainnet,
@@ -56,7 +49,7 @@ export async function estimateGas(
 		from: string;
 		to: string;
 		value: bigint;
-		chainId: number;
+		chainId: EvmChainId;
 	},
 ) {
 	const client = getPublicClient(env, params.chainId);
@@ -95,7 +88,7 @@ export async function broadcastTransaction(
 	env: Env,
 	params: {
 		signedTransaction: string;
-		chainId: number;
+		chainId: EvmChainId;
 	},
 ): Promise<`0x${string}`> {
 	const client = getPublicClient(env, params.chainId);
@@ -106,12 +99,34 @@ export async function broadcastTransaction(
 }
 
 /**
+ * Get the native balance for an address.
+ */
+export async function getNativeBalance(
+	env: Env,
+	address: string,
+	chainId: EvmChainId,
+): Promise<BalanceResult> {
+	const client = getPublicClient(env, chainId);
+	const nativeBalance = await client.getBalance({
+		address: address as `0x${string}`,
+	});
+	return {
+		ok: true,
+		address,
+		chainId,
+		balanceWei: nativeBalance.toString(),
+		balanceEth: formatEther(nativeBalance),
+		timestamp: Date.now(),
+	};
+}
+
+/**
  * Get the transaction count (nonce) for an address.
  */
 export async function getTransactionCount(
 	env: Env,
 	address: string,
-	chainId: number,
+	chainId: EvmChainId,
 ): Promise<number> {
 	const client = getPublicClient(env, chainId);
 	const count = await client.getTransactionCount({
@@ -127,7 +142,7 @@ export async function getTransactionCount(
 export async function getTransactionReceipt(
 	env: Env,
 	txHash: `0x${string}`,
-	chainId: number,
+	chainId: EvmChainId,
 ): Promise<{
 	status: "success" | "reverted";
 	gasUsed: bigint;

@@ -1,11 +1,12 @@
 import type {
 	BalanceError,
 	EnsNameError,
+	EvmChainId,
 	GasEstimateError,
+	SupportedChainId,
 	TransactionCountError,
 } from "@shared/types";
 import { getAddress, isAddress } from "viem";
-import { isSupportedChainId, parseChainId } from "./balance";
 import {
 	invalidAddressError,
 	invalidBigIntError,
@@ -35,7 +36,7 @@ export type AddressValidation =
  */
 export interface ChainIdValidationResult {
 	ok: true;
-	chainId: number;
+	chainId: EvmChainId;
 }
 
 export interface ChainIdValidationError {
@@ -85,20 +86,25 @@ export function validateAddress(
  * @param errorType - The type of error to return if validation fails
  * @returns A discriminated union with either the validated chain ID or an error
  */
+function parseChainId(
+	value: string | number | null | undefined,
+): SupportedChainId | null {
+	if (value === null || value === undefined) return null;
+	if (value === "tron") return "tron";
+	const parsed = typeof value === "string" ? Number.parseInt(value, 10) : value;
+	if (parsed === 1 || parsed === 8453) return parsed;
+	return null;
+}
+
 export function validateChainId(
 	chainIdParam: string | undefined,
 	errorType: "balance" | "txCount" | "gasEstimate" | "transactions",
 ): ChainIdValidation {
 	const chainId = parseChainId(chainIdParam);
-	if (
-		chainId === null ||
-		!isSupportedChainId(chainId) ||
-		!isNumericChainId(chainId)
-	) {
+	if (chainId === null || !isEvmChainId(chainId)) {
 		return { ok: false, error: invalidChainError(errorType) };
 	}
-
-	return { ok: true, chainId };
+	return { ok: true, chainId: chainId as EvmChainId };
 }
 
 /**
@@ -125,7 +131,7 @@ export function parseBigInt(
 /**
  * Type guard to check if chain ID is numeric (not "tron" string)
  */
-export function isNumericChainId(chainId: string | number): chainId is number {
+export function isEvmChainId(chainId: string | number): chainId is EvmChainId {
 	return (
 		typeof chainId === "number" ||
 		(typeof chainId === "string" && chainId !== "tron")

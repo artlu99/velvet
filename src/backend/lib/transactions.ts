@@ -7,9 +7,18 @@
  * - Gas waste attacks (gas cost > transaction value)
  */
 
+import type { SupportedChainId } from "@shared/types";
 import type { Context } from "hono";
+import { fetcher } from "itty-fetcher";
+import invariant from "tiny-invariant";
 import { withCache } from "./cache";
-import { etherscanApi } from "./rpc";
+
+/**
+ * Etherscan API client for transaction history
+ */
+const etherscanApi = fetcher({
+	base: "https://api.etherscan.io/v2/api",
+});
 
 const USD_THRESHOLD = 0.01; // $0.01 minimum USD value
 
@@ -112,11 +121,13 @@ function filterLegitimateTransactions(
  * Fetch transaction list from Etherscan with smart filtering
  */
 export async function fetchTransactionList(
-	chainId: 1 | 8453,
+	env: Env,
+	chainId: SupportedChainId,
 	address: string,
 	ethPriceUsd: number,
 ): Promise<TxListResult> {
-	const url = `?module=account&action=txlist&address=${address}&chainid=${chainId}`;
+	invariant(env.ETHERSCAN_API_KEY, "ETHERSCAN_API_KEY is not set");
+	const url = `?module=account&action=txlist&address=${address}&chainid=${chainId}&apiKey=${env.ETHERSCAN_API_KEY}`;
 	const response = await etherscanApi.get(url);
 
 	if (response.data.status !== "1" || !Array.isArray(response.data.result)) {
@@ -153,6 +164,7 @@ export async function getTransactionList(
 		cacheBust: c.req.query("cacheBust"),
 		headerName: "x-txlist-cache",
 		ttl: 60, // 60 seconds
-		fetcher: async () => fetchTransactionList(chainId, address, ethPriceUsd),
+		fetcher: async () =>
+			fetchTransactionList(c.env, chainId, address, ethPriceUsd),
 	});
 }
