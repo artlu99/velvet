@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { BalanceResult, PricesResult } from "@shared/types";
 import app from "./index";
 
-// Mock CoinGecko fetch for tests
+// Mock upstream price/metadata fetches for tests (endpoint-aware)
 const mockPricesResponse = {
 	ethereum: { usd: 3000 },
 	tron: { usd: 0.12 },
@@ -10,11 +10,41 @@ const mockPricesResponse = {
 	tether: { usd: 1.0 },
 };
 
-globalThis.fetch = (() =>
-	Promise.resolve({
+// stupid tokens shape (see lib/stupidTokens.ts)
+const mockStupidTokenPricesResponse = {
+	currency: "usd",
+	prices: [
+		{
+			chainId: 1,
+			address: "native",
+			status: "ok",
+			priceUsd: "3000",
+		},
+		{
+			chainId: 1,
+			address: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+			status: "ok",
+			priceUsd: "1.0",
+		},
+		{
+			chainId: 1,
+			address: "0xdac17f958d2ee523a2206206994597c13d831ec7",
+			status: "ok",
+			priceUsd: "1.0",
+		},
+	],
+};
+
+globalThis.fetch = ((input: RequestInfo | URL) => {
+	const url = input instanceof Request ? input.url : String(input);
+	const body = url.includes("tokens.stupidtech.net")
+		? mockStupidTokenPricesResponse
+		: mockPricesResponse; // CoinGecko shape (metadata, platforms, fallback)
+	return Promise.resolve({
 		ok: true,
-		json: async () => mockPricesResponse,
-	} as Response)) as unknown as typeof fetch;
+		json: async () => body,
+	} as Response);
+}) as unknown as typeof fetch;
 
 describe("GET /api/name", () => {
 	test("should return app name and include security headers", async () => {

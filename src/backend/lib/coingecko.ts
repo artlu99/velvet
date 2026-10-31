@@ -60,13 +60,14 @@ function isCoinGeckoErrorResponse(
 }
 
 /**
- * Fetch prices from CoinGecko API (Free tier)
+ * Fetch prices from CoinGecko API (Free tier).
+ * Used as a fallback for coin IDs stupid tokens can't serve (see lib/prices.ts).
  * @param options.coinIds - Array of CoinGecko coin IDs (e.g., ["ethereum", "tron"])
  * @param options.apiKey - CoinGecko Demo API key (optional, increases rate limits)
  * @returns Map of coin IDs to USD prices
  * @throws Error on rate limit (429) or API errors (5xx)
  */
-export async function fetchPrices({
+export async function fetchCoingeckoPrices({
 	env,
 	coinIds,
 }: FetchPricesOptions): Promise<CoinGeckoPriceMap> {

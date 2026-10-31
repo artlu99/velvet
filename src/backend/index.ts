@@ -13,13 +13,10 @@ import { secureHeaders } from "hono/secure-headers";
 import invariant from "tiny-invariant";
 import { formatEther } from "viem";
 import { withCache } from "./lib/cache";
-import {
-	fetchAssetPlatforms,
-	fetchPrices,
-	fetchTokenMetadata,
-} from "./lib/coingecko";
+import { fetchAssetPlatforms, fetchTokenMetadata } from "./lib/coingecko";
 import { estimateErc20Transfer, fetchErc20Balance } from "./lib/erc20";
 import { wrapError } from "./lib/errors";
+import { fetchPrices } from "./lib/prices";
 import {
 	broadcastTransaction,
 	estimateGas,
@@ -76,10 +73,6 @@ app
 				headerName: "x-prices-cache",
 				ttl: BALANCE_CACHE_TTL_SECONDS,
 				fetcher: async () => {
-					invariant(
-						c.env.COINGECKO_API_KEY,
-						"COINGECKO_API_KEY is not set in environment",
-					);
 					const prices = await fetchPrices({
 						env: c.env,
 						coinIds,
