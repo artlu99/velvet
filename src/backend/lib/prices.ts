@@ -34,7 +34,7 @@ export async function fetchPrices({
 
 	const { stupidTokens, coinGecko } = partitionCoinIds(coinIds);
 
-	const [stupidResults, coinGeckoResults] = await Promise.all([
+	const [stupidSettled, coinGeckoSettled] = await Promise.allSettled([
 		fetchStupidTokenPrices(stupidTokens),
 		// Only hits CoinGecko (and requires COINGECKO_API_KEY) when needed
 		coinGecko.length > 0
@@ -42,11 +42,24 @@ export async function fetchPrices({
 			: Promise.resolve({} as CoinGeckoPriceMap),
 	]);
 
-	const result: CoinGeckoPriceMap = { ...coinGeckoResults };
-	for (const [coinId, token] of Object.entries(COIN_ID_TO_TOKEN)) {
-		const price = stupidResults.get(token.toLowerCase());
-		if (price !== undefined) {
-			result[coinId] = { usd: price };
+	if (
+		stupidSettled.status === "rejected" &&
+		(coinGeckoSettled.status === "rejected" || coinGecko.length === 0)
+	) {
+		// Both sources failed (or nothing to fall back to) — surface the error
+		throw stupidSettled.reason;
+	}
+
+	const result: CoinGeckoPriceMap =
+		coinGeckoSettled.status === "fulfilled"
+			? { ...coinGeckoSettled.value }
+			: {};
+	if (stupidSettled.status === "fulfilled") {
+		for (const [coinId, token] of Object.entries(COIN_ID_TO_TOKEN)) {
+			const price = stupidSettled.value.get(token.toLowerCase());
+			if (price !== undefined) {
+				result[coinId] = { usd: price };
+			}
 		}
 	}
 	return result;
