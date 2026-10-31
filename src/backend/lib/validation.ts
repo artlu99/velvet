@@ -132,8 +132,7 @@ export function parseBigInt(
  * Type guard to check if chain ID is numeric (not "tron" string)
  */
 export function isEvmChainId(chainId: string | number): chainId is EvmChainId {
-	return (
-		typeof chainId === "number" ||
-		(typeof chainId === "string" && chainId !== "tron")
-	);
+	const n =
+		typeof chainId === "number" ? chainId : Number.parseInt(chainId, 10);
+	return n === 1 || n === 8453;
 }
