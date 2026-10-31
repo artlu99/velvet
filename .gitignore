@@ -12,3 +12,6 @@ bun.lock
 worker-configuration.d.ts
 .dev.vars
 __*__/
+
+# misc
+AGENTS.md

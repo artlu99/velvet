@@ -6,8 +6,8 @@
 	"compatibility_date": "2026-01-28",
 	"vars": {
 		"NAME": "Underground Velvet",
-		"ETHEREUM_RPC_URL": "https://eth.merkle.io",
-		"BASE_RPC_URL": "https://base.drpc.org",
+		"ETHEREUM_RPC_URL": "https://evm.stupidtech.net/v1/1",
+		"BASE_RPC_URL": "https://evm.stupidtech.net/v1/8453",
 		"TRONGRID_API_URL": "https://api.trongrid.io"
 	},
 	"kv_namespaces": [

@@ -25,10 +25,10 @@
 		"noUncheckedSideEffectImports": true,
 
 		/* Paths */
-		"baseUrl": ".",
 		"paths": {
-			"~/*": ["src/frontend/*"],
-			"@shared/*": ["src/shared/*"]
+			"*": ["./*"],
+			"~/*": ["./src/frontend/*"],
+			"@shared/*": ["./src/shared/*"]
 		}
 	},
 	"include": ["src/frontend", "src/frontend/types.d.ts"]
